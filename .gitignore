@@ -32,3 +32,8 @@ Thumbs.db
 # .idea/
 # *.swp
 # *~
+
+# Large media files
+*.mp4
+*.mov
+*.avi
