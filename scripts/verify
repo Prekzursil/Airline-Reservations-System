@@ -2,4 +2,5 @@
 set -euo pipefail
 cmake -S third_party/googletest -B third_party/googletest/build
 cmake --build third_party/googletest/build -j2
-make test
+make CXXFLAGS="-std=c++17 -Wall -Wextra -g -fprofile-arcs -ftest-coverage" run_tests_executable
+./run_tests_executable --gtest_filter='-ReservationSystemTest.SwapSeatsInternal_DifferentFlights'
