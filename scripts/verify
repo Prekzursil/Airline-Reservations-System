@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cmake -S third_party/googletest -B third_party/googletest/build
+cmake --build third_party/googletest/build -j2
+make test
