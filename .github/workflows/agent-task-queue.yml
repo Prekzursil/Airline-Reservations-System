@@ -47,7 +47,22 @@ jobs:
             );
 
             if (existingContract) {
-              core.info("Execution contract already exists; idempotency guard fired, no action taken.");
+              core.info("Execution contract already exists; idempotency guard fired.");
+              if (hadReady) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number,
+                    name: "agent:ready",
+                  });
+                  core.info("Removed spurious agent:ready to restore agent:in-progress-only invariant.");
+                } catch (cleanupError) {
+                  if (cleanupError.status !== 404) {
+                    core.error(`Failed to remove spurious agent:ready: ${cleanupError.message}`);
+                  }
+                }
+              }
               return;
             }
 
