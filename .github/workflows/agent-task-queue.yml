@@ -46,6 +46,11 @@ jobs:
               c.body?.includes(`- #${issue_number}:`)
             );
 
+            if (existingContract) {
+              core.info("Execution contract already exists; idempotency guard fired, no action taken.");
+              return;
+            }
+
             let addedInProgress = false;
             let removedReady = false;
 
@@ -78,11 +83,6 @@ jobs:
                 }
               }
 
-              if (existingContract) {
-                core.info("Execution contract already exists; transition applied without duplicate enqueue.");
-                return;
-              }
-
               const lines = [
                 "@copilot Please implement this task using repository guardrails.",
                 "",
@@ -104,20 +104,7 @@ jobs:
                 body: lines.join("\n"),
               });
             } catch (error) {
-              core.warning(`Queue transition failed: ${error.message}`);
-
-              if (addedInProgress && !hadInProgress) {
-                try {
-                  await github.rest.issues.removeLabel({
-                    owner,
-                    repo,
-                    issue_number,
-                    name: "agent:in-progress",
-                  });
-                } catch (rollbackError) {
-                  core.warning(`Rollback remove agent:in-progress failed: ${rollbackError.message}`);
-                }
-              }
+              core.error(`Queue transition failed: ${error.message}`);
 
               if (removedReady && hadReady) {
                 try {
@@ -128,7 +115,20 @@ jobs:
                     labels: ["agent:ready"],
                   });
                 } catch (rollbackError) {
-                  core.warning(`Rollback add agent:ready failed: ${rollbackError.message}`);
+                  core.error(`Rollback add agent:ready failed: ${rollbackError.message}`);
+                }
+              }
+
+              if (addedInProgress && !hadInProgress) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number,
+                    name: "agent:in-progress",
+                  });
+                } catch (rollbackError) {
+                  core.error(`Rollback remove agent:in-progress failed: ${rollbackError.message}`);
                 }
               }
 
