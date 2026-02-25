@@ -8,6 +8,7 @@
 *.lib
 obj/
 build/
+run_tests_executable
 
 # Coverage reports
 *.gcda
