@@ -32,7 +32,7 @@
 
 module(
     name = "googletest",
-    version = "head",
+    version = "1.17.0",
     compatibility_level = 1,
 )
 
@@ -41,7 +41,7 @@ module(
 
 bazel_dep(
     name = "abseil-cpp",
-    version = "20250512.0",
+    version = "20250127.1",
 )
 bazel_dep(
     name = "platforms",

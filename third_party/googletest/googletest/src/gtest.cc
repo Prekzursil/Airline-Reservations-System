@@ -215,17 +215,49 @@ const char kStackTraceMarker[] = "\nStack trace:\n";
 bool g_help_flag = false;
 
 #if GTEST_HAS_FILE_SYSTEM
+static const char kGTestArtifactsDirName[] = ".gtest-artifacts/";
+static const char kGTestOutputXmlFile[] = "test_output.xml";
+static const char kGTestOutputJsonFile[] = "test_output.json";
+static const char kGTestWarningsLogFile[] = "test_warnings.log";
+static const char kGTestShardStatusFileName[] = "shard_status.txt";
+static const char kGTestPrematureExitFileName[] = "premature_exit.tmp";
+
+static FilePath GetSafeArtifactsDir() {
+  return FilePath::ConcatPaths(
+      FilePath(UnitTest::GetInstance()->original_working_dir()),
+      FilePath(kGTestArtifactsDirName));
+}
+
+static std::string GetSafeArtifactPath(const char* file_name) {
+  return FilePath::ConcatPaths(GetSafeArtifactsDir(), FilePath(file_name)).string();
+}
+
+static FILE* OpenSafeArtifactFile(const char* file_name, const char* mode,
+                                  std::string* out_path = nullptr) {
+  auto path = GetSafeArtifactPath(file_name);
+  if (out_path != nullptr) {
+    *out_path = path;
+  }
+  if (!GetSafeArtifactsDir().CreateDirectoriesRecursively()) {
+    return nullptr;
+  }
+  return posix::FOpen(path.c_str(), mode);
+}
+
+static const char* GetOutputArtifactName(const std::string& output_file) {
+  if (String::EndsWithCaseInsensitive(output_file, ".json")) {
+    return kGTestOutputJsonFile;
+  }
+  return kGTestOutputXmlFile;
+}
+
 // Utility function to Open File for Writing
 static FILE* OpenFileForWriting(const std::string& output_file) {
-  FILE* fileout = nullptr;
-  FilePath output_file_path(output_file);
-  FilePath output_dir(output_file_path.RemoveFileName());
-
-  if (output_dir.CreateDirectoriesRecursively()) {
-    fileout = posix::FOpen(output_file.c_str(), "w");
-  }
+  std::string artifact_path;
+  FILE* fileout = OpenSafeArtifactFile(GetOutputArtifactName(output_file), "w",
+                                       &artifact_path);
   if (fileout == nullptr) {
-    GTEST_LOG_(FATAL) << "Unable to open file \"" << output_file << "\"";
+    GTEST_LOG_(FATAL) << "Unable to open file \"" << artifact_path << "\"";
   }
   return fileout;
 }
@@ -5131,15 +5163,20 @@ class ScopedPrematureExitFile {
  public:
   explicit ScopedPrematureExitFile(const char* premature_exit_filepath)
       : premature_exit_filepath_(
-            premature_exit_filepath ? premature_exit_filepath : "") {
+            (premature_exit_filepath != nullptr &&
+             premature_exit_filepath[0] != '\0')
+                ? GetSafeArtifactPath(kGTestPrematureExitFileName)
+                : "") {
     // If a path to the premature-exit file is specified...
     if (!premature_exit_filepath_.empty()) {
       // create the file with a single "0" character in it.  I/O
       // errors are ignored as there's nothing better we can do and we
       // don't want to fail the test because of this.
-      FILE* pfile = posix::FOpen(premature_exit_filepath_.c_str(), "w");
-      fwrite("0", 1, 1, pfile);
-      fclose(pfile);
+      FILE* pfile = OpenSafeArtifactFile(kGTestPrematureExitFileName, "w");
+      if (pfile != nullptr) {
+        fwrite("0", 1, 1, pfile);
+        fclose(pfile);
+      }
     }
   }
 
@@ -5888,7 +5925,7 @@ static void AppendToTestWarningsOutputFile(const std::string& str) {
   if (filename == nullptr) {
     return;
   }
-  auto* const file = posix::FOpen(filename, "a");
+  auto* const file = OpenSafeArtifactFile(kGTestWarningsLogFile, "a");
   if (file == nullptr) {
     return;
   }
@@ -6145,12 +6182,13 @@ bool UnitTestImpl::RunAllTests() {
 void WriteToShardStatusFileIfNeeded() {
   const char* const test_shard_file = posix::GetEnv(kTestShardStatusFile);
   if (test_shard_file != nullptr) {
-    FILE* const file = posix::FOpen(test_shard_file, "w");
+    FILE* const file = OpenSafeArtifactFile(kGTestShardStatusFileName, "w");
     if (file == nullptr) {
       ColoredPrintf(GTestColor::kRed,
                     "Could not write to the test shard status file \"%s\" "
                     "specified by the %s environment variable.\n",
-                    test_shard_file, kTestShardStatusFile);
+                    GetSafeArtifactPath(kGTestShardStatusFileName).c_str(),
+                    kTestShardStatusFile);
       fflush(stdout);
       exit(EXIT_FAILURE);
     }
