@@ -201,3 +201,7 @@ The GUI is divided into two main sections: **Customer Management** and **Flight 
 -   **UI/UX:** General styling and responsiveness of the GUI can be improved.
 -   **Advanced Features:** Implement features like user accounts, payment integration, different airplane layouts, etc.
 -   **Coverage:** Increase C++ test coverage, especially for `ReservationSystem.cpp` console interaction paths.
+
+## 8. Security
+
+For vulnerability reporting and support policy, see [SECURITY.md](SECURITY.md).
