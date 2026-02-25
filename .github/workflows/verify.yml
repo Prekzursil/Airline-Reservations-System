@@ -16,6 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: airline-gui/package-lock.json
+      - run: npm ci
+        working-directory: airline-gui
+      - run: npm test
+        working-directory: airline-gui
+      - run: npm run build
+        working-directory: airline-gui
       - run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake

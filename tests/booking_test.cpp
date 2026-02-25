@@ -2,6 +2,7 @@
 #include "../src/Booking.h" // Adjust path
 #include <thread> // For std::this_thread::sleep_for
 #include <chrono> // For std::chrono::milliseconds
+#include <regex>
 
 // Forward declaration for the helper function in Booking.cpp to test its default case
 std::string bookingStatusToString(BookingStatus status);
@@ -41,6 +42,7 @@ TEST_F(BookingTest, ConstructorAndGetters) {
 
     // Booking date string should be generated and not empty
     EXPECT_FALSE(b1->getBookingDateString().empty());
+    EXPECT_TRUE(std::regex_match(b1->getBookingDateString(), std::regex(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")));
     // std::cout << "B1 Date: " << b1->getBookingDateString() << std::endl; // For manual inspection
     // std::cout << "B2 Date: " << b2->getBookingDateString() << std::endl;
     // Dates might be very close, but IDs should differ due to random component or time progression

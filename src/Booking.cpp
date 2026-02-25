@@ -4,6 +4,16 @@
 #include <iomanip> // For date formatting (std::put_time)
 #include <ctime>   // For std::time_t, std::localtime
 
+namespace {
+bool convertToLocalTime(std::time_t value, std::tm& outTm) {
+#if defined(_WIN32)
+    return localtime_s(&outTm, &value) == 0;
+#else
+    return localtime_r(&value, &outTm) != nullptr;
+#endif
+}
+} // namespace
+
 // Helper to convert BookingStatus to string
 std::string bookingStatusToString(BookingStatus status) {
     switch (status) {
@@ -64,10 +74,10 @@ std::string Booking::getSeatId() const {
 
 std::string Booking::getBookingDateString() const {
     std::time_t time = std::chrono::system_clock::to_time_t(bookingDate);
-    // Convert to tm struct for formatting
-    // Note: std::localtime is not thread-safe. For multithreaded apps, use localtime_s (Windows) or localtime_r (POSIX).
-    // For a simple console app, std::localtime is generally fine.
-    std::tm bt = *std::localtime(&time); 
+    std::tm bt{};
+    if (!convertToLocalTime(time, bt)) {
+        return "1970-01-01 00:00:00";
+    }
     std::ostringstream oss;
     oss << std::put_time(&bt, "%Y-%m-%d %H:%M:%S"); // Format: YYYY-MM-DD HH:MM:SS
     return oss.str();
