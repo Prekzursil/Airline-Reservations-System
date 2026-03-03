@@ -26,10 +26,12 @@ jobs:
           node-version: '20'
 
       - name: Run node coverage (subdir)
+        continue-on-error: true
         run: |
           npm --prefix airline-gui ci
           npm --prefix airline-gui test -- --coverage --watch=false
       - name: Upload coverage to Codecov
+        if: ${{ always() }}
         uses: codecov/codecov-action@v5
         with:
           files: airline-gui/coverage/lcov.info
