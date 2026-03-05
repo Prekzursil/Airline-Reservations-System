@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   codacy-zero:
     name: Codacy Zero
@@ -21,6 +25,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
+      CHECK_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Assert Codacy PR analysis context is green
@@ -28,7 +33,7 @@ jobs:
         run: |
           python3 -m scripts.quality.check_required_checks \
             --repo "${GITHUB_REPOSITORY}" \
-            --sha "${GITHUB_SHA}" \
+            --sha "${CHECK_SHA}" \
             --required-context "Codacy Static Code Analysis" \
             --timeout-seconds 1200 \
             --poll-seconds 20

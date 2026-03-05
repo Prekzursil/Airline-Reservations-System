@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     name: verify
@@ -19,8 +23,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: airline-gui/package-lock.json
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.12"
       - run: npm ci
         working-directory: airline-gui
       - run: npm test
@@ -28,6 +33,7 @@ jobs:
       - run: npm run build
         working-directory: airline-gui
       - run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake
+          python -m pip install --user cmake
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/cmake" --version
       - run: bash scripts/verify

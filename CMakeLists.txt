@@ -5,6 +5,7 @@ project(AirlineReservationsSystem LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(ENABLE_COVERAGE "Enable gcov-style coverage flags" OFF)
 
@@ -64,6 +65,12 @@ add_executable(airline_reservation_system src/main.cpp)
 target_link_libraries(airline_reservation_system PRIVATE airline_core)
 
 add_executable(airline_api_server src/api_server_main.cpp)
+target_include_directories(
+  airline_api_server
+  PRIVATE
+    ${cpp_httplib_SOURCE_DIR}
+    ${nlohmann_json_SOURCE_DIR}/include
+)
 target_link_libraries(
   airline_api_server
   PRIVATE
@@ -86,6 +93,12 @@ add_executable(
   tests/person_test.cpp
   tests/reservation_system_test.cpp
   tests/seat_test.cpp
+)
+target_include_directories(
+  run_tests_executable
+  PRIVATE
+    ${googletest_SOURCE_DIR}/googletest/include
+    ${googletest_SOURCE_DIR}/googlemock/include
 )
 target_link_libraries(run_tests_executable PRIVATE airline_core GTest::gtest GTest::gmock)
 

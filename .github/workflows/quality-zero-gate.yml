@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   secrets-preflight:
     name: Quality Secrets Preflight
@@ -51,6 +55,7 @@ jobs:
       - secrets-preflight
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      QUALITY_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Assert secrets preflight succeeded
@@ -63,7 +68,7 @@ jobs:
         run: |
           python3 -m scripts.quality.check_required_checks \
             --repo "${GITHUB_REPOSITORY}" \
-            --sha "${GITHUB_SHA}" \
+            --sha "${QUALITY_SHA}" \
             --required-context "Coverage 100 Gate" \
             --required-context "Codecov Analytics" \
             --required-context "Sonar Zero" \

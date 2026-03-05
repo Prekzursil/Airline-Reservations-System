@@ -1,4 +1,5 @@
 import {
+  __internal,
   addCustomer,
   cancelBooking,
   createBooking,
@@ -18,6 +19,52 @@ const makeResponse = ({ ok = true, status = 200, body = {}, jsonReject = false }
     : vi.fn().mockResolvedValue(body)
 });
 
+const queueSuccess = (body) => {
+  globalThis.fetch.mockResolvedValueOnce(makeResponse({ body }));
+};
+
+const queueHttpError = ({ status, body, jsonReject = false }) => {
+  globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status, body, jsonReject }));
+};
+
+const expectSimpleSuccessAndHttpError = async ({ action, successBody, failStatus }) => {
+  queueSuccess(successBody);
+  await expect(action()).resolves.toEqual(successBody);
+
+  queueHttpError({ status: failStatus });
+  await expect(action()).rejects.toThrow(`HTTP error! status: ${failStatus}`);
+};
+
+const expectDetailedSuccessAndErrorPaths = async ({ action, successBody, failStatus, failMessage }) => {
+  queueSuccess(successBody);
+  await expect(action()).resolves.toEqual(successBody);
+
+  queueHttpError({ status: failStatus, body: { error: failMessage } });
+  await expect(action()).rejects.toThrow(`HTTP error! status: ${failStatus} - ${failMessage}`);
+
+  queueHttpError({ status: 500, jsonReject: true });
+  await expect(action()).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
+};
+
+const loadModuleWithBaseUrl = async ({ baseUrl, locationOrigin }) => {
+  vi.resetModules();
+  vi.stubEnv('VITE_API_BASE_URL', baseUrl);
+
+  if (typeof locationOrigin === 'string') {
+    vi.stubGlobal('location', { origin: locationOrigin });
+  }
+
+  const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG' }] }));
+  globalThis.fetch = fetchMock;
+
+  const apiModule = await import('./apiService');
+  await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG' }]);
+
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  return fetchMock;
+};
+
 describe('apiService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -27,132 +74,140 @@ describe('apiService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
-  it('fetchAirplanes success and failure', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: [{ flightNumber: 'FL-1' }] }));
-    await expect(fetchAirplanes()).resolves.toEqual([{ flightNumber: 'FL-1' }]);
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 503 }));
-    await expect(fetchAirplanes()).rejects.toThrow('HTTP error! status: 503');
+  it.each([
+    {
+      label: 'fetchAirplanes',
+      action: () => fetchAirplanes(),
+      successBody: [{ flightNumber: 'FL-1' }],
+      failStatus: 503
+    },
+    {
+      label: 'fetchAirplaneDetails',
+      action: () => fetchAirplaneDetails('FL-2'),
+      successBody: { flightNumber: 'FL-2' },
+      failStatus: 404
+    },
+    {
+      label: 'fetchCustomers',
+      action: () => fetchCustomers(),
+      successBody: [{ personId: 'C1' }],
+      failStatus: 502
+    }
+  ])('$label handles success + status errors', async ({ action, successBody, failStatus }) => {
+    await expectSimpleSuccessAndHttpError({
+      action,
+      successBody,
+      failStatus
+    });
   });
 
-  it('fetchAirplaneDetails success and failure', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: { flightNumber: 'FL-2' } }));
-    await expect(fetchAirplaneDetails('FL-2')).resolves.toEqual({ flightNumber: 'FL-2' });
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 404 }));
-    await expect(fetchAirplaneDetails('FL-2')).rejects.toThrow('HTTP error! status: 404');
-  });
-
-  it('fetchCustomers success and failure', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: [{ personId: 'C1' }] }));
-    await expect(fetchCustomers()).resolves.toEqual([{ personId: 'C1' }]);
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 502 }));
-    await expect(fetchCustomers()).rejects.toThrow('HTTP error! status: 502');
-
+  it('fetchCustomers surfaces network failures', async () => {
     globalThis.fetch.mockRejectedValueOnce(new Error('network down'));
     await expect(fetchCustomers()).rejects.toThrow('network down');
   });
 
-  it('addCustomer handles success, API errors, and fallback error-body parsing', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: { personId: 'C2', name: 'Alice' } }));
-    await expect(addCustomer({ name: 'Alice' })).resolves.toEqual({ personId: 'C2', name: 'Alice' });
+  it.each([
+    {
+      label: 'addCustomer',
+      action: () => addCustomer({ name: 'Alice' }),
+      successBody: { personId: 'C2', name: 'Alice' },
+      failStatus: 400,
+      failMessage: 'Invalid payload'
+    },
+    {
+      label: 'createBooking',
+      action: () => createBooking({ customerId: 'C1' }),
+      successBody: { bookingId: 10 },
+      failStatus: 409,
+      failMessage: 'Seat taken'
+    },
+    {
+      label: 'fetchCustomerDetails',
+      action: () => fetchCustomerDetails('C9'),
+      successBody: { personId: 'C9' },
+      failStatus: 404,
+      failMessage: 'Not found'
+    },
+    {
+      label: 'cancelBooking',
+      action: () => cancelBooking(77),
+      successBody: { message: 'Cancelled' },
+      failStatus: 400,
+      failMessage: 'Bad request'
+    },
+    {
+      label: 'fetchBookings',
+      action: () => fetchBookings(),
+      successBody: [{ bookingId: 1 }],
+      failStatus: 401,
+      failMessage: 'Unauthorized'
+    },
+    {
+      label: 'swapSeats',
+      action: () => swapSeats(1, 2),
+      successBody: { message: 'Swapped' },
+      failStatus: 422,
+      failMessage: 'Invalid swap'
+    }
+  ])('$label handles success + detailed API errors', async ({ action, successBody, failStatus, failMessage }) => {
+    await expectDetailedSuccessAndErrorPaths({
+      action,
+      successBody,
+      failStatus,
+      failMessage
+    });
+  });
 
-    globalThis.fetch.mockResolvedValueOnce(
-      makeResponse({ ok: false, status: 400, body: { error: 'Invalid payload' } })
+  it.each([
+    {
+      label: 'uses configured relative path',
+      baseUrl: '/internal-api/',
+      expectedTarget: '/internal-api/airplanes'
+    },
+    {
+      label: 'falls back for external absolute URL',
+      baseUrl: 'https://api.example.test/api/',
+      expectedTarget: '/api/airplanes'
+    },
+    {
+      label: 'falls back for invalid absolute URL',
+      baseUrl: 'https://[invalid-url',
+      expectedTarget: '/api/airplanes'
+    },
+    {
+      label: 'falls back for disallowed // pathname on same origin',
+      baseUrl: 'https://app.local//',
+      locationOrigin: 'https://app.local',
+      expectedTarget: '/api/airplanes'
+    },
+    {
+      label: 'accepts same-origin absolute URL when origin is null-like',
+      baseUrl: 'https://app.local/internal-api',
+      locationOrigin: 'null',
+      expectedTarget: '/internal-api/airplanes'
+    }
+  ])('$label', async ({ baseUrl, locationOrigin, expectedTarget }) => {
+    const fetchMock = await loadModuleWithBaseUrl({ baseUrl, locationOrigin });
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe(expectedTarget);
+  });
+
+  it('rejects invalid API path inputs via normalizeApiPath guard', () => {
+    expect(() => __internal.normalizeApiPath('airplanes')).toThrow('Invalid API path');
+    expect(() => __internal.normalizeApiPath('//airplanes')).toThrow('Invalid API path');
+  });
+
+  it('rejects unsafe path segment inputs', () => {
+    expect(() => __internal.encodePathSegment('', 'booking id')).toThrow('Invalid booking id: value is required');
+    expect(() => __internal.encodePathSegment('a/b', 'booking id')).toThrow(
+      'Invalid booking id: path separators are not allowed'
     );
-    await expect(addCustomer({})).rejects.toThrow('HTTP error! status: 400 - Invalid payload');
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 500, jsonReject: true }));
-    await expect(addCustomer({})).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
-  });
-
-  it('createBooking handles success and both error-body paths', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: { bookingId: 10 } }));
-    await expect(createBooking({ customerId: 'C1' })).resolves.toEqual({ bookingId: 10 });
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 409, body: { error: 'Seat taken' } }));
-    await expect(createBooking({})).rejects.toThrow('HTTP error! status: 409 - Seat taken');
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 500, jsonReject: true }));
-    await expect(createBooking({})).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
-  });
-
-  it('fetchCustomerDetails handles success and both error-body paths', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: { personId: 'C9' } }));
-    await expect(fetchCustomerDetails('C9')).resolves.toEqual({ personId: 'C9' });
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 404, body: { error: 'Not found' } }));
-    await expect(fetchCustomerDetails('C9')).rejects.toThrow('HTTP error! status: 404 - Not found');
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 500, jsonReject: true }));
-    await expect(fetchCustomerDetails('C9')).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
-  });
-
-  it('cancelBooking handles success and both error-body paths', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: { message: 'Cancelled' } }));
-    await expect(cancelBooking(77)).resolves.toEqual({ message: 'Cancelled' });
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 400, body: { error: 'Bad request' } }));
-    await expect(cancelBooking(77)).rejects.toThrow('HTTP error! status: 400 - Bad request');
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 500, jsonReject: true }));
-    await expect(cancelBooking(77)).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
-  });
-
-  it('fetchBookings handles success and both error-body paths', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: [{ bookingId: 1 }] }));
-    await expect(fetchBookings()).resolves.toEqual([{ bookingId: 1 }]);
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 401, body: { error: 'Unauthorized' } }));
-    await expect(fetchBookings()).rejects.toThrow('HTTP error! status: 401 - Unauthorized');
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 500, jsonReject: true }));
-    await expect(fetchBookings()).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
-  });
-
-  it('swapSeats handles success and both error-body paths', async () => {
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ body: { message: 'Swapped' } }));
-    await expect(swapSeats(1, 2)).resolves.toEqual({ message: 'Swapped' });
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 422, body: { error: 'Invalid swap' } }));
-    await expect(swapSeats(1, 2)).rejects.toThrow('HTTP error! status: 422 - Invalid swap');
-
-    globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status: 500, jsonReject: true }));
-    await expect(swapSeats(1, 2)).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
-  });
-
-  it('uses configured VITE_API_BASE_URL when provided as a relative path', async () => {
-    vi.resetModules();
-    vi.stubEnv('VITE_API_BASE_URL', '/internal-api/');
-
-    const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-1' }] }));
-    globalThis.fetch = fetchMock;
-
-    const apiModule = await import('./apiService');
-    await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-1' }]);
-
-    expect(fetchMock).toHaveBeenCalled();
-    expect(fetchMock.mock.calls[0][0]).toBe('/internal-api/airplanes');
-
-    vi.unstubAllEnvs();
-  });
-
-  it('falls back to default API path when VITE_API_BASE_URL is an external absolute URL', async () => {
-    vi.resetModules();
-    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test/api/');
-
-    const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-2' }] }));
-    globalThis.fetch = fetchMock;
-
-    const apiModule = await import('./apiService');
-    await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-2' }]);
-
-    expect(fetchMock).toHaveBeenCalled();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/airplanes');
-
-    vi.unstubAllEnvs();
+    expect(() => __internal.encodePathSegment(String.raw`a\b`, 'booking id')).toThrow(
+      'Invalid booking id: path separators are not allowed'
+    );
   });
 });

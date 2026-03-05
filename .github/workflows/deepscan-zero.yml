@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deepscan-zero:
     name: DeepScan Zero
@@ -20,14 +24,17 @@ jobs:
       statuses: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CHECK_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Assert DeepScan vendor check is green
         run: |
           python3 -m scripts.quality.check_deepscan_zero \
             --repo "${GITHUB_REPOSITORY}" \
-            --sha "${GITHUB_SHA}" \
-            --required-context "DeepScan"
+            --sha "${CHECK_SHA}" \
+            --required-context "DeepScan" \
+            --max-wait-seconds 1200 \
+            --poll-interval-seconds 20
       - name: Upload DeepScan artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

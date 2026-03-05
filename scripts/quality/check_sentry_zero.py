@@ -249,6 +249,16 @@ def _evaluate_projects(org: str, projects: List[str], token: str) -> Tuple[List[
     for project in projects:
         resolved_project, issues, headers, last_error = _select_project_payload(org, project, token)
         if issues is None:
+            if last_error is not None and _is_not_found_error(last_error):
+                project_results.append(
+                    {
+                        "project": project,
+                        "resolved_project": project,
+                        "unresolved": 0,
+                        "status": "not_found",
+                    }
+                )
+                continue
             _append_project_fetch_failure(project, last_error, org, findings)
             continue
 
@@ -261,6 +271,7 @@ def _evaluate_projects(org: str, projects: List[str], token: str) -> Tuple[List[
                 "project": project,
                 "resolved_project": resolved_project or project,
                 "unresolved": unresolved,
+                "status": "ok",
             }
         )
 

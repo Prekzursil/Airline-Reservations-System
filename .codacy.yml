@@ -2,6 +2,13 @@
 engines:
   cppcheck:
     language: c++
+    include_paths:
+      - "src"
+      - "tests"
+      - "build/_deps/cpp_httplib-src"
+      - "build/_deps/nlohmann_json-src/include"
+      - "build/_deps/googletest-src/googletest/include"
+      - "build/_deps/googletest-src/googlemock/include"
 
 languages:
   markdown:
