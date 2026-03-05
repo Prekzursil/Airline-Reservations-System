@@ -87,6 +87,11 @@ const encodePathSegment = (value, label) => {
   return encodeURIComponent(text);
 };
 
+export const __internal = {
+  normalizeApiPath,
+  encodePathSegment
+};
+
 const parseErrorMessage = async (response) => {
   try {
     const errorBody = await response.json();

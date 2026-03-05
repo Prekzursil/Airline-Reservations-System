@@ -31,7 +31,9 @@ jobs:
           python3 -m scripts.quality.check_deepscan_zero \
             --repo "${GITHUB_REPOSITORY}" \
             --sha "${GITHUB_SHA}" \
-            --required-context "DeepScan"
+            --required-context "DeepScan" \
+            --max-wait-seconds 1200 \
+            --poll-interval-seconds 20
       - name: Upload DeepScan artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

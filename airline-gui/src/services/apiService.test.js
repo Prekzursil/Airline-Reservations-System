@@ -1,4 +1,5 @@
 import {
+  __internal,
   addCustomer,
   cancelBooking,
   createBooking,
@@ -154,5 +155,72 @@ describe('apiService', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/api/airplanes');
 
     vi.unstubAllEnvs();
+  });
+
+  it('falls back to default API path when configured absolute URL is invalid', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_BASE_URL', 'https://[invalid-url');
+
+    const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-3' }] }));
+    globalThis.fetch = fetchMock;
+
+    const apiModule = await import('./apiService');
+    await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-3' }]);
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/airplanes');
+
+    vi.unstubAllEnvs();
+  });
+
+  it('falls back to default API path when same-origin absolute URL resolves to disallowed // pathname', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_BASE_URL', 'https://app.local//');
+    vi.stubGlobal('location', { origin: 'https://app.local' });
+
+    const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-4' }] }));
+    globalThis.fetch = fetchMock;
+
+    const apiModule = await import('./apiService');
+    await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-4' }]);
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/airplanes');
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('accepts absolute URL path when location.origin is null-like', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_BASE_URL', 'https://app.local/internal-api');
+    vi.stubGlobal('location', { origin: 'null' });
+
+    const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-5' }] }));
+    globalThis.fetch = fetchMock;
+
+    const apiModule = await import('./apiService');
+    await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-5' }]);
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe('/internal-api/airplanes');
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('rejects invalid API path inputs via normalizeApiPath guard', () => {
+    expect(() => __internal.normalizeApiPath('airplanes')).toThrow('Invalid API path');
+    expect(() => __internal.normalizeApiPath('//airplanes')).toThrow('Invalid API path');
+  });
+
+  it('rejects unsafe path segment inputs', () => {
+    expect(() => __internal.encodePathSegment('', 'booking id')).toThrow('Invalid booking id: value is required');
+    expect(() => __internal.encodePathSegment('a/b', 'booking id')).toThrow(
+      'Invalid booking id: path separators are not allowed'
+    );
+    expect(() => __internal.encodePathSegment('a\\b', 'booking id')).toThrow(
+      'Invalid booking id: path separators are not allowed'
+    );
   });
 });
