@@ -1,8 +1,8 @@
 #include "ReservationSystem.h"
-#include <iostream>
-#include <random>    // For ID generation
-#include <sstream>   // For ID generation
+#include <cstdint>
 #include <iomanip>   // For std::setfill, std::setw, std::fixed, std::setprecision
+#include <iostream>
+#include <sstream>   // For ID generation
 
 static int g_customerIdCounter = 1; // Global static for resettable ID generation
 
@@ -29,6 +29,40 @@ std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::str
     return value;
 }
 
+constexpr int kMinimumAutoAge = 18;
+constexpr int kMaximumAutoAge = 80;
+constexpr int kMinimumAutoMoneyCents = 10000;
+constexpr int kMaximumAutoMoneyCents = 200000;
+
+std::uint64_t buildDeterministicSeed(const std::string& value, std::uint64_t salt) {
+    std::uint64_t hash = 1469598103934665603ULL ^ salt;
+    for (const char ch : value) {
+        hash ^= static_cast<std::uint64_t>(static_cast<unsigned char>(ch));
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+std::string buildDeterministicAutoName(
+    const std::vector<std::string>& firstNames,
+    const std::string& customerId,
+    std::uint64_t seed
+) {
+    const size_t nameIndex = static_cast<size_t>(seed % firstNames.size());
+    return firstNames[nameIndex] + "_" + customerId;
+}
+
+int buildDeterministicAutoAge(std::uint64_t seed) {
+    const int ageRange = kMaximumAutoAge - kMinimumAutoAge + 1;
+    return kMinimumAutoAge + static_cast<int>(seed % static_cast<std::uint64_t>(ageRange));
+}
+
+double buildDeterministicAutoMoney(std::uint64_t seed) {
+    const int moneyRange = kMaximumAutoMoneyCents - kMinimumAutoMoneyCents + 1;
+    const int moneyCents = kMinimumAutoMoneyCents + static_cast<int>(seed % static_cast<std::uint64_t>(moneyRange));
+    return static_cast<double>(moneyCents) / 100.0;
+}
+
 AutoCustomerData generateAutoCustomerData(const std::string& newId) {
     static const std::vector<std::string> firstNames = {
         "AutoPat",
@@ -37,16 +71,25 @@ AutoCustomerData generateAutoCustomerData(const std::string& newId) {
         "SysPerson",
         "BotPassenger",
     };
-    std::random_device random_device;
-    std::mt19937 generator(random_device());
-    std::uniform_int_distribution<> name_index_distribution(0, static_cast<int>(firstNames.size()) - 1);
-    std::uniform_int_distribution<> age_distribution(18, 80);
-    std::uniform_real_distribution<> money_distribution(100.0, 2000.0);
+    const std::uint64_t seed = buildDeterministicSeed(newId, 0x9E3779B97F4A7C15ULL);
+    const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
+    const int age = buildDeterministicAutoAge(seed >> 8U);
+    const double money = buildDeterministicAutoMoney(seed >> 16U);
+    return {name, age, money};
+}
 
-    const std::string name = firstNames[static_cast<size_t>(name_index_distribution(generator))] + "_" + newId;
-    const int age = age_distribution(generator);
-    double money = money_distribution(generator);
-    money = static_cast<int>(money * 100 + 0.5) / 100.0;
+AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
+    static const std::vector<std::string> firstNames = {
+        "ApiPat",
+        "WebServiceUser",
+        "JsonGenClient",
+        "SystemPerson",
+        "BackendBot",
+    };
+    const std::uint64_t seed = buildDeterministicSeed(newId, 0xD1B54A32D192ED03ULL);
+    const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
+    const int age = buildDeterministicAutoAge(seed >> 8U);
+    const double money = buildDeterministicAutoMoney(seed >> 16U);
     return {name, age, money};
 }
 
@@ -69,6 +112,52 @@ void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& sug
         out << "- " << suggestedSeat->getSeatId() << " (" << suggestedSeat->getSeatClassString()
             << ") costs $" << suggestedSeat->getPrice() << std::endl;
     }
+}
+
+bool hasBookSeatPrerequisites(
+    std::ostream& out,
+    const std::vector<Airplane>& availableAirplanes,
+    const std::vector<Customer>& knownCustomers
+) {
+    if (availableAirplanes.empty()) {
+        out << "No flights available to book." << std::endl;
+        return false;
+    }
+    if (knownCustomers.empty()) {
+        out << "No customers in the system. Please add a customer first." << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool tryPrepareSeatForBooking(
+    std::ostream& out,
+    Airplane& airplane,
+    const Customer& customer,
+    const std::string& seatIdToBook,
+    Seat*& selectedSeat
+) {
+    selectedSeat = airplane.findSeat(seatIdToBook);
+    if (selectedSeat == nullptr) {
+        out << "Seat " << seatIdToBook << " does not exist on this flight." << std::endl;
+        return false;
+    }
+    if (selectedSeat->getIsBooked()) {
+        out << "Seat " << seatIdToBook << " is already booked." << std::endl;
+        return false;
+    }
+
+    const double seatPrice = selectedSeat->getPrice();
+    out << "Seat " << seatIdToBook << " (" << selectedSeat->getSeatClassString() << ") costs $" << seatPrice << std::endl;
+
+    if (customer.getMoney() < seatPrice) {
+        out << "Insufficient funds. You have $" << customer.getMoney() << ", seat costs $" << seatPrice << "." << std::endl;
+        const std::vector<const Seat*> suggestions = airplane.suggestLowerPriceSeats(&customer, customer.getMoney());
+        printSeatSuggestions(out, suggestions);
+        return false;
+    }
+
+    return true;
 }
 } // namespace
 
@@ -229,49 +318,30 @@ void ReservationSystem::handleAddCustomer() {
 
 void ReservationSystem::handleBookSeat() {
     (*m_cout_ptr) << "\n--- Book a Seat ---" << std::endl;
-    if (airplanes.empty()) {
-        (*m_cout_ptr) << "No flights available to book." << std::endl;
-        return;
-    }
-    if (customers.empty()) {
-        (*m_cout_ptr) << "No customers in the system. Please add a customer first." << std::endl;
+    if (!hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers)) {
         return;
     }
 
-    std::string custId = getValidatedInput<std::string>("Enter Customer ID: ");
-    const auto* customer = findCustomerById(custId);
-    if (!customer) {
+    const std::string custId = getValidatedInput<std::string>("Enter Customer ID: ");
+    const Customer* customer = findCustomerById(custId);
+    if (customer == nullptr) {
         (*m_cout_ptr) << "Customer with ID " << custId << " not found." << std::endl;
         return;
     }
     // customer->displayDetails(); // Uses std::cout, need to pass m_cout_ptr or refactor
 
     printAvailableFlights(*m_cout_ptr, airplanes);
-    const auto maxChoice = static_cast<int>(airplanes.size());
-    int flightChoice = getMenuChoice(1, maxChoice) - 1;
-    Airplane* airplane = &airplanes[static_cast<size_t>(flightChoice)];
+    const int maxChoice = static_cast<int>(airplanes.size());
+    const int flightChoice = getMenuChoice(1, maxChoice) - 1;
+    Airplane& airplane = airplanes[static_cast<size_t>(flightChoice)];
     
-    (*m_cout_ptr) << "Selected Flight: " << airplane->getFlightNumber() << std::endl;
+    (*m_cout_ptr) << "Selected Flight: " << airplane.getFlightNumber() << std::endl;
     // airplane->displaySeatingMap(); // Uses std::cout
     // airplane->displayAvailableSeats(); // Uses std::cout
 
-    std::string seatIdToBook = getValidatedInput<std::string>("Enter Seat ID to book (e.g., 1A): ");
-    Seat* seat = airplane->findSeat(seatIdToBook);
-
-    if (!seat) {
-        (*m_cout_ptr) << "Seat " << seatIdToBook << " does not exist on this flight." << std::endl;
-        return;
-    }
-    if (seat->getIsBooked()) {
-        (*m_cout_ptr) << "Seat " << seatIdToBook << " is already booked." << std::endl;
-        return;
-    }
-
-    (*m_cout_ptr) << "Seat " << seatIdToBook << " (" << seat->getSeatClassString() << ") costs $" << seat->getPrice() << std::endl;
-    if (customer->getMoney() < seat->getPrice()) {
-        (*m_cout_ptr) << "Insufficient funds. You have $" << customer->getMoney() << ", seat costs $" << seat->getPrice() << "." << std::endl;
-        std::vector<const Seat*> suggestions = airplane->suggestLowerPriceSeats(customer, customer->getMoney());
-        printSeatSuggestions(*m_cout_ptr, suggestions);
+    const std::string seatIdToBook = getValidatedInput<std::string>("Enter Seat ID to book (e.g., 1A): ");
+    Seat* seat = nullptr;
+    if (!tryPrepareSeatForBooking(*m_cout_ptr, airplane, *customer, seatIdToBook, seat)) {
         return;
     }
 
@@ -283,7 +353,7 @@ void ReservationSystem::handleBookSeat() {
     std::string bookingStatusMessage;
     const auto* booking = createBookingInternal(
         customer->getPersonId(),
-        airplane->getFlightNumber(),
+        airplane.getFlightNumber(),
         seat->getSeatId(),
         bookingStatusMessage
     );
@@ -470,27 +540,16 @@ void ReservationSystem::handleAddAirplane() {
 
 Customer* ReservationSystem::addCustomerInternal(const std::string& name_param, int age, double money, bool autoGenerate) {
     std::string name = name_param;
-    std::string newId = generateUniqueCustomerId();
+    const std::string newId = generateUniqueCustomerId();
 
     if (autoGenerate) {
-        // This logic is similar to the console handler, could be further centralized
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::string firstNames[] = {"ApiPat", "WebServiceUser", "JsonGenClient", "SystemPerson", "BackendBot"};
-        std::uniform_int_distribution<> nameDist(0, sizeof(firstNames)/sizeof(std::string) - 1);
-        name = firstNames[nameDist(gen)] + "_" + newId; // Overwrite name if autoGenerate
-
-        // Age and money might also be auto-generated if not provided or if autoGenerate implies full auto
-        // For now, assume if autoGenerate, name is auto, others are taken if provided, else could be random.
-        // The API currently sends 0 for age/money if auto, so let's make them random here.
+        const AutoCustomerData generated = generateApiAutoCustomerData(newId);
+        name = generated.name;
         if (age <= 0) {
-             std::uniform_int_distribution<> ageDist(18, 80);
-             age = ageDist(gen);
+            age = generated.age;
         }
-        if (money <= 0) {
-            std::uniform_real_distribution<> moneyDist(100.0, 2000.0);
-            money = moneyDist(gen);
-            money = static_cast<int>(money * 100 + 0.5) / 100.0;
+        if (money <= 0.0) {
+            money = generated.money;
         }
     }
     
