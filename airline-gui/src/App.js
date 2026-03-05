@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
 import FlightList from './components/FlightList';
 import CustomerForm from './components/CustomerForm';
 import CustomerDetails from './components/CustomerDetails';
-import SwapSeatsForm from './components/SwapSeatsForm'; // Import SwapSeatsForm
-import { fetchCustomers } from './services/apiService'; 
+import SwapSeatsForm from './components/SwapSeatsForm';
+import { fetchCustomers } from './services/apiService';
 
 function App() {
   const [customers, setCustomers] = useState([]);
   const [showCustomers, setShowCustomers] = useState(false);
   const [customerError, setCustomerError] = useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = useState(''); // For CustomerDetails
-  const [searchCustomerId, setSearchCustomerId] = useState(''); // Input field for customer search
-  const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0); // Key to trigger bookings refresh
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [searchCustomerId, setSearchCustomerId] = useState('');
+  const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0);
 
   const loadCustomers = async () => {
     try {
@@ -28,17 +28,12 @@ function App() {
   };
 
   const handleCustomerAdded = (newCustomer) => {
-    // Optionally refresh customer list or add to existing list
-    // For simplicity, just log or allow manual refresh for now
     console.log("New customer added/simulated:", newCustomer);
-    // If we want to auto-refresh:
-    loadCustomers(); // Refresh customer list after adding
-    console.log("App.js: handleCustomerAdded, incrementing bookingsRefreshKey"); // DEBUG
-    setBookingsRefreshKey(prevKey => prevKey + 1); // Trigger refresh for SwapSeatsForm
+    loadCustomers();
+    setBookingsRefreshKey(prevKey => prevKey + 1);
   };
 
-  const triggerBookingsRefresh = () => { // New function
-    console.log("App.js: triggerBookingsRefresh called, incrementing bookingsRefreshKey"); // DEBUG
+  const triggerBookingsRefresh = () => {
     setBookingsRefreshKey(prevKey => prevKey + 1);
   };
 
@@ -46,36 +41,23 @@ function App() {
     setSelectedCustomerId(searchCustomerId);
   };
   
-  // Callback for when a booking is cancelled in CustomerDetails, to refresh data
   const refreshCustomerDetails = (customerId) => {
-    // To refresh, we can briefly unset and then set customerId, or add a random key to CustomerDetails
-    // For simplicity, just re-trigger the fetch in CustomerDetails by changing customerId prop slightly if needed
-    // Or, CustomerDetails already re-fetches if customerId prop changes.
-    // If the same customerId is passed, useEffect in CustomerDetails might not re-run.
-    // A simple way:
-    const currentSelected = selectedCustomerId; 
-    setSelectedCustomerId(''); 
-    setTimeout(() => setSelectedCustomerId(currentSelected || customerId), 0); 
-    loadCustomers(); 
-    console.log("App.js: refreshCustomerDetails, incrementing bookingsRefreshKey"); // DEBUG
-    setBookingsRefreshKey(prevKey => prevKey + 1); // Trigger refresh for SwapSeatsForm
+    setSelectedCustomerId('');
+    setTimeout(() => setSelectedCustomerId(customerId), 0);
+    loadCustomers();
+    setBookingsRefreshKey(prevKey => prevKey + 1);
   };
 
   const handleSeatsSwapped = () => {
-    // After seats are swapped, relevant data might change for customers or flights
-    console.log("App.js: handleSeatsSwapped, preparing to refresh bookingsRefreshKey"); // DEBUG
     if (selectedCustomerId) {
-        refreshCustomerDetails(selectedCustomerId); // This will also update bookingsRefreshKey
+      refreshCustomerDetails(selectedCustomerId);
     } else {
-        loadCustomers(); // Refresh general customer list
-        setBookingsRefreshKey(prevKey => prevKey + 1); 
+      loadCustomers();
+      setBookingsRefreshKey(prevKey => prevKey + 1);
     }
-    // FlightList also needs to be aware or refreshed if a swap affects seat availability display
-    // For now, the alert prompts manual refresh of flight details if needed.
     alert("Seats swapped. Customer details (if viewing) and booking lists refreshed. You may need to re-select a flight to see seat map updates.");
   };
 
-  // Load initial customers once
   useEffect(() => {
     loadCustomers();
   }, []);
@@ -129,9 +111,9 @@ function App() {
         
         <div style={{ flex: 2, border: '1px solid #ccc', padding: '15px' }}>
           <h2>Flight & Booking Management</h2>
-          <FlightList onBookingListChanged={triggerBookingsRefresh} /> {/* Pass new prop */}
+          <FlightList onBookingListChanged={triggerBookingsRefresh} />
           <section style={{ marginTop: '20px', padding: '15px', border: '1px solid #eee' }}>
-            <SwapSeatsForm onSeatsSwapped={handleSeatsSwapped} refreshTrigger={bookingsRefreshKey} /> 
+            <SwapSeatsForm onSeatsSwapped={handleSeatsSwapped} refreshTrigger={bookingsRefreshKey} />
           </section>
         </div>
       </main>

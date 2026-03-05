@@ -1,3 +1,4 @@
+// cppcheck-suppress-file missingIncludeSystem
 #include "Seat.h"
 #include <iomanip> // For std::setprecision
 

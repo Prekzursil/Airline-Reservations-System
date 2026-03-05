@@ -1,0 +1,115 @@
+{
+  "captured_at_utc": "2026-03-04T22:12:19.910471+00:00",
+  "repository": "Prekzursil/Airline-Reservations-System",
+  "total_open_alerts": 22,
+  "by_tool": [
+    {
+      "tool": "CodeQL",
+      "count": 21
+    },
+    {
+      "tool": "SonarCloud",
+      "count": 1
+    }
+  ],
+  "by_rule": [
+    {
+      "rule": "py/path-injection",
+      "count": 10
+    },
+    {
+      "rule": "py/polynomial-redos",
+      "count": 8
+    },
+    {
+      "rule": "actions/unpinned-tag",
+      "count": 2
+    },
+    {
+      "rule": "py/partial-ssrf",
+      "count": 1
+    },
+    {
+      "rule": "githubactions:S8264",
+      "count": 1
+    }
+  ],
+  "by_path": [
+    {
+      "path": "third_party/googletest/googletest/test/googletest-output-test.py",
+      "count": 7
+    },
+    {
+      "path": "scripts/quality/assert_coverage_100.py",
+      "count": 3
+    },
+    {
+      "path": "scripts/quality/check_required_checks.py",
+      "count": 2
+    },
+    {
+      "path": "third_party/googletest/googletest/test/gtest_test_utils.py",
+      "count": 1
+    },
+    {
+      "path": "scripts/quality/check_sonar_zero.py",
+      "count": 1
+    },
+    {
+      "path": "scripts/quality/check_sentry_zero.py",
+      "count": 1
+    },
+    {
+      "path": "scripts/quality/check_quality_secrets.py",
+      "count": 1
+    },
+    {
+      "path": "scripts/quality/check_deepscan_zero.py",
+      "count": 1
+    },
+    {
+      "path": "scripts/quality/check_codacy_zero.py",
+      "count": 1
+    },
+    {
+      "path": "third_party/googletest/googletest/test/googletest-json-output-unittest.py",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/quality-zero-gate.yml",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/codecov-analytics.yml",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/sonar-zero.yml",
+      "count": 1
+    }
+  ],
+  "open_alert_numbers": [
+    45,
+    44,
+    43,
+    42,
+    41,
+    40,
+    39,
+    38,
+    37,
+    36,
+    35,
+    34,
+    33,
+    32,
+    31,
+    30,
+    29,
+    28,
+    27,
+    26,
+    25,
+    23
+  ]
+}

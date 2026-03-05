@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+from __future__ import absolute_import, annotations, division
 
 import argparse
 import json
-import sys
+import os
 import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-_SCRIPT_DIR = Path(__file__).resolve().parent
-_HELPER_ROOT = _SCRIPT_DIR if (_SCRIPT_DIR / "security_helpers.py").exists() else _SCRIPT_DIR.parent
-if str(_HELPER_ROOT) not in sys.path:
-    sys.path.insert(0, str(_HELPER_ROOT))
+from scripts.security_helpers import (
+    HTTPSHost,
+    HTTPSRequestTarget,
+    QualityArtifact,
+    build_https_request_target,
+    quality_artifact_paths,
+    quote_path_segment,
+    request_json_list_https_target,
+    require_slug,
+)
 
-from security_helpers import normalize_https_url
-
-SENTRY_API_BASE = "https://sentry.io/api/0"
+_SENTRY_ORG_LABEL = "Sentry org"
+_SENTRY_PROJECT_LABEL = "Sentry project"
+_SENTRY_USER_AGENT = "airline-sentry-zero-gate"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -30,31 +34,10 @@ def _parse_args() -> argparse.Namespace:
         help="Project slug (repeatable, falls back to SENTRY_PROJECT_BACKEND/SENTRY_PROJECT_WEB env)",
     )
     parser.add_argument("--token", default="", help="Sentry auth token (falls back to SENTRY_AUTH_TOKEN env)")
-    parser.add_argument("--out-json", default="sentry-zero/sentry.json", help="Output JSON path")
-    parser.add_argument("--out-md", default="sentry-zero/sentry.md", help="Output markdown path")
     return parser.parse_args()
 
 
-def _request(url: str, token: str) -> tuple[list[Any], dict[str, str]]:
-    safe_url = normalize_https_url(url, allowed_host_suffixes={"sentry.io"})
-    req = urllib.request.Request(
-        safe_url,
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "reframe-sentry-zero-gate",
-        },
-        method="GET",
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-        headers = {k.lower(): v for k, v in resp.headers.items()}
-    if not isinstance(body, list):
-        raise RuntimeError("Unexpected Sentry response payload")
-    return body, headers
-
-
-def _hits_from_headers(headers: dict[str, str]) -> int | None:
+def _hits_from_headers(headers: Dict[str, str]) -> Optional[int]:
     raw = headers.get("x-hits")
     if not raw:
         return None
@@ -64,7 +47,7 @@ def _hits_from_headers(headers: dict[str, str]) -> int | None:
         return None
 
 
-def _render_md(payload: dict) -> str:
+def _render_md(payload: Dict[str, Any]) -> str:
     lines = [
         "# Sentry Zero Gate",
         "",
@@ -91,70 +74,207 @@ def _render_md(payload: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _safe_output_path(raw: str, fallback: str, base: Path | None = None) -> Path:
-    root = (base or Path.cwd()).resolve()
-    candidate = Path((raw or "").strip() or fallback).expanduser()
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    resolved = candidate.resolve(strict=False)
+def _build_project_issues_path(org: str, project: str) -> str:
+    org_slug = quote_path_segment(require_slug(org, label=_SENTRY_ORG_LABEL), label=_SENTRY_ORG_LABEL)
+    project_slug = quote_path_segment(require_slug(project, label=_SENTRY_PROJECT_LABEL), label=_SENTRY_PROJECT_LABEL)
+    query = urllib.parse.urlencode({"query": "is:unresolved", "limit": "1"})
+    return f"/api/0/projects/{org_slug}/{project_slug}/issues/?{query}"
+
+
+def _build_project_issues_target(org: str, project: str) -> HTTPSRequestTarget:
+    return build_https_request_target(
+        host=HTTPSHost.SENTRY,
+        path=_build_project_issues_path(org, project),
+    )
+
+
+def _auth_headers(token: str) -> Dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": _SENTRY_USER_AGENT,
+    }
+
+
+def _resolve_project_slug(org: str, project: str, token: str) -> Optional[str]:
+    org_slug = quote_path_segment(require_slug(org, label=_SENTRY_ORG_LABEL), label=_SENTRY_ORG_LABEL)
+    project_query = require_slug(project, label=_SENTRY_PROJECT_LABEL)
+    query = urllib.parse.urlencode({"query": project_query})
+    target = build_https_request_target(
+        host=HTTPSHost.SENTRY,
+        path=f"/api/0/organizations/{org_slug}/projects/?{query}",
+    )
+
     try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Output path escapes workspace root: {candidate}") from exc
-    return resolved
+        projects, _ = request_json_list_https_target(
+            target=target,
+            method="GET",
+            headers=_auth_headers(token),
+        )
+    except (RuntimeError, ValueError):
+        return None
+
+    target = project.casefold()
+    for item in projects:
+        if not isinstance(item, dict):
+            continue
+        slug = str(item.get("slug") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if slug and (slug.casefold() == target or name.casefold() == target):
+            return slug
+    return None
 
 
-def main() -> int:
-    import os
+def _project_candidates(org: str, project: str, token: str) -> List[str]:
+    candidates = [
+        project,
+        project.lower(),
+        project.replace("_", "-"),
+        project.replace("_", "-").lower(),
+    ]
+    resolved = _resolve_project_slug(org, project, token)
+    if resolved:
+        candidates.insert(0, resolved)
 
-    args = _parse_args()
-    token = (args.token or os.environ.get("SENTRY_AUTH_TOKEN", "")).strip()
-    org = (args.org or os.environ.get("SENTRY_ORG", "")).strip()
-    api_base = normalize_https_url(SENTRY_API_BASE, allowed_hosts={"sentry.io"}).rstrip("/")
+    deduped: List[str] = []
+    seen: Set[str] = set()
+    for candidate in candidates:
+        normalized = candidate.strip()
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(normalized)
+    return deduped
 
-    projects = [p for p in args.project if p]
-    if not projects:
-        for env_name in ("SENTRY_PROJECT_BACKEND", "SENTRY_PROJECT_WEB"):
-            value = str(os.environ.get(env_name, "")).strip()
-            if value:
-                projects.append(value)
 
-    findings: list[str] = []
-    project_results: list[dict[str, Any]] = []
+def _is_not_found_error(exc: Exception) -> bool:
+    message = str(exc)
+    return "404" in message and "Not Found" in message
 
+
+def _projects_from_args_or_env(args: argparse.Namespace) -> List[str]:
+    projects = [project for project in args.project if project]
+    if projects:
+        return projects
+
+    env_projects: List[str] = []
+    for env_name in ("SENTRY_PROJECT_BACKEND", "SENTRY_PROJECT_WEB", "SENTRY_PROJECT"):
+        value = str(os.environ.get(env_name, "")).strip()
+        if value:
+            env_projects.append(value)
+    return env_projects
+
+
+def _validate_inputs(token: str, org: str, projects: List[str]) -> List[str]:
+    findings: List[str] = []
     if not token:
         findings.append("SENTRY_AUTH_TOKEN is missing.")
     if not org:
         findings.append("SENTRY_ORG is missing.")
     if not projects:
-        findings.append("No Sentry projects configured (SENTRY_PROJECT_BACKEND/SENTRY_PROJECT_WEB).")
+        findings.append("No Sentry projects configured.")
+    return findings
 
-    status = "fail"
-    if not findings:
+
+def _fetch_project_issues(org: str, project: str, token: str) -> Tuple[List[Any], Dict[str, str]]:
+    return request_json_list_https_target(
+        target=_build_project_issues_target(org, project),
+        method="GET",
+        headers=_auth_headers(token),
+    )
+
+
+def _select_project_payload(org: str, project: str, token: str) -> Tuple[Optional[str], Optional[List[Any]], Dict[str, str], Optional[Exception]]:
+    last_error: Optional[Exception] = None
+    for candidate in _project_candidates(org, project, token):
         try:
-            for project in projects:
-                query = urllib.parse.urlencode({"query": "is:unresolved", "limit": "1"})
-                org_slug = urllib.parse.quote(org, safe="")
-                project_slug = urllib.parse.quote(project, safe="")
-                url = f"{api_base}/projects/{org_slug}/{project_slug}/issues/?{query}"
-                issues, headers = _request(url, token)
-                unresolved = _hits_from_headers(headers)
-                if unresolved is None:
-                    unresolved = len(issues)
-                    if unresolved >= 1:
-                        findings.append(
-                            f"Sentry project {project} returned unresolved issues but no X-Hits header for exact totals."
-                        )
-                if unresolved != 0:
-                    findings.append(f"Sentry project {project} has {unresolved} unresolved issues (expected 0).")
-                project_results.append({"project": project, "unresolved": unresolved})
+            issues, headers = _fetch_project_issues(org, candidate, token)
+            return candidate, issues, headers, None
+        except (RuntimeError, ValueError) as exc:  # pragma: no cover - network/runtime surface
+            last_error = exc
+            if _is_not_found_error(exc):
+                continue
+            return None, None, {}, exc
+    return None, None, {}, last_error
 
-            status = "pass" if not findings else "fail"
-        except Exception as exc:  # pragma: no cover - network/runtime surface
-            findings.append(f"Sentry API request failed: {exc}")
-            status = "fail"
 
-    payload = {
+def _unresolved_count(project: str, issues: List[Any], headers: Dict[str, str], findings: List[str]) -> int:
+    unresolved = _hits_from_headers(headers)
+    if unresolved is not None:
+        return unresolved
+
+    unresolved = len(issues)
+    if unresolved >= 1:
+        findings.append(
+            f"Sentry project {project} returned unresolved issues but no X-Hits header for exact totals."
+        )
+    return unresolved
+
+
+def _append_project_fetch_failure(project: str, last_error: Optional[Exception], org: str, findings: List[str]) -> None:
+    if last_error is None:
+        findings.append(f"Sentry project {project} did not return data.")
+        return
+    if _is_not_found_error(last_error):
+        findings.append(f"Sentry project {project} not found in org {org}.")
+        return
+    findings.append(f"Sentry project {project} request failed: {last_error}")
+
+
+def _evaluate_projects(org: str, projects: List[str], token: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    findings: List[str] = []
+    project_results: List[Dict[str, Any]] = []
+
+    for project in projects:
+        resolved_project, issues, headers, last_error = _select_project_payload(org, project, token)
+        if issues is None:
+            _append_project_fetch_failure(project, last_error, org, findings)
+            continue
+
+        unresolved = _unresolved_count(project, issues, headers, findings)
+        if unresolved != 0:
+            findings.append(f"Sentry project {project} has {unresolved} unresolved issues (expected 0).")
+
+        project_results.append(
+            {
+                "project": project,
+                "resolved_project": resolved_project or project,
+                "unresolved": unresolved,
+            }
+        )
+
+    return project_results, findings
+
+
+def _run_sentry_check(args: argparse.Namespace) -> Tuple[str, str, List[Dict[str, Any]], List[str]]:
+    token = (args.token or os.environ.get("SENTRY_AUTH_TOKEN", "")).strip()
+    org = (args.org or os.environ.get("SENTRY_ORG", "")).strip()
+    projects = _projects_from_args_or_env(args)
+
+    findings = _validate_inputs(token, org, projects)
+    if findings:
+        return "fail", org, [], findings
+
+    project_results, project_findings = _evaluate_projects(org, projects, token)
+    findings.extend(project_findings)
+    status = "pass" if not findings else "fail"
+    return status, org, project_results, findings
+
+
+def main() -> int:
+    args = _parse_args()
+
+    try:
+        status, org, project_results, findings = _run_sentry_check(args)
+    except (RuntimeError, ValueError) as exc:  # pragma: no cover - network/runtime surface
+        status = "fail"
+        org = (args.org or os.environ.get("SENTRY_ORG", "")).strip()
+        project_results = []
+        findings = [f"Sentry API request failed: {exc}"]
+
+    payload: Dict[str, Any] = {
         "status": status,
         "org": org,
         "projects": project_results,
@@ -162,15 +282,7 @@ def main() -> int:
         "findings": findings,
     }
 
-    try:
-        out_json = _safe_output_path(args.out_json, "sentry-zero/sentry.json")
-        out_md = _safe_output_path(args.out_md, "sentry-zero/sentry.md")
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_json, out_md = quality_artifact_paths(QualityArtifact.SENTRY_ZERO)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")

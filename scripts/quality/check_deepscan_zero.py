@@ -1,71 +1,112 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+from __future__ import absolute_import, annotations, division
 
 import argparse
 import json
-import sys
-import urllib.request
+import os
+import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
-_SCRIPT_DIR = Path(__file__).resolve().parent
-_HELPER_ROOT = _SCRIPT_DIR if (_SCRIPT_DIR / "security_helpers.py").exists() else _SCRIPT_DIR.parent
-if str(_HELPER_ROOT) not in sys.path:
-    sys.path.insert(0, str(_HELPER_ROOT))
+from scripts.security_helpers import (
+    HTTPSHost,
+    HTTPSRequestTarget,
+    QualityArtifact,
+    build_https_request_target,
+    quality_artifact_paths,
+    quote_segment,
+    request_json_https_target,
+    require_repo_slug,
+    require_sha,
+)
 
-from security_helpers import normalize_https_url
-
-TOTAL_KEYS = {"total", "totalItems", "total_items", "count", "hits", "open_issues"}
+_PENDING_STATES = {"pending", ""}
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assert DeepScan has zero total open issues.")
-    parser.add_argument("--token", default="", help="DeepScan API token (falls back to DEEPSCAN_API_TOKEN env)")
-    parser.add_argument("--out-json", default="deepscan-zero/deepscan.json", help="Output JSON path")
-    parser.add_argument("--out-md", default="deepscan-zero/deepscan.md", help="Output markdown path")
+    parser = argparse.ArgumentParser(description="Assert DeepScan GitHub context is green for a commit.")
+    parser.add_argument("--repo", required=True, help="owner/repo")
+    parser.add_argument("--sha", required=True, help="commit SHA")
+    parser.add_argument("--required-context", default="DeepScan", help="Required DeepScan context name")
+    parser.add_argument(
+        "--max-wait-seconds",
+        type=int,
+        default=180,
+        help="Maximum wait for external DeepScan context to appear/complete.",
+    )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        type=int,
+        default=10,
+        help="Polling interval while waiting for context readiness.",
+    )
     return parser.parse_args()
 
 
-def extract_total_open(payload: Any) -> int | None:
-    if isinstance(payload, dict):
-        for key, value in payload.items():
-            if key in TOTAL_KEYS and isinstance(value, (int, float)):
-                return int(value)
-        for nested in payload.values():
-            total = extract_total_open(nested)
-            if total is not None:
-                return total
-    elif isinstance(payload, list):
-        for nested in payload:
-            total = extract_total_open(nested)
-            if total is not None:
-                return total
-    return None
+def _build_commit_api_path(repo: str, sha: str) -> str:
+    owner, name = require_repo_slug(repo)
+    checked_sha = require_sha(sha)
+
+    owner_q = quote_segment(owner)
+    repo_q = quote_segment(name)
+    sha_q = quote_segment(checked_sha)
+    return f"/repos/{owner_q}/{repo_q}/commits/{sha_q}"
 
 
-def _request_json(url: str, token: str) -> dict[str, Any]:
-    safe_url = normalize_https_url(url, allowed_host_suffixes={"deepscan.io"})
-    req = urllib.request.Request(
-        safe_url,
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "reframe-deepscan-zero-gate",
-        },
-        method="GET",
+def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRequestTarget:
+    return build_https_request_target(
+        host=HTTPSHost.GITHUB_API,
+        path=f"{_build_commit_api_path(repo, sha)}{resource_path}",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
 
 
-def _render_md(payload: dict) -> str:
+def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
+    return request_json_https_target(
+        target=target,
+        method="GET",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "airline-deepscan-zero-gate",
+        },
+    )
+
+
+def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+    contexts: Dict[str, Dict[str, str]] = {}
+
+    for run in check_runs_payload.get("check_runs", []) or []:
+        name = str(run.get("name") or "").strip()
+        if not name:
+            continue
+        contexts[name] = {
+            "state": str(run.get("status") or ""),
+            "conclusion": str(run.get("conclusion") or ""),
+            "source": "check_run",
+        }
+
+    for status in status_payload.get("statuses", []) or []:
+        name = str(status.get("context") or "").strip()
+        if not name:
+            continue
+        state = str(status.get("state") or "")
+        contexts[name] = {
+            "state": state,
+            "conclusion": state,
+            "source": "status",
+        }
+
+    return contexts
+
+
+def _render_md(payload: Dict[str, Any]) -> str:
     lines = [
         "# DeepScan Zero Gate",
         "",
         f"- Status: `{payload['status']}`",
-        f"- Open issues: `{payload.get('open_issues')}`",
-        f"- Source URL: `{payload.get('open_issues_url') or 'n/a'}`",
+        f"- Repo/SHA: `{payload['repo']}@{payload['sha']}`",
+        f"- Required context: `{payload['required_context']}`",
         f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
         "",
         "## Findings",
@@ -78,73 +119,89 @@ def _render_md(payload: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _safe_output_path(raw: str, fallback: str, base: Path | None = None) -> Path:
-    root = (base or Path.cwd()).resolve()
-    candidate = Path((raw or "").strip() or fallback).expanduser()
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    resolved = candidate.resolve(strict=False)
-    try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Output path escapes workspace root: {candidate}") from exc
-    return resolved
+def _poll_or_timeout(now: float, deadline: float, poll_seconds: int) -> bool:
+    if now < deadline:
+        time.sleep(max(poll_seconds, 1))
+        return True
+    return False
+
+
+def _pending_failure_message(required_context: str, observed: Dict[str, str]) -> str:
+    source = observed.get("source")
+    state = observed.get("state")
+    conclusion = observed.get("conclusion")
+    if source == "check_run":
+        return f"{required_context} status is {state} (expected completed)"
+    return f"{required_context} state is {conclusion or 'unknown'} (expected success)"
+
+
+def _is_pending_context(observed: Dict[str, str]) -> bool:
+    source = observed.get("source")
+    if source == "check_run":
+        return observed.get("state") != "completed"
+    return observed.get("conclusion") in _PENDING_STATES
+
+
+def _context_outcome(required_context: str, observed: Dict[str, str]) -> Tuple[str, Optional[str]]:
+    source = observed.get("source")
+    conclusion = observed.get("conclusion")
+    if source == "check_run":
+        if conclusion == "success" and observed.get("state") == "completed":
+            return "pass", None
+        return "fail", f"{required_context} conclusion is {conclusion} (expected success)"
+    if conclusion == "success":
+        return "pass", None
+    return "fail", f"{required_context} state is {conclusion} (expected success)"
+
+
+def _run_deepscan_check(args: argparse.Namespace, token: str) -> Tuple[str, List[str], Optional[Dict[str, str]]]:
+    check_runs_target = _build_commit_api_target(args.repo, args.sha, "/check-runs?per_page=100")
+    statuses_target = _build_commit_api_target(args.repo, args.sha, "/status")
+    deadline = time.time() + max(args.max_wait_seconds, 0)
+    findings: List[str] = []
+
+    while True:
+        check_runs = _api_get(check_runs_target, token)
+        statuses = _api_get(statuses_target, token)
+        observed = _collect_contexts(check_runs, statuses).get(args.required_context)
+
+        if observed is None:
+            if _poll_or_timeout(time.time(), deadline, args.poll_interval_seconds):
+                continue
+            findings.append(f"Missing required context: {args.required_context}")
+            return "fail", findings, None
+
+        if _is_pending_context(observed):
+            if _poll_or_timeout(time.time(), deadline, args.poll_interval_seconds):
+                continue
+            findings.append(_pending_failure_message(args.required_context, observed))
+            return "fail", findings, observed
+
+        status, failure = _context_outcome(args.required_context, observed)
+        if failure:
+            findings.append(failure)
+        return status, findings, observed
 
 
 def main() -> int:
-    import os
-
     args = _parse_args()
-    token = (args.token or os.environ.get("DEEPSCAN_API_TOKEN", "")).strip()
-    open_issues_url = os.environ.get("DEEPSCAN_OPEN_ISSUES_URL", "").strip()
-
-    findings: list[str] = []
-    open_issues: int | None = None
-
+    token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
     if not token:
-        findings.append("DEEPSCAN_API_TOKEN is missing.")
-    if not open_issues_url:
-        findings.append("DEEPSCAN_OPEN_ISSUES_URL is missing.")
-    else:
-        try:
-            open_issues_url = normalize_https_url(
-                open_issues_url,
-                allowed_host_suffixes={"deepscan.io"},
-            )
-        except ValueError as exc:
-            findings.append(str(exc))
+        raise SystemExit("GITHUB_TOKEN or GH_TOKEN is required")
 
-    status = "fail"
-    if not findings:
-        try:
-            payload = _request_json(open_issues_url, token)
-            open_issues = extract_total_open(payload)
-            if open_issues is None:
-                findings.append("DeepScan response did not include a parseable total issue count.")
-            elif open_issues != 0:
-                findings.append(f"DeepScan reports {open_issues} open issues (expected 0).")
-            status = "pass" if not findings else "fail"
-        except Exception as exc:  # pragma: no cover - network/runtime surface
-            findings.append(f"DeepScan API request failed: {exc}")
-            status = "fail"
+    status, findings, observed = _run_deepscan_check(args, token)
 
-    payload = {
+    payload: Dict[str, Any] = {
         "status": status,
-        "open_issues": open_issues,
-        "open_issues_url": open_issues_url,
+        "repo": args.repo,
+        "sha": args.sha,
+        "required_context": args.required_context,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "findings": findings,
+        "observed_context": observed,
     }
 
-    try:
-        out_json = _safe_output_path(args.out_json, "deepscan-zero/deepscan.json")
-        out_md = _safe_output_path(args.out_md, "deepscan-zero/deepscan.md")
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_json, out_md = quality_artifact_paths(QualityArtifact.DEEPSCAN_ZERO)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")

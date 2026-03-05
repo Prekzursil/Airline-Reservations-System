@@ -1,0 +1,219 @@
+{
+  "captured_at_utc": "2026-03-04T22:12:12.829493+00:00",
+  "organization": "gh/Prekzursil",
+  "repository": "Airline-Reservations-System",
+  "total_open_issues": 239,
+  "top_patterns": [
+    {
+      "pattern": "markdownlint_MD007",
+      "count": 82
+    },
+    {
+      "pattern": "cppcheck_missingIncludeSystem",
+      "count": 42
+    },
+    {
+      "pattern": "markdownlint_MD022",
+      "count": 39
+    },
+    {
+      "pattern": "markdownlint_MD032",
+      "count": 39
+    },
+    {
+      "pattern": "Lizard_ccn-medium",
+      "count": 18
+    },
+    {
+      "pattern": "Semgrep_typescript.react.security.react-insecure-request.react-insecure-request",
+      "count": 6
+    },
+    {
+      "pattern": "Bandit_B310",
+      "count": 5
+    },
+    {
+      "pattern": "PMD_category_ecmascript_codestyle_UnnecessaryBlock",
+      "count": 2
+    },
+    {
+      "pattern": "Lizard_nloc-medium",
+      "count": 2
+    },
+    {
+      "pattern": "Semgrep_yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha",
+      "count": 2
+    },
+    {
+      "pattern": "Lizard_file-nloc-medium",
+      "count": 1
+    },
+    {
+      "pattern": "Prospector_mccabe",
+      "count": 1
+    }
+  ],
+  "top_files": [
+    {
+      "path": "cline_docs/progress.md",
+      "count": 32
+    },
+    {
+      "path": "cline_docs/techContext.md",
+      "count": 22
+    },
+    {
+      "path": "cline_docs/productContext.md",
+      "count": 19
+    },
+    {
+      "path": "README.md",
+      "count": 16
+    },
+    {
+      "path": "cline_docs/activeContext.md",
+      "count": 15
+    },
+    {
+      "path": "cline_docs/fileTree.md",
+      "count": 13
+    },
+    {
+      "path": "src/ReservationSystem.cpp",
+      "count": 11
+    },
+    {
+      "path": "cline_docs/systemPatterns.md",
+      "count": 10
+    },
+    {
+      "path": "AGENTS.md",
+      "count": 9
+    },
+    {
+      "path": ".github/BRANCH_PROTECTION.md",
+      "count": 7
+    },
+    {
+      "path": "src/api_server_main.cpp",
+      "count": 7
+    },
+    {
+      "path": "airline-gui/src/services/apiService.js",
+      "count": 7
+    },
+    {
+      "path": ".github/BRANCH_POLICY.md",
+      "count": 6
+    },
+    {
+      "path": "src/Booking.h",
+      "count": 5
+    },
+    {
+      "path": "cline_docs/next_steps_and_improvements.md",
+      "count": 4
+    },
+    {
+      "path": "src/ReservationSystem.h",
+      "count": 4
+    },
+    {
+      "path": "scripts/quality/check_required_checks.py",
+      "count": 4
+    },
+    {
+      "path": "src/Booking.cpp",
+      "count": 4
+    },
+    {
+      "path": "scripts/quality/check_deepscan_zero.py",
+      "count": 3
+    },
+    {
+      "path": "tests/booking_test.cpp",
+      "count": 3
+    },
+    {
+      "path": "scripts/quality/check_codacy_zero.py",
+      "count": 3
+    },
+    {
+      "path": "scripts/quality/check_sentry_zero.py",
+      "count": 3
+    },
+    {
+      "path": "src/Airplane.h",
+      "count": 3
+    },
+    {
+      "path": "tests/reservation_system_test.cpp",
+      "count": 2
+    },
+    {
+      "path": "scripts/quality/check_sonar_zero.py",
+      "count": 2
+    },
+    {
+      "path": "src/Customer.cpp",
+      "count": 2
+    },
+    {
+      "path": ".github/agents/triage.agent.md",
+      "count": 2
+    },
+    {
+      "path": "src/Seat.h",
+      "count": 2
+    },
+    {
+      "path": "src/Person.h",
+      "count": 2
+    },
+    {
+      "path": ".github/agents/security-sheriff.agent.md",
+      "count": 1
+    },
+    {
+      "path": "scripts/quality/check_quality_secrets.py",
+      "count": 1
+    },
+    {
+      "path": ".github/agents/release-assistant.agent.md",
+      "count": 1
+    },
+    {
+      "path": "scripts/security_helpers.py",
+      "count": 1
+    },
+    {
+      "path": "airline-gui/src/components/SwapSeatsForm.js",
+      "count": 1
+    },
+    {
+      "path": "src/Customer.h",
+      "count": 1
+    },
+    {
+      "path": "src/Airplane.cpp",
+      "count": 1
+    },
+    {
+      "path": ".github/agents/docs-gardener.agent.md",
+      "count": 1
+    },
+    {
+      "path": "src/main.cpp",
+      "count": 1
+    },
+    {
+      "path": ".github/agents/ui-polish.agent.md",
+      "count": 1
+    },
+    {
+      "path": "airline-gui/src/App.js",
+      "count": 1
+    }
+  ],
+  "sample_size": 239
+}

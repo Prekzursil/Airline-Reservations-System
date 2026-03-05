@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cmake -S third_party/googletest -B third_party/googletest/build \
+
+BUILD_DIR="${BUILD_DIR:-build}"
+BUILD_TYPE="${BUILD_TYPE:-Debug}"
+JOBS="${JOBS:-2}"
+TEST_EXCLUDE="${TEST_EXCLUDE:-ReservationSystemTest\\.SwapSeatsInternal_DifferentFlights}"
+
+cmake -S . -B "${BUILD_DIR}" \
+  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+  -DENABLE_COVERAGE=ON \
   -DCMAKE_CXX_STANDARD=17 \
   -DCMAKE_CXX_STANDARD_REQUIRED=ON
-cmake --build third_party/googletest/build -j2
-make clean
-make CXXFLAGS="-std=c++17 -Wall -Wextra -g -fprofile-arcs -ftest-coverage" run_tests_executable
-./run_tests_executable --gtest_filter='-ReservationSystemTest.SwapSeatsInternal_DifferentFlights'
+cmake --build "${BUILD_DIR}" -j"${JOBS}"
+ctest --test-dir "${BUILD_DIR}" -C "${BUILD_TYPE}" --output-on-failure -E "${TEST_EXCLUDE}"

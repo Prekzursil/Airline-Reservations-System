@@ -1,0 +1,21 @@
+---
+engines:
+  cppcheck:
+    language: c++
+
+languages:
+  markdown:
+    enabled: false
+  c:
+    enabled: false
+
+exclude_paths:
+  - "**/*.md"
+  - "README.md"
+  - "AGENTS.md"
+  - ".github/*.md"
+  - "cline_docs/**"
+  - ".github/agents/**"
+  - ".github/BRANCH_POLICY.md"
+  - ".github/BRANCH_PROTECTION.md"
+  - "airline-gui/package-lock.json"

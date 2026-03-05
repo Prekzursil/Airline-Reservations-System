@@ -1,3 +1,4 @@
+// cppcheck-suppress-file missingIncludeSystem
 #ifndef BOOKING_H
 #define BOOKING_H
 

@@ -16,6 +16,7 @@ run_tests_executable
 *.gcov
 coverage.info
 coverage_report/
+coverage-100/
 
 # React specific (inside airline-gui)
 airline-gui/node_modules/
@@ -23,6 +24,12 @@ airline-gui/build/
 airline-gui/.pnp
 airline-gui/.pnp.js
 airline-gui/coverage/ # if Jest coverage is run
+
+# Python runtime/cache artifacts
+__pycache__/
+scripts/__pycache__/
+scripts/quality/__pycache__/
+tests/__pycache__/
 
 # OS generated files
 .DS_Store

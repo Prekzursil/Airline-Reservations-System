@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { swapSeats, fetchBookings } from '../services/apiService';
 
-const SwapSeatsForm = ({ onSeatsSwapped, refreshTrigger }) => { // Added refreshTrigger prop
+const SwapSeatsForm = ({ onSeatsSwapped, refreshTrigger }) => {
     const [allBookings, setAllBookings] = useState([]);
-    const [selectedBooking1, setSelectedBooking1] = useState(null); // { value, label }
-    const [selectedBooking2, setSelectedBooking2] = useState(null); // { value, label }
+    const [selectedBooking1, setSelectedBooking1] = useState(null);
+    const [selectedBooking2, setSelectedBooking2] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
     const [loadingBookings, setLoadingBookings] = useState(false);
     const [errorLoadingBookings, setErrorLoadingBookings] = useState('');
 
     useEffect(() => {
-        console.log("SwapSeatsForm useEffect triggered, refreshTrigger:", refreshTrigger); // DEBUG
         const loadBookings = async () => {
             setLoadingBookings(true);
             setErrorLoadingBookings('');
@@ -27,23 +26,30 @@ const SwapSeatsForm = ({ onSeatsSwapped, refreshTrigger }) => { // Added refresh
             }
         };
         loadBookings();
-    }, [refreshTrigger]); // Add refreshTrigger to dependency array
+    }, [refreshTrigger]);
 
     const bookingOptions = allBookings
-        .filter(b => b.status === "Confirmed") // Match case from API "Confirmed"
+        .filter(b => b.status === "Confirmed")
         .map(b => ({
             value: b.bookingId,
             label: `ID: ${b.bookingId} (Cust: ${b.customerId}, Flight: ${b.flightNumber}, Seat: ${b.seatId})`
         }));
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const validationMessage = () => {
         if (!selectedBooking1 || !selectedBooking1.value || !selectedBooking2 || !selectedBooking2.value) {
-            setStatusMessage('Please select both bookings.');
-            return;
+            return 'Please select both bookings.';
         }
         if (selectedBooking1.value === selectedBooking2.value) {
-            setStatusMessage('Booking IDs must be different.');
+            return 'Booking IDs must be different.';
+        }
+        return '';
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const message = validationMessage();
+        if (message) {
+            setStatusMessage(message);
             return;
         }
         setStatusMessage('Processing seat swap...');
@@ -79,7 +85,6 @@ const SwapSeatsForm = ({ onSeatsSwapped, refreshTrigger }) => { // Added refresh
                         isSearchable
                         placeholder="Select Booking 1..."
                         isDisabled={loadingBookings || bookingOptions.length === 0}
-                        styles={{ container: base => ({ ...base, width: '100%', maxWidth: '500px' }) }}
                     />
                 </div>
                 <div style={{ marginBottom: '10px' }}>
@@ -93,7 +98,6 @@ const SwapSeatsForm = ({ onSeatsSwapped, refreshTrigger }) => { // Added refresh
                         isSearchable
                         placeholder="Select Booking 2..."
                         isDisabled={loadingBookings || bookingOptions.length === 0}
-                        styles={{ container: base => ({ ...base, width: '100%', maxWidth: '500px' }) }}
                     />
                 </div>
                 <button type="submit" style={{marginTop: '10px'}} disabled={loadingBookings || !selectedBooking1 || !selectedBooking2}>
