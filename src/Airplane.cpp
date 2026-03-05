@@ -2,11 +2,18 @@
 #include "Airplane.h"
 #include <algorithm> // For std::find_if
 
+namespace {
+void applyAirplaneLayout(int rows, int seatsPerRow, int& totalRowsOut, int& seatsPerRowOut, int& bookedSeatsOut) {
+    totalRowsOut = rows > 0 ? rows : 1;
+    seatsPerRowOut = seatsPerRow > 0 ? seatsPerRow : 1;
+    bookedSeatsOut = 0;
+}
+} // namespace
+
 // Constructor
 Airplane::Airplane(const std::string& flightNum, int rows, int sPerRow)
-    : flightNumber(flightNum), totalRows(rows), seatsPerRow(sPerRow), bookedSeatsCount(0) {
-    if (this->totalRows <= 0) this->totalRows = 1; // Min 1 row
-    if (this->seatsPerRow <= 0) this->seatsPerRow = 1; // Min 1 seat per row
+    : flightNumber(flightNum) {
+    applyAirplaneLayout(rows, sPerRow, totalRows, seatsPerRow, bookedSeatsCount);
     initializeSeats();
     // std::cout << "Airplane constructor called for " << this->flightNumber << std::endl; // Optional
 }

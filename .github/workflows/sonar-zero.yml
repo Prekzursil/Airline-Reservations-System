@@ -34,6 +34,7 @@ jobs:
         run: |
           python3 -m scripts.quality.check_sonar_zero \
             --project-key "Prekzursil_Airline-Reservations-System" \
+            --branch "${{ github.ref_name }}" \
             --token "${SC_TOKEN}"
       - name: Upload Sonar artifacts
         if: always()

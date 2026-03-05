@@ -55,6 +55,7 @@ set(CORE_SOURCES
   src/Customer.cpp
   src/Person.cpp
   src/ReservationSystem.cpp
+  src/ReservationSystemHelpers.cpp
   src/Seat.cpp
 )
 
