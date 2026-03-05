@@ -70,7 +70,20 @@ void respond_json(httplib::Response& res, const json& payload, int status = 200)
 }
 
 bool contains_fragment(std::string_view text, std::string_view needle) {
-    return text.find(needle) != std::string_view::npos;
+    if (needle.empty()) {
+        return true;
+    }
+    if (needle.size() > text.size()) {
+        return false;
+    }
+
+    const size_t last_start = text.size() - needle.size();
+    for (size_t index = 0; index <= last_start; ++index) {
+        if (text.substr(index, needle.size()) == needle) {
+            return true;
+        }
+    }
+    return false;
 }
 
 int booking_error_status(std::string_view message) {
