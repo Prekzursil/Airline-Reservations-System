@@ -76,6 +76,17 @@ const buildRequestTarget = (path) => `${API_BASE_PATH}${normalizeApiPath(path)}`
 
 const jsonHeaders = { 'Content-Type': JSON_CONTENT_TYPE };
 
+const encodePathSegment = (value, label) => {
+  const text = String(value || '').trim();
+  if (!text) {
+    throw new Error(`Invalid ${label}: value is required`);
+  }
+  if (text.includes('/') || text.includes('\\')) {
+    throw new Error(`Invalid ${label}: path separators are not allowed`);
+  }
+  return encodeURIComponent(text);
+};
+
 const parseErrorMessage = async (response) => {
   try {
     const errorBody = await response.json();
@@ -89,10 +100,7 @@ const parseErrorMessage = async (response) => {
   return UNKNOWN_ERROR;
 };
 
-const requestJson = async (path, options = {}, includeErrorBody = false) => {
-  // nosemgrep: semgrep_rules_lgpl_javascript_ssrf_rule-node-ssrf
-  // Request target is constrained to same-origin relative paths by buildRequestTarget().
-  const response = await fetch(buildRequestTarget(path), options);
+const parseResponseJson = async (response, includeErrorBody = false) => {
   if (!response.ok) {
     if (!includeErrorBody) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -103,54 +111,70 @@ const requestJson = async (path, options = {}, includeErrorBody = false) => {
   return response.json();
 };
 
-export const fetchAirplanes = async () => requestJson('/airplanes');
+export const fetchAirplanes = async () => {
+  const response = await fetch(buildRequestTarget('/airplanes'));
+  return parseResponseJson(response);
+};
 
-export const fetchAirplaneDetails = async (flightNumber) => requestJson(`/airplanes/${flightNumber}`);
+export const fetchAirplaneDetails = async (flightNumber) => {
+  const safeFlightNumber = encodePathSegment(flightNumber, 'flight number');
+  const response = await fetch(buildRequestTarget(`/airplanes/${safeFlightNumber}`));
+  return parseResponseJson(response);
+};
 
-export const fetchCustomers = async () => requestJson('/customers');
+export const fetchCustomers = async () => {
+  const response = await fetch(buildRequestTarget('/customers'));
+  return parseResponseJson(response);
+};
 
 export const addCustomer = async (customerData) =>
-  requestJson(
-    '/customers',
-    {
+  parseResponseJson(
+    await fetch(buildRequestTarget('/customers'), {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(customerData)
-    },
+    }),
     true
   );
 
 export const createBooking = async (bookingData) =>
-  requestJson(
-    '/bookings',
-    {
+  parseResponseJson(
+    await fetch(buildRequestTarget('/bookings'), {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(bookingData)
-    },
+    }),
     true
   );
 
-export const fetchCustomerDetails = async (customerId) => requestJson(`/customers/${customerId}`, {}, true);
+export const fetchCustomerDetails = async (customerId) => {
+  const safeCustomerId = encodePathSegment(customerId, 'customer id');
+  const response = await fetch(buildRequestTarget(`/customers/${safeCustomerId}`));
+  return parseResponseJson(response, true);
+};
 
 export const cancelBooking = async (bookingId) =>
-  requestJson(
-    `/bookings/${bookingId}`,
-    {
+  parseResponseJson(
+    await fetch(buildRequestTarget(`/bookings/${encodePathSegment(bookingId, 'booking id')}`), {
       method: 'DELETE'
-    },
+    }),
     true
   );
 
-export const fetchBookings = async () => requestJson('/bookings', {}, true);
+export const fetchBookings = async () => {
+  const response = await fetch(buildRequestTarget('/bookings'));
+  return parseResponseJson(response, true);
+};
 
 export const swapSeats = async (bookingId1, bookingId2) =>
-  requestJson(
-    '/bookings/swap',
-    {
+  parseResponseJson(
+    await fetch(buildRequestTarget('/bookings/swap'), {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({ bookingId1, bookingId2 })
-    },
+      body: JSON.stringify({
+        bookingId1: encodePathSegment(bookingId1, 'booking id 1'),
+        bookingId2: encodePathSegment(bookingId2, 'booking id 2')
+      })
+    }),
     true
   );
