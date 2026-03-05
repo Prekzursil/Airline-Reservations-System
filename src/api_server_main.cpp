@@ -1,7 +1,6 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
-#include <algorithm>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -71,7 +70,7 @@ void respond_json(httplib::Response& res, const json& payload, int status = 200)
 }
 
 bool contains_fragment(std::string_view text, std::string_view needle) {
-    return std::search(text.cbegin(), text.cend(), needle.cbegin(), needle.cend()) != text.cend();
+    return text.find(needle) != std::string_view::npos;
 }
 
 int booking_error_status(std::string_view message) {
@@ -112,17 +111,13 @@ const Booking* find_confirmed_booking_for_seat(
     const std::vector<Booking>& bookings,
     std::string_view flight_number,
     std::string_view seat_id) {
-    const auto booking_it = std::find_if(
-        bookings.cbegin(),
-        bookings.cend(),
-        [flight_number, seat_id](const Booking& booking) {
-            return booking.getFlightNumber() == flight_number && booking.getSeatId() == seat_id &&
-                   booking.getStatus() == BookingStatus::CONFIRMED;
-        });
-    if (booking_it == bookings.cend()) {
-        return nullptr;
+    for (const Booking& booking : bookings) {
+        if (booking.getFlightNumber() == flight_number && booking.getSeatId() == seat_id &&
+            booking.getStatus() == BookingStatus::CONFIRMED) {
+            return &booking;
+        }
     }
-    return &(*booking_it);
+    return nullptr;
 }
 
 json build_airplane_details(const ReservationSystem& airline_system, const Airplane& plane) {
@@ -169,7 +164,7 @@ json build_customer_details(const ReservationSystem& airline_system, const Custo
     return customer_json;
 }
 
-void handle_list_airplanes(ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
+void handle_list_airplanes(const ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
     json airplane_list = json::array();
     for (const auto& plane : airline_system.getAirplanesForTest()) {
         json plane_json;
@@ -188,7 +183,7 @@ void handle_airplane_details(ReservationSystem& airline_system, const httplib::R
     respond_json(res, json{{"error", "Airplane not found"}}, 404);
 }
 
-void handle_list_customers(ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
+void handle_list_customers(const ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
     respond_json(res, json(airline_system.getCustomersForTest()));
 }
 
@@ -201,7 +196,7 @@ void handle_customer_details(ReservationSystem& airline_system, const httplib::R
     respond_json(res, json{{"error", "Customer not found"}}, 404);
 }
 
-void handle_list_bookings(ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
+void handle_list_bookings(const ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
     respond_json(res, json(airline_system.getBookingsForTest()));
 }
 

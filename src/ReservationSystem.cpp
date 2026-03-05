@@ -48,7 +48,7 @@ std::string buildDeterministicAutoName(
     const std::string& customerId,
     std::uint64_t seed
 ) {
-    const size_t nameIndex = static_cast<size_t>(seed % firstNames.size());
+    const auto nameIndex = seed % firstNames.size();
     return firstNames[nameIndex] + "_" + customerId;
 }
 
@@ -331,7 +331,7 @@ void ReservationSystem::handleBookSeat() {
     // customer->displayDetails(); // Uses std::cout, need to pass m_cout_ptr or refactor
 
     printAvailableFlights(*m_cout_ptr, airplanes);
-    const int maxChoice = static_cast<int>(airplanes.size());
+    const auto maxChoice = static_cast<int>(airplanes.size());
     const int flightChoice = getMenuChoice(1, maxChoice) - 1;
     Airplane& airplane = airplanes[static_cast<size_t>(flightChoice)];
     
