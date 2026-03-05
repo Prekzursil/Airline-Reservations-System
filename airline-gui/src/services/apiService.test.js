@@ -219,7 +219,7 @@ describe('apiService', () => {
     expect(() => __internal.encodePathSegment('a/b', 'booking id')).toThrow(
       'Invalid booking id: path separators are not allowed'
     );
-    expect(() => __internal.encodePathSegment('a\\b', 'booking id')).toThrow(
+    expect(() => __internal.encodePathSegment(String.raw`a\b`, 'booking id')).toThrow(
       'Invalid booking id: path separators are not allowed'
     );
   });
