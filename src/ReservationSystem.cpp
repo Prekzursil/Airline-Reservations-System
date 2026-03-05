@@ -224,7 +224,7 @@ void ReservationSystem::handleBookSeat() {
     }
 
     std::string custId = getValidatedInput<std::string>("Enter Customer ID: ");
-    Customer* customer = findCustomerById(custId);
+    const auto* customer = findCustomerById(custId);
     if (!customer) {
         (*m_cout_ptr) << "Customer with ID " << custId << " not found." << std::endl;
         return;
@@ -232,7 +232,7 @@ void ReservationSystem::handleBookSeat() {
     // customer->displayDetails(); // Uses std::cout, need to pass m_cout_ptr or refactor
 
     printAvailableFlights(*m_cout_ptr, airplanes);
-    const int maxChoice = static_cast<int>(airplanes.size());
+    const auto maxChoice = static_cast<int>(airplanes.size());
     int flightChoice = getMenuChoice(1, maxChoice) - 1;
     Airplane* airplane = &airplanes[static_cast<size_t>(flightChoice)];
     
@@ -260,14 +260,13 @@ void ReservationSystem::handleBookSeat() {
         return;
     }
 
-    char confirm = getValidatedInput<char>("Confirm booking? (y/n): ");
-    if (!isAffirmative(confirm)) {
+    if (const auto confirm = getValidatedInput<char>("Confirm booking? (y/n): "); !isAffirmative(confirm)) {
         (*m_cout_ptr) << "Booking cancelled by user." << std::endl;
         return;
     }
 
     std::string bookingStatusMessage;
-    Booking* booking = createBookingInternal(
+    const auto* booking = createBookingInternal(
         customer->getPersonId(),
         airplane->getFlightNumber(),
         seat->getSeatId(),
@@ -288,9 +287,9 @@ void ReservationSystem::handleViewFlightDetails() {
         return;
     }
     printAvailableFlights(*m_cout_ptr, airplanes);
-    const int maxChoice = static_cast<int>(airplanes.size());
+    const auto maxChoice = static_cast<int>(airplanes.size());
     int flightChoice = getMenuChoice(1, maxChoice) - 1;
-    Airplane* airplane = &airplanes[static_cast<size_t>(flightChoice)];
+    const auto* airplane = &airplanes[static_cast<size_t>(flightChoice)];
     (void)airplane; // Mark as used
 
     // airplane->displaySeatingMap(); 
@@ -330,7 +329,7 @@ void ReservationSystem::handleCancelBooking() {
         return;
     }
     std::string bookingIdToCancel = getValidatedInput<std::string>("Enter Booking ID to cancel: ");
-    Booking* booking = findBookingById(bookingIdToCancel);
+    const auto* booking = findBookingById(bookingIdToCancel);
 
     if (!booking) {
         (*m_cout_ptr) << "Booking with ID " << bookingIdToCancel << " not found." << std::endl;
@@ -341,16 +340,13 @@ void ReservationSystem::handleCancelBooking() {
         return;
     }
     // booking->displayBookingDetails(); 
-    char confirm = getValidatedInput<char>("Confirm cancellation? (y/n): ");
-
-    if (!isAffirmative(confirm)) {
+    if (const auto confirm = getValidatedInput<char>("Confirm cancellation? (y/n): "); !isAffirmative(confirm)) {
         (*m_cout_ptr) << "Cancellation aborted by user." << std::endl;
         return;
     }
 
     std::string cancelStatusMessage;
-    const bool cancelled = cancelBookingInternal(bookingIdToCancel, cancelStatusMessage);
-    if (cancelled) {
+    if (const auto cancelled = cancelBookingInternal(bookingIdToCancel, cancelStatusMessage); cancelled) {
         (*m_cout_ptr) << cancelStatusMessage << std::endl;
         return;
     }
