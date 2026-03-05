@@ -5,7 +5,8 @@
 
 // Constructors
 Customer::Customer(const std::string& name, int age, const std::string& personId, double money)
-    : Person(name, age, personId), money(money) {
+    : Person(name, age, personId) {
+    this->money = money;
     // std::cout << "Customer constructor called for " << this->name << std::endl; // Optional: for debugging
 }
 

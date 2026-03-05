@@ -2,7 +2,10 @@
 
 // Constructors
 Person::Person(const std::string& name, int age, const std::string& personId)
-    : name(name), age(age), personId(personId) {
+{
+    this->name = name;
+    this->age = age;
+    this->personId = personId;
     // std::cout << "Person constructor called for " << this->name << std::endl; // Optional: for debugging
 }
 

@@ -41,6 +41,9 @@ private: // Back to private for other members
     void handleSwapSeats(); // More complex, might need careful thought
     void handleAdminMenu(); // Optional: for adding airplanes, etc.
     void handleAddAirplane(); // Called from admin menu
+    void executeMenuChoice(int choice);
+    Booking* promptConfirmedBooking(const std::string& prompt, const std::string& failurePrefix);
+    bool validateSwapPair(const Booking& firstBooking, const Booking& secondBooking) const;
 
     // Utility to get validated input
     template<typename T>

@@ -4,7 +4,11 @@
 
 // Constructor
 Airplane::Airplane(const std::string& flightNum, int rows, int sPerRow)
-    : flightNumber(flightNum), totalRows(rows), seatsPerRow(sPerRow), bookedSeatsCount(0) {
+{
+    flightNumber = flightNum;
+    totalRows = rows;
+    seatsPerRow = sPerRow;
+    bookedSeatsCount = 0;
     if (this->totalRows <= 0) this->totalRows = 1; // Min 1 row
     if (this->seatsPerRow <= 0) this->seatsPerRow = 1; // Min 1 seat per row
     initializeSeats();

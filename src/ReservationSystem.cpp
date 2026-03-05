@@ -1,191 +1,16 @@
 #include "ReservationSystem.h"
+#include "ReservationSystemHelpers.h"
+#include <array>
 #include <iostream>
-#include <sstream>   // For ID generation
 
 static int g_customerIdCounter = 1; // Global static for resettable ID generation
 
-namespace {
-using SeedValue = unsigned long long;
-
-bool isAffirmative(char value) {
-    return value == 'y' || value == 'Y';
-}
-
-struct AutoCustomerData {
-    std::string name;
-    int age;
-    double money;
-};
-
-std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::string& prompt) {
-    std::string value;
-    out << prompt;
-    std::getline(in, value);
-    if (!value.empty()) {
-        return value;
-    }
-    out << "Input cannot be empty. Please try again: ";
-    std::getline(in, value);
-    return value;
-}
-
-constexpr int kMinimumAutoAge = 18;
-constexpr int kMaximumAutoAge = 80;
-constexpr int kMinimumAutoMoneyCents = 10000;
-constexpr int kMaximumAutoMoneyCents = 200000;
-
-SeedValue buildDeterministicSeed(const std::string& value, SeedValue salt) {
-    SeedValue hash = 1469598103934665603ULL ^ salt;
-    for (const char ch : value) {
-        hash ^= static_cast<SeedValue>(static_cast<unsigned char>(ch));
-        hash *= 1099511628211ULL;
-    }
-    return hash;
-}
-
-std::string buildDeterministicAutoName(
-    const std::vector<std::string>& firstNames,
-    const std::string& customerId,
-    SeedValue seed
-) {
-    const auto nameIndex = seed % firstNames.size();
-    return firstNames[nameIndex] + "_" + customerId;
-}
-
-int buildDeterministicAutoAge(SeedValue seed) {
-    const int ageRange = kMaximumAutoAge - kMinimumAutoAge + 1;
-    return kMinimumAutoAge + static_cast<int>(seed % static_cast<SeedValue>(ageRange));
-}
-
-double buildDeterministicAutoMoney(SeedValue seed) {
-    const int moneyRange = kMaximumAutoMoneyCents - kMinimumAutoMoneyCents + 1;
-    const int moneyCents = kMinimumAutoMoneyCents + static_cast<int>(seed % static_cast<SeedValue>(moneyRange));
-    return static_cast<double>(moneyCents) / 100.0;
-}
-
-AutoCustomerData generateAutoCustomerData(const std::string& newId) {
-    static const std::vector<std::string> firstNames = {
-        "AutoPat",
-        "RoboUser",
-        "GenClient",
-        "SysPerson",
-        "BotPassenger",
-    };
-    const SeedValue seed = buildDeterministicSeed(newId, 0x9E3779B97F4A7C15ULL);
-    const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
-    const int age = buildDeterministicAutoAge(seed >> 8U);
-    const double money = buildDeterministicAutoMoney(seed >> 16U);
-    return {name, age, money};
-}
-
-AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
-    static const std::vector<std::string> firstNames = {
-        "ApiPat",
-        "WebServiceUser",
-        "JsonGenClient",
-        "SystemPerson",
-        "BackendBot",
-    };
-    const SeedValue seed = buildDeterministicSeed(newId, 0xD1B54A32D192ED03ULL);
-    const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
-    const int age = buildDeterministicAutoAge(seed >> 8U);
-    const double money = buildDeterministicAutoMoney(seed >> 16U);
-    return {name, age, money};
-}
-
-std::string formatCustomerId(int counter) {
-    std::string numeric_part = std::to_string(counter);
-    while (numeric_part.size() < 4U) {
-        numeric_part.insert(numeric_part.begin(), '0');
-    }
-    return "CUST" + numeric_part;
-}
-
-std::string formatMoneyAmount(double amount) {
-    const auto cents = static_cast<long long>(amount * 100.0 + (amount >= 0.0 ? 0.5 : -0.5));
-    const long long dollars = cents / 100;
-    const long long remainder = cents >= 0 ? cents % 100 : -(cents % 100);
-
-    std::ostringstream out;
-    out << dollars << '.';
-    if (remainder < 10) {
-        out << '0';
-    }
-    out << remainder;
-    return out.str();
-}
-
-void printAvailableFlights(std::ostream& out, const std::vector<Airplane>& availableAirplanes) {
-    out << "\nAvailable Flights:" << std::endl;
-    for (size_t i = 0; i < availableAirplanes.size(); ++i) {
-        out << i + 1 << ". Flight " << availableAirplanes[i].getFlightNumber() << std::endl;
-    }
-}
-
-void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& suggestions) {
-    if (suggestions.empty()) {
-        return;
-    }
-    out << "Perhaps one of these seats instead?" << std::endl;
-    for (const Seat* suggestedSeat : suggestions) {
-        if (suggestedSeat == nullptr) {
-            continue;
-        }
-        out << "- " << suggestedSeat->getSeatId() << " (" << suggestedSeat->getSeatClassString()
-            << ") costs $" << suggestedSeat->getPrice() << std::endl;
-    }
-}
-
-bool hasBookSeatPrerequisites(
-    std::ostream& out,
-    const std::vector<Airplane>& availableAirplanes,
-    const std::vector<Customer>& knownCustomers
-) {
-    if (availableAirplanes.empty()) {
-        out << "No flights available to book." << std::endl;
-        return false;
-    }
-    if (knownCustomers.empty()) {
-        out << "No customers in the system. Please add a customer first." << std::endl;
-        return false;
-    }
-    return true;
-}
-
-bool tryPrepareSeatForBooking(
-    std::ostream& out,
-    Airplane& airplane,
-    const Customer& customer,
-    const std::string& seatIdToBook,
-    Seat*& selectedSeat
-) {
-    selectedSeat = airplane.findSeat(seatIdToBook);
-    if (selectedSeat == nullptr) {
-        out << "Seat " << seatIdToBook << " does not exist on this flight." << std::endl;
-        return false;
-    }
-    if (selectedSeat->getIsBooked()) {
-        out << "Seat " << seatIdToBook << " is already booked." << std::endl;
-        return false;
-    }
-
-    const double seatPrice = selectedSeat->getPrice();
-    out << "Seat " << seatIdToBook << " (" << selectedSeat->getSeatClassString() << ") costs $" << seatPrice << std::endl;
-
-    if (customer.getMoney() < seatPrice) {
-        out << "Insufficient funds. You have $" << customer.getMoney() << ", seat costs $" << seatPrice << "." << std::endl;
-        const std::vector<const Seat*> suggestions = airplane.suggestLowerPriceSeats(&customer, customer.getMoney());
-        printSeatSuggestions(out, suggestions);
-        return false;
-    }
-
-    return true;
-}
-} // namespace
+namespace rsh = reservation_system_helpers;
 
 // Constructor
-ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
-    : m_cin_ptr(&cin_ref), m_cout_ptr(&cout_ref) {
+ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref) {
+    m_cin_ptr = &cin_ref;
+    m_cout_ptr = &cout_ref;
     // (*m_cout_ptr) << "ReservationSystem constructor called." << std::endl; // Optional
     initializeSystem(); // Populate with some initial data
 }
@@ -227,7 +52,7 @@ void ReservationSystem::initializeSystem() {
 std::string ReservationSystem::generateUniqueCustomerId() {
     const int nextCounter = g_customerIdCounter;
     ++g_customerIdCounter;
-    return formatCustomerId(nextCounter);
+    return rsh::formatCustomerId(nextCounter);
 }
 
 Customer* ReservationSystem::findCustomerById(const std::string& customerId) {
@@ -287,23 +112,39 @@ int ReservationSystem::getMenuChoice(int minChoice, int maxChoice) {
 }
 
 void ReservationSystem::run() {
-    int choice;
-    do {
+    while (true) {
         displayMainMenu();
-        choice = getMenuChoice(0, 7);
-
-        switch (choice) {
-            case 1: handleAddCustomer(); break;
-            case 2: handleBookSeat(); break;
-            case 3: handleViewFlightDetails(); break;
-            case 4: handleSearchCustomer(); break;
-            case 5: handleCancelBooking(); break;
-            case 6: handleSwapSeats(); break;
-            case 7: handleAdminMenu(); break;
-            case 0: (*m_cout_ptr) << "Exiting system. Goodbye!" << std::endl; break;
-            default: (*m_cout_ptr) << "Invalid choice. Please try again." << std::endl; break;
+        const int choice = getMenuChoice(0, 7);
+        executeMenuChoice(choice);
+        if (choice == 0) {
+            break;
         }
-    } while (choice != 0);
+    }
+}
+
+void ReservationSystem::executeMenuChoice(int choice) {
+    using MenuAction = void (ReservationSystem::*)();
+    static constexpr std::array<MenuAction, 7> kActions = {
+        &ReservationSystem::handleAddCustomer,
+        &ReservationSystem::handleBookSeat,
+        &ReservationSystem::handleViewFlightDetails,
+        &ReservationSystem::handleSearchCustomer,
+        &ReservationSystem::handleCancelBooking,
+        &ReservationSystem::handleSwapSeats,
+        &ReservationSystem::handleAdminMenu,
+    };
+
+    if (choice == 0) {
+        (*m_cout_ptr) << "Exiting system. Goodbye!" << std::endl;
+        return;
+    }
+
+    if (choice >= 1 && choice <= static_cast<int>(kActions.size())) {
+        (this->*kActions[static_cast<size_t>(choice - 1)])();
+        return;
+    }
+
+    (*m_cout_ptr) << "Invalid choice. Please try again." << std::endl;
 }
 
 void ReservationSystem::handleAddCustomer() {
@@ -316,7 +157,7 @@ void ReservationSystem::handleAddCustomer() {
     double money = 0.0;
 
     if (choice == 'a' || choice == 'A') {
-        const AutoCustomerData generated = generateAutoCustomerData(newId);
+        const rsh::AutoCustomerData generated = rsh::generateAutoCustomerData(newId);
         name = generated.name;
         age = generated.age;
         money = generated.money;
@@ -324,9 +165,9 @@ void ReservationSystem::handleAddCustomer() {
         (*m_cout_ptr) << "Generated Customer:" << std::endl;
         (*m_cout_ptr) << "  Name: " << name << std::endl;
         (*m_cout_ptr) << "  Age: " << age << std::endl;
-        (*m_cout_ptr) << "  Money: $" << formatMoneyAmount(money) << std::endl;
+        (*m_cout_ptr) << "  Money: $" << rsh::formatMoneyAmount(money) << std::endl;
     } else if (choice == 'm' || choice == 'M') {
-        name = readNonEmptyLine(*m_cin_ptr, *m_cout_ptr, "Enter customer name: ");
+        name = rsh::readNonEmptyLine(*m_cin_ptr, *m_cout_ptr, "Enter customer name: ");
         age = getValidatedInput<int>("Enter customer age: ");
         money = getValidatedInput<double>("Enter initial money: ");
     } else {
@@ -340,7 +181,7 @@ void ReservationSystem::handleAddCustomer() {
 
 void ReservationSystem::handleBookSeat() {
     (*m_cout_ptr) << "\n--- Book a Seat ---" << std::endl;
-    if (!hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers)) {
+    if (!rsh::hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers)) {
         return;
     }
 
@@ -352,7 +193,7 @@ void ReservationSystem::handleBookSeat() {
     }
     // customer->displayDetails(); // Uses std::cout, need to pass m_cout_ptr or refactor
 
-    printAvailableFlights(*m_cout_ptr, airplanes);
+    rsh::printAvailableFlights(*m_cout_ptr, airplanes);
     const auto maxChoice = static_cast<int>(airplanes.size());
     const int flightChoice = getMenuChoice(1, maxChoice) - 1;
     Airplane& airplane = airplanes[static_cast<size_t>(flightChoice)];
@@ -363,11 +204,11 @@ void ReservationSystem::handleBookSeat() {
 
     const std::string seatIdToBook = getValidatedInput<std::string>("Enter Seat ID to book (e.g., 1A): ");
     Seat* seat = nullptr;
-    if (!tryPrepareSeatForBooking(*m_cout_ptr, airplane, *customer, seatIdToBook, seat)) {
+    if (!rsh::tryPrepareSeatForBooking(*m_cout_ptr, airplane, *customer, seatIdToBook, seat)) {
         return;
     }
 
-    if (const auto confirm = getValidatedInput<char>("Confirm booking? (y/n): "); !isAffirmative(confirm)) {
+    if (const auto confirm = getValidatedInput<char>("Confirm booking? (y/n): "); !rsh::isAffirmative(confirm)) {
         (*m_cout_ptr) << "Booking cancelled by user." << std::endl;
         return;
     }
@@ -393,7 +234,7 @@ void ReservationSystem::handleViewFlightDetails() {
         (*m_cout_ptr) << "No flights available to view." << std::endl;
         return;
     }
-    printAvailableFlights(*m_cout_ptr, airplanes);
+    rsh::printAvailableFlights(*m_cout_ptr, airplanes);
     const auto maxChoice = static_cast<int>(airplanes.size());
     int flightChoice = getMenuChoice(1, maxChoice) - 1;
     const auto* airplane = &airplanes[static_cast<size_t>(flightChoice)];
@@ -447,7 +288,7 @@ void ReservationSystem::handleCancelBooking() {
         return;
     }
     // booking->displayBookingDetails(); 
-    if (const auto confirm = getValidatedInput<char>("Confirm cancellation? (y/n): "); !isAffirmative(confirm)) {
+    if (const auto confirm = getValidatedInput<char>("Confirm cancellation? (y/n): "); !rsh::isAffirmative(confirm)) {
         (*m_cout_ptr) << "Cancellation aborted by user." << std::endl;
         return;
     }
@@ -467,57 +308,75 @@ void ReservationSystem::handleSwapSeats() {
         (*m_cout_ptr) << "Not enough bookings in the system to perform a swap." << std::endl;
         return;
     }
-    std::string bookingId1_str = getValidatedInput<std::string>("Enter Booking ID of the first customer: ");
-    Booking* booking1 = findBookingById(bookingId1_str);
-    if (!booking1 || booking1->getStatus() != BookingStatus::CONFIRMED) {
-        (*m_cout_ptr) << "First booking ID not found or not confirmed." << std::endl;
+    Booking* booking1 = promptConfirmedBooking(
+        "Enter Booking ID of the first customer: ",
+        "First booking ID"
+    );
+    if (booking1 == nullptr) {
         return;
     }
-    std::string bookingId2_str = getValidatedInput<std::string>("Enter Booking ID of the second customer: ");
-    Booking* booking2 = findBookingById(bookingId2_str);
-    if (!booking2 || booking2->getStatus() != BookingStatus::CONFIRMED) {
-        (*m_cout_ptr) << "Second booking ID not found or not confirmed." << std::endl;
+
+    Booking* booking2 = promptConfirmedBooking(
+        "Enter Booking ID of the second customer: ",
+        "Second booking ID"
+    );
+    if (booking2 == nullptr) {
         return;
     }
-    if (booking1->getBookingId() == booking2->getBookingId()) {
-        (*m_cout_ptr) << "Cannot swap a booking with itself." << std::endl;
+
+    if (!validateSwapPair(*booking1, *booking2)) {
         return;
     }
-    if (booking1->getFlightNumber() != booking2->getFlightNumber()) {
-        (*m_cout_ptr) << "Seat swaps are currently only supported for bookings on the same flight." << std::endl;
-        (*m_cout_ptr) << "Booking 1 is for flight " << booking1->getFlightNumber() 
-                  << ", Booking 2 is for flight " << booking2->getFlightNumber() << std::endl;
-        return;
-    }
+
     (*m_cout_ptr) << "\nBooking 1 Details:" << std::endl;
-    // booking1->displayBookingDetails(); 
-    Customer* cust1 = findCustomerById(booking1->getCustomerId());
-    (void)cust1; // Mark as used
-    // if(cust1) cust1->displayDetails(); 
+    const Customer* customer1 = findCustomerById(booking1->getCustomerId());
+    (void)customer1;
 
     (*m_cout_ptr) << "\nBooking 2 Details:" << std::endl;
-    // booking2->displayBookingDetails(); 
-    Customer* cust2 = findCustomerById(booking2->getCustomerId());
-    (void)cust2; // Mark as used
-    // if(cust2) cust2->displayDetails(); 
+    const Customer* customer2 = findCustomerById(booking2->getCustomerId());
+    (void)customer2;
 
     const char confirm = getValidatedInput<char>("\nConfirm swap of these two seats? (y/n): ");
-    if (isAffirmative(confirm)) {
-        std::string seatId_cust1 = booking1->getSeatId();
-        std::string seatId_cust2 = booking2->getSeatId();
-        
-        booking1->setSeatId(seatId_cust2);
-        booking2->setSeatId(seatId_cust1);
-
-        (*m_cout_ptr) << "\nSeat swap completed successfully!" << std::endl;
-        (*m_cout_ptr) << "New Booking Details:" << std::endl;
-        (*m_cout_ptr) << "--- For Booking ID " << booking1->getBookingId() << " (Customer " << booking1->getCustomerId() << "):" << std::endl;
-        // booking1->displayBookingDetails(); 
-        (*m_cout_ptr) << "--- For Booking ID " << booking2->getBookingId() << " (Customer " << booking2->getCustomerId() << "):" << std::endl;
-        // booking2->displayBookingDetails(); 
-    } else {
+    if (!rsh::isAffirmative(confirm)) {
         (*m_cout_ptr) << "Seat swap cancelled by user." << std::endl;
+        return;
     }
+
+    const std::string firstSeatId = booking1->getSeatId();
+    const std::string secondSeatId = booking2->getSeatId();
+    booking1->setSeatId(secondSeatId);
+    booking2->setSeatId(firstSeatId);
+
+    (*m_cout_ptr) << "\nSeat swap completed successfully!" << std::endl;
+    (*m_cout_ptr) << "New Booking Details:" << std::endl;
+    (*m_cout_ptr) << "--- For Booking ID " << booking1->getBookingId() << " (Customer " << booking1->getCustomerId() << "):" << std::endl;
+    (*m_cout_ptr) << "--- For Booking ID " << booking2->getBookingId() << " (Customer " << booking2->getCustomerId() << "):" << std::endl;
+}
+
+Booking* ReservationSystem::promptConfirmedBooking(const std::string& prompt, const std::string& failurePrefix) {
+    const std::string bookingId = getValidatedInput<std::string>(prompt);
+    Booking* booking = findBookingById(bookingId);
+    if (booking == nullptr || booking->getStatus() != BookingStatus::CONFIRMED) {
+        (*m_cout_ptr) << failurePrefix << " not found or not confirmed." << std::endl;
+        return nullptr;
+    }
+    return booking;
+}
+
+bool ReservationSystem::validateSwapPair(const Booking& firstBooking, const Booking& secondBooking) const {
+    if (firstBooking.getBookingId() == secondBooking.getBookingId()) {
+        (*m_cout_ptr) << "Cannot swap a booking with itself." << std::endl;
+        return false;
+    }
+
+    if (firstBooking.getFlightNumber() != secondBooking.getFlightNumber()) {
+        (*m_cout_ptr) << "Seat swaps are currently only supported for bookings on the same flight." << std::endl;
+        (*m_cout_ptr) << "Booking 1 is for flight " << firstBooking.getFlightNumber()
+                      << ", Booking 2 is for flight " << secondBooking.getFlightNumber() << std::endl;
+        return false;
+    }
+
+    return true;
 }
 
 void ReservationSystem::handleAdminMenu() {
@@ -565,7 +424,7 @@ Customer* ReservationSystem::addCustomerInternal(const std::string& name_param, 
     const std::string newId = generateUniqueCustomerId();
 
     if (autoGenerate) {
-        const AutoCustomerData generated = generateApiAutoCustomerData(newId);
+        const rsh::AutoCustomerData generated = rsh::generateApiAutoCustomerData(newId);
         name = generated.name;
         if (age <= 0) {
             age = generated.age;
