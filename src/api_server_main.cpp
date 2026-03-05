@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "Airplane.h"
@@ -69,7 +68,7 @@ void respond_json(httplib::Response& res, const json& payload, int status = 200)
     res.set_content(payload.dump(4), kJsonMimeType);
 }
 
-bool contains_fragment(std::string_view text, std::string_view needle) {
+bool contains_fragment(const std::string& text, const std::string& needle) {
     if (needle.empty()) {
         return true;
     }
@@ -86,7 +85,7 @@ bool contains_fragment(std::string_view text, std::string_view needle) {
     return false;
 }
 
-int booking_error_status(std::string_view message) {
+int booking_error_status(const std::string& message) {
     if (contains_fragment(message, "not found")) {
         return 404;
     }
@@ -99,7 +98,7 @@ int booking_error_status(std::string_view message) {
     return 400;
 }
 
-int cancel_error_status(std::string_view message) {
+int cancel_error_status(const std::string& message) {
     if (contains_fragment(message, "not found")) {
         return 404;
     }
@@ -109,7 +108,7 @@ int cancel_error_status(std::string_view message) {
     return 500;
 }
 
-int swap_error_status(std::string_view message) {
+int swap_error_status(const std::string& message) {
     if (contains_fragment(message, "not found") || contains_fragment(message, "not confirmed")) {
         return 404;
     }
@@ -122,8 +121,8 @@ int swap_error_status(std::string_view message) {
 
 const Booking* find_confirmed_booking_for_seat(
     const std::vector<Booking>& bookings,
-    std::string_view flight_number,
-    std::string_view seat_id) {
+    const std::string& flight_number,
+    const std::string& seat_id) {
     for (const Booking& booking : bookings) {
         if (booking.getFlightNumber() == flight_number && booking.getSeatId() == seat_id &&
             booking.getStatus() == BookingStatus::CONFIRMED) {
