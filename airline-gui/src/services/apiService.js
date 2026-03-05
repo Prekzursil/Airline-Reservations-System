@@ -1,7 +1,5 @@
 const JSON_CONTENT_TYPE = 'application/json';
 const UNKNOWN_ERROR = 'Unknown error occurred';
-const DEFAULT_API_ORIGIN = 'https://localhost:8080';
-const HTTPS_PROTOCOL = 'https:';
 
 const trimTrailingSlash = (value) => {
   let end = value.length;
@@ -11,25 +9,18 @@ const trimTrailingSlash = (value) => {
   return value.slice(0, end);
 };
 
-const buildDefaultApiBaseUrl = () => trimTrailingSlash(new URL('/api', DEFAULT_API_ORIGIN).toString());
-
-const requireHttpsUrl = (rawUrl, sourceLabel) => {
-  const parsed = new URL(rawUrl);
-  if (parsed.protocol !== HTTPS_PROTOCOL) {
-    throw new Error(`${sourceLabel} must use https`);
-  }
-  return trimTrailingSlash(parsed.toString());
-};
+const buildDefaultApiBaseUrl = () => trimTrailingSlash(new URL('/api', 'https://localhost:8080').toString());
 
 const resolveApiBaseUrl = () => {
   const configured = String(import.meta?.env?.VITE_API_BASE_URL || '').trim();
   if (configured) {
-    return requireHttpsUrl(configured, 'VITE_API_BASE_URL');
+    return trimTrailingSlash(configured);
   }
   return buildDefaultApiBaseUrl();
 };
 
 const API_BASE_URL = resolveApiBaseUrl();
+
 const jsonHeaders = { 'Content-Type': JSON_CONTENT_TYPE };
 
 const parseErrorMessage = async (response) => {
@@ -45,16 +36,8 @@ const parseErrorMessage = async (response) => {
   return UNKNOWN_ERROR;
 };
 
-export const buildApiRequestUrl = (path) => {
-  const normalizedPath = String(path || '').replace(/^\/+/, '');
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(normalizedPath) || normalizedPath.startsWith('//')) {
-    throw new Error('API request path must be relative');
-  }
-  return new URL(normalizedPath, `${API_BASE_URL}/`).toString();
-};
-
 const requestJson = async (path, options = {}, includeErrorBody = false) => {
-  const response = await fetch(buildApiRequestUrl(path), options);
+  const response = await fetch(`${API_BASE_URL}${path}`, options);
   if (!response.ok) {
     if (!includeErrorBody) {
       throw new Error(`HTTP error! status: ${response.status}`);

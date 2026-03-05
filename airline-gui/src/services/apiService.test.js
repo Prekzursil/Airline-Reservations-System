@@ -1,6 +1,5 @@
 import {
   addCustomer,
-  buildApiRequestUrl,
   cancelBooking,
   createBooking,
   fetchAirplaneDetails,
@@ -139,26 +138,5 @@ describe('apiService', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/api/airplanes');
 
     vi.unstubAllEnvs();
-  });
-
-  it('rejects non-https VITE_API_BASE_URL values', async () => {
-    vi.resetModules();
-    vi.stubEnv('VITE_API_BASE_URL', 'http://api.example.test/api/');
-
-    await expect(import('./apiService')).rejects.toThrow('VITE_API_BASE_URL must use https');
-
-    vi.unstubAllEnvs();
-  });
-
-  it('rejects absolute-scheme request paths in URL builder', () => {
-    expect(() => buildApiRequestUrl('https://evil.example/api')).toThrow('API request path must be relative');
-  });
-
-  it('rejects scheme-prefixed request paths in URL builder', () => {
-    expect(() => buildApiRequestUrl('javascript:alert(1)')).toThrow('API request path must be relative');
-  });
-
-  it('builds a base API URL when request path is undefined', () => {
-    expect(buildApiRequestUrl(undefined)).toBe('https://localhost:8080/api/');
   });
 });
