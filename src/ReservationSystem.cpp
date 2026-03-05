@@ -102,7 +102,7 @@ std::string formatCustomerId(int counter) {
 }
 
 std::string formatMoneyAmount(double amount) {
-    const long long cents = static_cast<long long>(amount * 100.0 + (amount >= 0.0 ? 0.5 : -0.5));
+    const auto cents = static_cast<long long>(amount * 100.0 + (amount >= 0.0 ? 0.5 : -0.5));
     const long long dollars = cents / 100;
     const long long remainder = cents >= 0 ? cents % 100 : -(cents % 100);
 
@@ -225,7 +225,8 @@ void ReservationSystem::initializeSystem() {
 }
 
 std::string ReservationSystem::generateUniqueCustomerId() {
-    const int nextCounter = g_customerIdCounter++;
+    const int nextCounter = g_customerIdCounter;
+    ++g_customerIdCounter;
     return formatCustomerId(nextCounter);
 }
 
