@@ -106,18 +106,27 @@ def load_node_stats() -> CoverageStats:
     )
 
 
-def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
+def _component_findings(stats: List[CoverageStats]) -> List[str]:
     findings: List[str] = []
     for item in stats:
-        if item.percent < 100.0:
-            findings.append(f"{item.name} coverage below 100%: {item.percent:.2f}% ({item.covered}/{item.total})")
+        if item.percent >= 100.0:
+            continue
+        findings.append(f"{item.name} coverage below 100%: {item.percent:.2f}% ({item.covered}/{item.total})")
+    return findings
 
+
+def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     combined_total = sum(item.total for item in stats)
     combined_covered = sum(item.covered for item in stats)
-    combined = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
+    combined_percent = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
+    return combined_covered, combined_total, combined_percent
 
-    if combined < 100.0:
-        findings.append(f"combined coverage below 100%: {combined:.2f}% ({combined_covered}/{combined_total})")
+
+def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
+    findings = _component_findings(stats)
+    combined_covered, combined_total, combined_percent = _combined_coverage(stats)
+    if combined_percent < 100.0:
+        findings.append(f"combined coverage below 100%: {combined_percent:.2f}% ({combined_covered}/{combined_total})")
 
     status = "pass" if not findings else "fail"
     return status, findings

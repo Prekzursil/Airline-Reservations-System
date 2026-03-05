@@ -95,15 +95,17 @@ def _auth_headers(token: str) -> Dict[str, str]:
     }
 
 
-def _resolve_project_slug(org: str, project: str, token: str) -> Optional[str]:
+def _build_org_projects_target(org: str, project_query: str) -> HTTPSRequestTarget:
     org_slug = quote_path_segment(require_slug(org, label=_SENTRY_ORG_LABEL), label=_SENTRY_ORG_LABEL)
-    project_query = require_slug(project, label=_SENTRY_PROJECT_LABEL)
     query = urllib.parse.urlencode({"query": project_query})
-    target = build_https_request_target(
+    return build_https_request_target(
         host=HTTPSHost.SENTRY,
         path=f"/api/0/organizations/{org_slug}/projects/?{query}",
     )
 
+
+def _fetch_org_projects(org: str, project_query: str, token: str) -> Optional[List[Any]]:
+    target = _build_org_projects_target(org, project_query)
     try:
         projects, _ = request_json_list_https_target(
             target=target,
@@ -112,15 +114,32 @@ def _resolve_project_slug(org: str, project: str, token: str) -> Optional[str]:
         )
     except (RuntimeError, ValueError):
         return None
+    return projects
 
-    target = project.casefold()
+
+def _project_slug_from_match(item: Any, target: str) -> Optional[str]:
+    if not isinstance(item, dict):
+        return None
+    slug = str(item.get("slug") or "").strip()
+    name = str(item.get("name") or "").strip()
+    if not slug:
+        return None
+    if slug.casefold() == target or name.casefold() == target:
+        return slug
+    return None
+
+
+def _resolve_project_slug(org: str, project: str, token: str) -> Optional[str]:
+    project_query = require_slug(project, label=_SENTRY_PROJECT_LABEL)
+    projects = _fetch_org_projects(org, project_query, token)
+    if projects is None:
+        return None
+
+    target = project_query.casefold()
     for item in projects:
-        if not isinstance(item, dict):
-            continue
-        slug = str(item.get("slug") or "").strip()
-        name = str(item.get("name") or "").strip()
-        if slug and (slug.casefold() == target or name.casefold() == target):
-            return slug
+        matched = _project_slug_from_match(item, target)
+        if matched:
+            return matched
     return None
 
 

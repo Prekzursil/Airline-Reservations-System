@@ -73,30 +73,54 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
     )
 
 
-def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+def _context_name(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _build_context_entry(*, state: Any, conclusion: Any, source: str) -> Dict[str, str]:
+    return {
+        "state": str(state or ""),
+        "conclusion": str(conclusion or ""),
+        "source": source,
+    }
+
+
+def _collect_context_entries(
+    items: List[Dict[str, Any]],
+    *,
+    name_field: str,
+    state_field: str,
+    conclusion_field: Optional[str],
+    source: str,
+) -> Dict[str, Dict[str, str]]:
     contexts: Dict[str, Dict[str, str]] = {}
-
-    for run in check_runs_payload.get("check_runs", []) or []:
-        name = str(run.get("name") or "").strip()
+    for item in items:
+        name = _context_name(item.get(name_field))
         if not name:
             continue
-        contexts[name] = {
-            "state": str(run.get("status") or ""),
-            "conclusion": str(run.get("conclusion") or ""),
-            "source": "check_run",
-        }
+        state = item.get(state_field)
+        conclusion = state if conclusion_field is None else item.get(conclusion_field)
+        contexts[name] = _build_context_entry(state=state, conclusion=conclusion, source=source)
+    return contexts
 
-    for status in status_payload.get("statuses", []) or []:
-        name = str(status.get("context") or "").strip()
-        if not name:
-            continue
-        state = str(status.get("state") or "")
-        contexts[name] = {
-            "state": state,
-            "conclusion": state,
-            "source": "status",
-        }
 
+def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+    contexts = _collect_context_entries(
+        [item for item in check_runs_payload.get("check_runs", []) or [] if isinstance(item, dict)],
+        name_field="name",
+        state_field="status",
+        conclusion_field="conclusion",
+        source="check_run",
+    )
+    contexts.update(
+        _collect_context_entries(
+            [item for item in status_payload.get("statuses", []) or [] if isinstance(item, dict)],
+            name_field="context",
+            state_field="state",
+            conclusion_field=None,
+            source="status",
+        )
+    )
     return contexts
 
 

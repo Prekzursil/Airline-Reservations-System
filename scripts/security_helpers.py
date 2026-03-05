@@ -87,18 +87,30 @@ def _require_identifier(
     return value
 
 
+def _has_invalid_host_characters(host: str) -> bool:
+    return any(ch not in _HOST_CHARS for ch in host)
+
+
+def _has_empty_host_label(labels: List[str]) -> bool:
+    return any(not label for label in labels)
+
+
+def _has_invalid_hyphen_label(labels: List[str]) -> bool:
+    return any(label.startswith("-") or label.endswith("-") for label in labels)
+
+
 def _normalize_host(raw_host: str) -> str:
     host = (raw_host or "").strip().lower().strip(".")
     if not host:
         raise ValueError(f"Invalid HTTPS host: {raw_host!r}")
-    if any(ch not in _HOST_CHARS for ch in host):
+    if _has_invalid_host_characters(host):
         raise ValueError(f"Invalid HTTPS host: {raw_host!r}")
     if ".." in host:
         raise ValueError(f"Invalid HTTPS host: {raw_host!r}")
     labels = host.split(".")
-    if any(not label for label in labels):
+    if _has_empty_host_label(labels):
         raise ValueError(f"Invalid HTTPS host: {raw_host!r}")
-    if any(label.startswith("-") or label.endswith("-") for label in labels):
+    if _has_invalid_hyphen_label(labels):
         raise ValueError(f"Invalid HTTPS host: {raw_host!r}")
     return host
 
@@ -146,38 +158,63 @@ def _validate_https_url_shape(raw_url: str) -> Tuple[Any, str]:
     return parsed, _normalize_host(parsed.hostname)
 
 
+def _normalize_host_set(hosts: Set[str]) -> Set[str]:
+    return {_normalize_host(host) for host in hosts}
+
+
+def _normalize_suffix_allowlist(allowed_host_suffixes: Optional[Set[str]]) -> Set[str]:
+    if allowed_host_suffixes is None:
+        return set()
+    return {
+        _normalize_host(str(suffix).strip("."))
+        for suffix in allowed_host_suffixes
+        if str(suffix).strip(".")
+    }
+
+
+def _is_hostname_allowed_by_suffix(hostname: str, suffixes: Set[str]) -> bool:
+    for suffix in suffixes:
+        if hostname == suffix or hostname.endswith(f".{suffix}"):
+            return True
+    return False
+
+
 def _ensure_host_allowlist(
     hostname: str,
     *,
     allowed_hosts: Optional[Set[str]] = None,
     allowed_host_suffixes: Optional[Set[str]] = None,
 ) -> None:
-    if allowed_hosts is not None:
-        normalized_hosts = {_normalize_host(host) for host in allowed_hosts}
-        if hostname not in normalized_hosts:
-            raise ValueError(f"URL host is not in allowlist: {hostname}")
+    if allowed_hosts is not None and hostname not in _normalize_host_set(allowed_hosts):
+        raise ValueError(f"URL host is not in allowlist: {hostname}")
 
-    if allowed_host_suffixes is None:
-        return
-
-    suffixes = {_normalize_host(suffix) for suffix in allowed_host_suffixes if str(suffix).strip(".")}
-    if suffixes and not any(hostname == suffix or hostname.endswith(f".{suffix}") for suffix in suffixes):
+    suffixes = _normalize_suffix_allowlist(allowed_host_suffixes)
+    if suffixes and not _is_hostname_allowed_by_suffix(hostname, suffixes):
         raise ValueError(f"URL host is not in suffix allowlist: {hostname}")
 
 
-def _reject_private_or_local_host(hostname: str) -> None:
+def _parse_ip_or_none(hostname: str) -> Optional[Any]:
     try:
-        ip_value = ipaddress.ip_address(hostname)
+        return ipaddress.ip_address(hostname)
     except ValueError:
-        ip_value = None
+        return None
 
-    if ip_value is not None and (
-        ip_value.is_private
-        or ip_value.is_loopback
-        or ip_value.is_link_local
-        or ip_value.is_reserved
-        or ip_value.is_multicast
-    ):
+
+def _is_private_or_local_address(ip_value: Any) -> bool:
+    return any(
+        (
+            ip_value.is_private,
+            ip_value.is_loopback,
+            ip_value.is_link_local,
+            ip_value.is_reserved,
+            ip_value.is_multicast,
+        )
+    )
+
+
+def _reject_private_or_local_host(hostname: str) -> None:
+    ip_value = _parse_ip_or_none(hostname)
+    if ip_value is not None and _is_private_or_local_address(ip_value):
         raise ValueError(f"Private or local addresses are not allowed: {hostname}")
 
     if hostname in {"localhost", "localhost.localdomain"}:
@@ -225,20 +262,35 @@ def require_allowed_https_host(raw_host: str, *, allowed_hosts: Optional[Set[str
     return hostname
 
 
-def require_https_path(raw_path: str) -> str:
-    path = (raw_path or "").strip()
+def _validate_https_path_prefix(path: str, raw_path: str) -> None:
     if not path.startswith("/") or path.startswith("//"):
         raise ValueError(f"HTTPS path must start with a single '/': {raw_path!r}")
     if "://" in path:
         raise ValueError(f"HTTPS path must not include a URL scheme: {raw_path!r}")
+
+
+def _has_control_characters(value: str) -> bool:
+    return any(ord(ch) < 0x20 for ch in value)
+
+
+def _validate_https_path_chars(path: str, raw_path: str) -> None:
     if any(ch.isspace() for ch in path):
         raise ValueError(f"HTTPS path must not include whitespace: {raw_path!r}")
-    if any(ord(ch) < 0x20 for ch in path):
+    if _has_control_characters(path):
         raise ValueError(f"HTTPS path must not include control characters: {raw_path!r}")
 
+
+def _validate_https_path_components(path: str, raw_path: str) -> None:
     parsed = urlparse(path)
     if parsed.scheme or parsed.netloc:
         raise ValueError(f"HTTPS path must not include host data: {raw_path!r}")
+
+
+def require_https_path(raw_path: str) -> str:
+    path = (raw_path or "").strip()
+    _validate_https_path_prefix(path, raw_path)
+    _validate_https_path_chars(path, raw_path)
+    _validate_https_path_components(path, raw_path)
     return path
 
 

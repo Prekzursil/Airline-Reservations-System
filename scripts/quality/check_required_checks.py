@@ -72,28 +72,47 @@ def _upsert_context(contexts: Dict[str, Dict[str, str]], name: str, *, state: st
     }
 
 
+def _collect_source_contexts(
+    contexts: Dict[str, Dict[str, str]],
+    items: List[Any],
+    *,
+    name_field: str,
+    state_field: str,
+    conclusion_field: Optional[str],
+    source: str,
+) -> None:
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        state = str(item.get(state_field) or "")
+        conclusion = state if conclusion_field is None else str(item.get(conclusion_field) or "")
+        _upsert_context(
+            contexts,
+            str(item.get(name_field) or ""),
+            state=state,
+            conclusion=conclusion,
+            source=source,
+        )
+
+
 def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
     contexts: Dict[str, Dict[str, str]] = {}
-
-    for run in check_runs_payload.get("check_runs", []) or []:
-        _upsert_context(
-            contexts,
-            str(run.get("name") or ""),
-            state=str(run.get("status") or ""),
-            conclusion=str(run.get("conclusion") or ""),
-            source="check_run",
-        )
-
-    for status in status_payload.get("statuses", []) or []:
-        state = str(status.get("state") or "")
-        _upsert_context(
-            contexts,
-            str(status.get("context") or ""),
-            state=state,
-            conclusion=state,
-            source="status",
-        )
-
+    _collect_source_contexts(
+        contexts,
+        check_runs_payload.get("check_runs", []) or [],
+        name_field="name",
+        state_field="status",
+        conclusion_field="conclusion",
+        source="check_run",
+    )
+    _collect_source_contexts(
+        contexts,
+        status_payload.get("statuses", []) or [],
+        name_field="context",
+        state_field="state",
+        conclusion_field=None,
+        source="status",
+    )
     return contexts
 
 
