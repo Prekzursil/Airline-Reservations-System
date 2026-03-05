@@ -1,3 +1,4 @@
+// cppcheck-suppress-file missingIncludeSystem
 #ifndef AIRPLANE_H
 #define AIRPLANE_H
 

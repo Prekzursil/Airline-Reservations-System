@@ -4,7 +4,7 @@ This document will map out the file and folder structure of the Airline Reservat
 
 ## Project File Structure
 
-```
+```text
 OOP_C++_cirstina/
 ├── cline_docs/
 │   ├── productContext.md
@@ -59,34 +59,34 @@ OOP_C++_cirstina/
 
 ```
 
-### File Descriptions:
+### File Descriptions
 
-*   **`src/Person.h`**: Header file for the `Person` base class.
-    *   Dependencies: None initially.
-*   **`src/Person.cpp`**: Implementation file for the `Person` base class.
-    *   Dependencies: `Person.h`.
-*   **`src/Customer.h`**: Header file for the `Customer` class.
-    *   Dependencies: `Person.h`.
-*   **`src/Customer.cpp`**: Implementation file for the `Customer` class.
-    *   Dependencies: `Customer.h`.
-*   **`src/Seat.h`**: Header file for the `Seat` class.
-    *   Dependencies: Enum for `SeatClass`.
-*   **`src/Seat.cpp`**: Implementation file for the `Seat` class.
-    *   Dependencies: `Seat.h`.
-*   **`src/Airplane.h`**: Header file for the `Airplane` class.
-    *   Dependencies: `Seat.h`, `Customer.h` (for suggesting seats).
-*   **`src/Airplane.cpp`**: Implementation file for the `Airplane` class.
-    *   Dependencies: `Airplane.h`.
-*   **`src/Booking.h`**: Header file for the `Booking` class.
-    *   Dependencies: Enum for `BookingStatus`.
-*   **`src/Booking.cpp`**: Implementation file for the `Booking` class.
-    *   Dependencies: `Booking.h`.
-*   **`src/ReservationSystem.h`**: Header file for the `ReservationSystem` class.
-    *   Dependencies: `Airplane.h`, `Customer.h`, `Booking.h`.
-*   **`src/ReservationSystem.cpp`**: Implementation file for the `ReservationSystem` class.
-    *   Dependencies: `ReservationSystem.h`, `iostream`, `vector`, `string`, etc.
-*   **`src/main.cpp`**: Main entry point for the console application.
-    *   Dependencies: `ReservationSystem.h`.
-*   **`src/api_server_main.cpp`**: Main entry point for the HTTP API server.
-    *   Dependencies: `ReservationSystem.h`, `httplib.h`, `nlohmann_json.hpp`.
-*   **`Makefile`**: Build script for compiling the project (console app, API server, tests).
+- **`src/Person.h`**: Header file for the `Person` base class.
+  - Dependencies: None initially.
+- **`src/Person.cpp`**: Implementation file for the `Person` base class.
+  - Dependencies: `Person.h`.
+- **`src/Customer.h`**: Header file for the `Customer` class.
+  - Dependencies: `Person.h`.
+- **`src/Customer.cpp`**: Implementation file for the `Customer` class.
+  - Dependencies: `Customer.h`.
+- **`src/Seat.h`**: Header file for the `Seat` class.
+  - Dependencies: Enum for `SeatClass`.
+- **`src/Seat.cpp`**: Implementation file for the `Seat` class.
+  - Dependencies: `Seat.h`.
+- **`src/Airplane.h`**: Header file for the `Airplane` class.
+  - Dependencies: `Seat.h`, `Customer.h` (for suggesting seats).
+- **`src/Airplane.cpp`**: Implementation file for the `Airplane` class.
+  - Dependencies: `Airplane.h`.
+- **`src/Booking.h`**: Header file for the `Booking` class.
+  - Dependencies: Enum for `BookingStatus`.
+- **`src/Booking.cpp`**: Implementation file for the `Booking` class.
+  - Dependencies: `Booking.h`.
+- **`src/ReservationSystem.h`**: Header file for the `ReservationSystem` class.
+  - Dependencies: `Airplane.h`, `Customer.h`, `Booking.h`.
+- **`src/ReservationSystem.cpp`**: Implementation file for the `ReservationSystem` class.
+  - Dependencies: `ReservationSystem.h`, `iostream`, `vector`, `string`, etc.
+- **`src/main.cpp`**: Main entry point for the console application.
+  - Dependencies: `ReservationSystem.h`.
+- **`src/api_server_main.cpp`**: Main entry point for the HTTP API server.
+  - Dependencies: `ReservationSystem.h`, `httplib.h`, `nlohmann_json.hpp`.
+- **`Makefile`**: Build script for compiling the project (console app, API server, tests).

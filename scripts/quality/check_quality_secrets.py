@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+from __future__ import absolute_import, annotations, division
 
 import argparse
 import json
 import os
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
+from typing import Any, Dict, List, Set
+
+from scripts.security_helpers import QualityArtifact, quality_artifact_paths
 
 DEFAULT_REQUIRED_SECRETS = [
     "SONAR_TOKEN",
     "CODACY_API_TOKEN",
+    "CODECOV_TOKEN",
     "SNYK_TOKEN",
     "SENTRY_AUTH_TOKEN",
-    "APPLITOOLS_API_KEY",
 ]
 
 DEFAULT_REQUIRED_VARS = [
@@ -24,16 +25,14 @@ DEFAULT_REQUIRED_VARS = [
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate required quality-gate secrets/variables are configured.")
-    parser.add_argument("--required-secret", action="append", default=[], help="Additional required secret env var name")
-    parser.add_argument("--required-var", action="append", default=[], help="Additional required variable env var name")
-    parser.add_argument("--out-json", default="quality-secrets/secrets.json", help="Output JSON path")
-    parser.add_argument("--out-md", default="quality-secrets/secrets.md", help="Output markdown path")
+    parser.add_argument("--required-secret", action="append", default=[], help="Additional required secret env var")
+    parser.add_argument("--required-var", action="append", default=[], help="Additional required variable env var")
     return parser.parse_args()
 
 
-def _dedupe(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
+def _dedupe(items: List[str]) -> List[str]:
+    seen: Set[str] = set()
+    out: List[str] = []
     for item in items:
         key = str(item or "").strip()
         if not key or key in seen:
@@ -43,20 +42,31 @@ def _dedupe(items: list[str]) -> list[str]:
     return out
 
 
-def evaluate_env(required_secrets: list[str], required_vars: list[str]) -> dict[str, list[str]]:
-    missing_secrets = [name for name in required_secrets if not str(os.environ.get(name, "")).strip()]
-    missing_vars = [name for name in required_vars if not str(os.environ.get(name, "")).strip()]
-    present_secrets = [name for name in required_secrets if name not in missing_secrets]
-    present_vars = [name for name in required_vars if name not in missing_vars]
+def _is_configured(name: str) -> bool:
+    return bool(str(os.environ.get(name, "")).strip())
+
+
+def _partition_presence(required: List[str]) -> Dict[str, List[str]]:
+    missing = [name for name in required if not _is_configured(name)]
+    present = [name for name in required if name not in missing]
     return {
-        "missing_secrets": missing_secrets,
-        "missing_vars": missing_vars,
-        "present_secrets": present_secrets,
-        "present_vars": present_vars,
+        "missing": missing,
+        "present": present,
     }
 
 
-def _render_md(payload: dict) -> str:
+def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[str, List[str]]:
+    secrets = _partition_presence(required_secrets)
+    vars_payload = _partition_presence(required_vars)
+    return {
+        "missing_secrets": secrets["missing"],
+        "missing_vars": vars_payload["missing"],
+        "present_secrets": secrets["present"],
+        "present_vars": vars_payload["present"],
+    }
+
+
+def _render_md(payload: Dict[str, Any]) -> str:
     lines = [
         "# Quality Secrets Preflight",
         "",
@@ -65,6 +75,7 @@ def _render_md(payload: dict) -> str:
         "",
         "## Missing secrets",
     ]
+
     missing_secrets = payload.get("missing_secrets") or []
     if missing_secrets:
         lines.extend(f"- `{name}`" for name in missing_secrets)
@@ -79,19 +90,6 @@ def _render_md(payload: dict) -> str:
         lines.append("- None")
 
     return "\n".join(lines) + "\n"
-
-
-def _safe_output_path(raw: str, fallback: str, base: Path | None = None) -> Path:
-    root = (base or Path.cwd()).resolve()
-    candidate = Path((raw or "").strip() or fallback).expanduser()
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    resolved = candidate.resolve(strict=False)
-    try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Output path escapes workspace root: {candidate}") from exc
-    return resolved
 
 
 def main() -> int:
@@ -109,16 +107,7 @@ def main() -> int:
         **result,
     }
 
-    try:
-        out_json = _safe_output_path(args.out_json, "quality-secrets/secrets.json")
-        out_md = _safe_output_path(args.out_md, "quality-secrets/secrets.md")
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_md.parent.mkdir(parents=True, exist_ok=True)
-
+    out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")

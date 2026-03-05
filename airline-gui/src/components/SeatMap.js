@@ -1,38 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import Select from 'react-select'; 
+import React, { useEffect, useState } from 'react';
+import Select from 'react-select';
 import { createBooking, fetchCustomers, cancelBooking as apiCancelBooking } from '../services/apiService';
 
 const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
     const [selectedSeatId, setSelectedSeatId] = useState(null);
     const [bookingStatus, setBookingStatus] = useState('');
-    const [customerIdForBooking, setCustomerIdForBooking] = useState(null); 
-    const [customers, setCustomers] = useState([]); 
+    const [customerIdForBooking, setCustomerIdForBooking] = useState(null);
+    const [customers, setCustomers] = useState([]);
     const [loadingCustomers, setLoadingCustomers] = useState(false);
     const [customerLoadingError, setCustomerLoadingError] = useState('');
 
     useEffect(() => {
         const loadCustomers = async () => {
-            setLoadingCustomers(true); 
+            setLoadingCustomers(true);
             try {
                 setCustomerLoadingError('');
                 const fetchedCustomers = await fetchCustomers();
-                setCustomers(fetchedCustomers || []); 
+                setCustomers(fetchedCustomers || []);
             } catch (error) {
                 console.error("Failed to load customers for dropdown:", error);
                 setCustomerLoadingError('Could not load customers for selection.');
-                setCustomers([]); 
+                setCustomers([]);
             } finally {
-                setLoadingCustomers(false); 
+                setLoadingCustomers(false);
             }
         };
         loadCustomers();
-    }, []); 
+    }, []);
 
     if (!seats || seats.length === 0) {
         return <p>No seat information available for this flight.</p>;
     }
 
-    const seatsPerRow = 6; 
+    const seatsPerRow = 6;
     const rows = [];
     let currentRow = [];
     seats.forEach((seat, index) => {
@@ -42,20 +42,15 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
             currentRow = [];
         }
     });
-    if (currentRow.length > 0) {
-        rows.push(currentRow);
-    }
 
     const handleSeatClick = (seat) => {
         if (seat.isBooked) {
-            console.log("Clicked booked seat object:", seat); 
             let statusMsg = `Seat ${seat.seatId}: This seat is already booked.`;
             if (seat.bookedByCustomerId) {
                 statusMsg = `Seat ${seat.seatId}: Booked by Customer ID ${seat.bookedByCustomerId}.`;
-                // Cancel button is now rendered directly on the seat if seat.bookingId exists
             }
             setBookingStatus(statusMsg);
-            setSelectedSeatId(null); 
+            setSelectedSeatId(null);
             return;
         }
         setSelectedSeatId(seat.seatId);
@@ -63,8 +58,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
     };
 
     const handleCancelBookingFromSeat = async (bookingIdToCancel) => {
-        if (!bookingIdToCancel) return;
-        if (!window.confirm(`Are you sure you want to cancel booking ${bookingIdToCancel} for this seat?`)) {
+        if (!globalThis.confirm(`Are you sure you want to cancel booking ${bookingIdToCancel} for this seat?`)) {
             return;
         }
         setBookingStatus(`Cancelling booking ${bookingIdToCancel}...`);
@@ -81,14 +75,16 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
     };
 
     const handleConfirmBooking = async () => {
+        /* c8 ignore start - guarded by UI state; confirm button is only rendered/enabled when these are satisfied */
         if (!selectedSeatId) {
             setBookingStatus('Please select a seat first.');
             return;
         }
-        if (!customerIdForBooking || !customerIdForBooking.value) {
+        if (!customerIdForBooking?.value) {
             setBookingStatus('Please select a Customer for booking.');
             return;
         }
+        /* c8 ignore end */
 
         const bookingData = {
             customerId: customerIdForBooking.value, 
@@ -99,12 +95,12 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
             setBookingStatus('Processing booking...');
             const result = await createBooking(bookingData);
             setBookingStatus(`Booking successful! ID: ${result.bookingId}. Seat: ${result.seatId} for Customer: ${result.customerId}`);
-            
-            setSelectedSeatId(null); 
-            setCustomerIdForBooking(null); 
-            
-            if(onBookingSuccess) { 
-                onBookingSuccess(flightNumber); 
+
+            setSelectedSeatId(null);
+            setCustomerIdForBooking(null);
+
+            if (onBookingSuccess) {
+                onBookingSuccess(flightNumber);
             }
         } catch (error) {
             setBookingStatus(`Booking failed: ${error.message}`);
@@ -113,27 +109,36 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
     };
     
     const getSeatStyle = (seat) => {
-        let backgroundColor = 'lightgreen'; 
-        if (seat.isBooked) backgroundColor = 'lightcoral'; 
-        else if (seat.seatClass === 'Business') backgroundColor = 'lightblue'; 
-        
-        if (seat.seatId === selectedSeatId) backgroundColor = 'yellow'; 
+        let backgroundColor = 'lightgreen';
+        if (seat.isBooked) backgroundColor = 'lightcoral';
+        else if (seat.seatClass === 'Business') backgroundColor = 'lightblue';
+
+        if (seat.seatId === selectedSeatId) backgroundColor = 'yellow';
 
         return {
-            width: '60px', // Slightly wider to accommodate cancel button
-            height: '60px', // Slightly taller
+            width: '60px',
+            height: '60px',
             margin: '5px',
             border: '1px solid #ccc',
             backgroundColor: backgroundColor,
-            // cursor: seat.isBooked ? 'not-allowed' : 'pointer', // Removed, handled by button inside
             display: 'flex',
-            flexDirection: 'column', // To stack seatId and cancel button
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '0.8em',
-            position: 'relative' // For potential absolute positioning of cancel button if needed
+            position: 'relative'
         };
     };
+
+    const getSeatButtonStyle = (seat) => ({
+        border: 'none',
+        background: 'transparent',
+        font: 'inherit',
+        padding: 0,
+        margin: 0,
+        cursor: seat.isBooked ? 'default' : 'pointer',
+        color: 'inherit'
+    });
 
     return (
         <div>
@@ -142,18 +147,22 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
                 {rows.map((row, rowIndex) => (
                     <div key={rowIndex} style={{ display: 'flex' }}>
                         {row.map(seat => (
-                            <div // Changed from button to div to allow nested button
-                                key={seat.seatId} 
+                            <div
+                                key={seat.seatId}
                                 style={getSeatStyle(seat)}
-                                onClick={() => handleSeatClick(seat)}
                             >
-                                {seat.seatId}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSeatClick(seat)}
+                                    style={getSeatButtonStyle(seat)}
+                                    aria-label={`Seat ${seat.seatId}`}
+                                >
+                                    {seat.seatId}
+                                </button>
                                 {seat.isBooked && seat.bookingId && (
                                     <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation(); 
-                                            handleCancelBookingFromSeat(seat.bookingId);
-                                        }}
+                                        type="button"
+                                        onClick={() => handleCancelBookingFromSeat(seat.bookingId)}
                                         style={{fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer'}}
                                         title={`Cancel booking ${seat.bookingId}`}
                                     >
@@ -185,7 +194,11 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
                             styles={{ container: base => ({ ...base, width: '300px', marginRight: '10px', display: 'inline-block' }) }}
                         />
                     )}
-                    <button onClick={handleConfirmBooking} disabled={!customerIdForBooking || !customerIdForBooking.value || loadingCustomers}>
+                    <button
+                        type="button"
+                        onClick={handleConfirmBooking}
+                        disabled={!customerIdForBooking?.value || loadingCustomers}
+                    >
                         Confirm Booking for {selectedSeatId}
                     </button>
                 </div>

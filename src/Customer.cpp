@@ -1,3 +1,4 @@
+// cppcheck-suppress-file missingIncludeSystem
 #include "Customer.h"
 #include <iostream> // For std::cout, std::endl, std::fixed
 #include <iomanip>  // For std::setprecision

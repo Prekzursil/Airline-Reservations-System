@@ -4,10 +4,10 @@
 
 Security updates are provided for the current default branch.
 
-| Version | Supported |
-| --- | --- |
+| Version                  | Supported          |
+| ------------------------ | ------------------ |
 | `master` (latest commit) | :white_check_mark: |
-| Older branches/tags | :x: |
+| Older branches/tags      | :x:                |
 
 ## Reporting a Vulnerability
 

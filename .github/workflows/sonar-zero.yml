@@ -14,23 +14,26 @@ jobs:
   sonar-zero:
     name: Sonar Zero
     runs-on: ubuntu-latest
+    env:
+      SC_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - name: Run Sonar scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      - name: Assert Sonar zero-open gate
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Assert Sonar zero-open gate for PR scope
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
-          python3 scripts/quality/check_sonar_zero.py \
+          python3 -m scripts.quality.check_sonar_zero \
             --project-key "Prekzursil_Airline-Reservations-System" \
-            --out-json "sonar-zero/sonar.json" \
-            --out-md "sonar-zero/sonar.md"
+            --pull-request "${{ github.event.pull_request.number }}" \
+            --token "${SC_TOKEN}"
+      - name: Assert Sonar zero-open gate for repository scope
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          python3 -m scripts.quality.check_sonar_zero \
+            --project-key "Prekzursil_Airline-Reservations-System" \
+            --token "${SC_TOKEN}"
       - name: Upload Sonar artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sonar-zero
           path: sonar-zero

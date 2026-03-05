@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+from __future__ import absolute_import, annotations, division
 
 import argparse
 import json
 import os
-import sys
 import time
-import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
+
+from scripts.security_helpers import (
+    HTTPSHost,
+    HTTPSRequestError,
+    HTTPSRequestTarget,
+    QualityArtifact,
+    build_https_request_target,
+    quality_artifact_paths,
+    quote_segment,
+    request_json_https_target,
+    require_repo_slug,
+    require_sha,
+)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -20,56 +29,113 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--required-context", action="append", default=[], help="Required context name")
     parser.add_argument("--timeout-seconds", type=int, default=900)
     parser.add_argument("--poll-seconds", type=int, default=20)
-    parser.add_argument("--out-json", default="quality-zero-gate/required-checks.json")
-    parser.add_argument("--out-md", default="quality-zero-gate/required-checks.md")
     return parser.parse_args()
 
 
-def _api_get(repo: str, path: str, token: str) -> dict[str, Any]:
-    url = f"https://api.github.com/repos/{repo}/{path.lstrip('/')}"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "reframe-quality-zero-gate",
-        },
-        method="GET",
+def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
+    retries = 4
+    delay_seconds = 2
+    for attempt in range(1, retries + 1):
+        try:
+            return request_json_https_target(
+                target=target,
+                method="GET",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {token}",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                    "User-Agent": "airline-quality-zero-gate",
+                },
+            )
+        except HTTPSRequestError as exc:
+            retryable = exc.status in {429, 500, 502, 503, 504}
+            if not retryable or attempt == retries:
+                raise RuntimeError(f"GitHub API request failed: HTTP {exc.status}; body={exc.body_preview[:300]}") from exc
+        except RuntimeError as exc:
+            if attempt == retries:
+                raise RuntimeError(f"GitHub API request failed: {exc}") from exc
+
+        time.sleep(delay_seconds)
+        delay_seconds *= 2
+
+    raise RuntimeError("GitHub API request exhausted retries")
+
+
+def _upsert_context(contexts: Dict[str, Dict[str, str]], name: str, *, state: str, conclusion: str, source: str) -> None:
+    key = str(name or "").strip()
+    if not key:
+        return
+    contexts[key] = {
+        "state": str(state or ""),
+        "conclusion": str(conclusion or ""),
+        "source": source,
+    }
+
+
+def _collect_source_contexts(
+    contexts: Dict[str, Dict[str, str]],
+    items: List[Any],
+    *,
+    name_field: str,
+    state_field: str,
+    conclusion_field: Optional[str],
+    source: str,
+) -> None:
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        state = str(item.get(state_field) or "")
+        conclusion = state if conclusion_field is None else str(item.get(conclusion_field) or "")
+        _upsert_context(
+            contexts,
+            str(item.get(name_field) or ""),
+            state=state,
+            conclusion=conclusion,
+            source=source,
+        )
+
+
+def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+    contexts: Dict[str, Dict[str, str]] = {}
+    _collect_source_contexts(
+        contexts,
+        check_runs_payload.get("check_runs", []) or [],
+        name_field="name",
+        state_field="status",
+        conclusion_field="conclusion",
+        source="check_run",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
-
-def _collect_contexts(check_runs_payload: dict[str, Any], status_payload: dict[str, Any]) -> dict[str, dict[str, str]]:
-    contexts: dict[str, dict[str, str]] = {}
-
-    for run in check_runs_payload.get("check_runs", []) or []:
-        name = str(run.get("name") or "").strip()
-        if not name:
-            continue
-        contexts[name] = {
-            "state": str(run.get("status") or ""),
-            "conclusion": str(run.get("conclusion") or ""),
-            "source": "check_run",
-        }
-
-    for status in status_payload.get("statuses", []) or []:
-        name = str(status.get("context") or "").strip()
-        if not name:
-            continue
-        contexts[name] = {
-            "state": str(status.get("state") or ""),
-            "conclusion": str(status.get("state") or ""),
-            "source": "status",
-        }
-
+    _collect_source_contexts(
+        contexts,
+        status_payload.get("statuses", []) or [],
+        name_field="context",
+        state_field="state",
+        conclusion_field=None,
+        source="status",
+    )
     return contexts
 
 
-def _evaluate(required: list[str], contexts: dict[str, dict[str, str]]) -> tuple[str, list[str], list[str]]:
-    missing: list[str] = []
-    failed: list[str] = []
+def _evaluate_check_run(context: str, observed: Dict[str, str]) -> Optional[str]:
+    state = observed.get("state")
+    conclusion = observed.get("conclusion")
+    if state != "completed":
+        return f"{context}: status={state}"
+    if conclusion != "success":
+        return f"{context}: conclusion={conclusion}"
+    return None
+
+
+def _evaluate_status_context(context: str, observed: Dict[str, str]) -> Optional[str]:
+    state = observed.get("conclusion")
+    if state != "success":
+        return f"{context}: state={state}"
+    return None
+
+
+def _evaluate(required: List[str], contexts: Dict[str, Dict[str, str]]) -> Tuple[str, List[str], List[str]]:
+    missing: List[str] = []
+    failed: List[str] = []
 
     for context in required:
         observed = contexts.get(context)
@@ -77,24 +143,16 @@ def _evaluate(required: list[str], contexts: dict[str, dict[str, str]]) -> tuple
             missing.append(context)
             continue
 
-        source = observed.get("source")
-        if source == "check_run":
-            state = observed.get("state")
-            conclusion = observed.get("conclusion")
-            if state != "completed":
-                failed.append(f"{context}: status={state}")
-            elif conclusion != "success":
-                failed.append(f"{context}: conclusion={conclusion}")
-        else:
-            conclusion = observed.get("conclusion")
-            if conclusion != "success":
-                failed.append(f"{context}: state={conclusion}")
+        evaluator = _evaluate_check_run if observed.get("source") == "check_run" else _evaluate_status_context
+        failure = evaluator(context, observed)
+        if failure:
+            failed.append(failure)
 
     status = "pass" if not missing and not failed else "fail"
     return status, missing, failed
 
 
-def _render_md(payload: dict) -> str:
+def _render_md(payload: Dict[str, Any]) -> str:
     lines = [
         "# Quality Zero Gate - Required Contexts",
         "",
@@ -121,35 +179,48 @@ def _render_md(payload: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _safe_output_path(raw: str, fallback: str, base: Path | None = None) -> Path:
-    root = (base or Path.cwd()).resolve()
-    candidate = Path((raw or "").strip() or fallback).expanduser()
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    resolved = candidate.resolve(strict=False)
-    try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Output path escapes workspace root: {candidate}") from exc
-    return resolved
+def _build_commit_api_path(repo: str, sha: str) -> str:
+    owner, name = require_repo_slug(repo)
+    checked_sha = require_sha(sha)
+
+    owner_q = quote_segment(owner)
+    name_q = quote_segment(name)
+    sha_q = quote_segment(checked_sha)
+    return f"/repos/{owner_q}/{name_q}/commits/{sha_q}"
 
 
-def main() -> int:
-    args = _parse_args()
-    token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
-    required = [item.strip() for item in args.required_context if item.strip()]
+def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRequestTarget:
+    return build_https_request_target(
+        host=HTTPSHost.GITHUB_API,
+        path=f"{_build_commit_api_path(repo, sha)}{resource_path}",
+    )
 
-    if not required:
-        raise SystemExit("At least one --required-context is required")
-    if not token:
-        raise SystemExit("GITHUB_TOKEN or GH_TOKEN is required")
 
+def _fetch_check_payloads(repo: str, sha: str, token: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    check_runs = _api_get(_build_commit_api_target(repo, sha, "/check-runs?per_page=100"), token)
+    statuses = _api_get(_build_commit_api_target(repo, sha, "/status"), token)
+    return check_runs, statuses
+
+
+def _has_check_runs_in_progress(contexts: Dict[str, Dict[str, str]]) -> bool:
+    for observed in contexts.values():
+        if observed.get("source") != "check_run":
+            continue
+        if observed.get("state") != "completed":
+            return True
+    return False
+
+
+def _collect_payload(
+    args: argparse.Namespace,
+    required: List[str],
+    token: str,
+) -> Dict[str, Any]:
     deadline = time.time() + max(args.timeout_seconds, 1)
+    final_payload: Optional[Dict[str, Any]] = None
 
-    final_payload: dict[str, Any] | None = None
     while time.time() <= deadline:
-        check_runs = _api_get(args.repo, f"commits/{args.sha}/check-runs?per_page=100", token)
-        statuses = _api_get(args.repo, f"commits/{args.sha}/status", token)
+        check_runs, statuses = _fetch_check_payloads(args.repo, args.sha, token)
         contexts = _collect_contexts(check_runs, statuses)
         status, missing, failed = _evaluate(required, contexts)
 
@@ -167,24 +238,28 @@ def main() -> int:
         if status == "pass":
             break
 
-        # wait only while there are missing contexts or in-progress check-runs
-        in_progress = any(v.get("state") != "completed" for v in contexts.values() if v.get("source") == "check_run")
-        if not missing and not in_progress:
+        if not missing and not _has_check_runs_in_progress(contexts):
             break
         time.sleep(max(args.poll_seconds, 1))
 
     if final_payload is None:
-        raise SystemExit("No payload collected")
+        raise RuntimeError("No payload collected")
+    return final_payload
 
-    try:
-        out_json = _safe_output_path(args.out_json, "quality-zero-gate/required-checks.json")
-        out_md = _safe_output_path(args.out_md, "quality-zero-gate/required-checks.md")
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
 
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_md.parent.mkdir(parents=True, exist_ok=True)
+def main() -> int:
+    args = _parse_args()
+    token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
+    required = [item.strip() for item in args.required_context if item.strip()]
+
+    if not required:
+        raise SystemExit("At least one --required-context is required")
+    if not token:
+        raise SystemExit("GITHUB_TOKEN or GH_TOKEN is required")
+
+    final_payload = _collect_payload(args, required, token)
+
+    out_json, out_md = quality_artifact_paths(QualityArtifact.REQUIRED_CHECKS)
     out_json.write_text(json.dumps(final_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out_md.write_text(_render_md(final_payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")

@@ -1,6 +1,6 @@
 // #define CPPHTTPLIB_OPENSSL_SUPPORT // SSL Support removed for simplicity
-#include "../third_party/httplib.h"
-#include "../third_party/nlohmann_json.hpp" // Corrected path
+#include <httplib.h>
+#include <nlohmann/json.hpp>
 #include "ReservationSystem.h"
 #include "Airplane.h"
 #include "Seat.h"
@@ -88,10 +88,10 @@ int main() {
         res.set_content(airplane_list_json.dump(4), "application/json");
     });
 
-    svr.Get(R"(/api/airplanes/(\w+))", [&](const httplib::Request& req, httplib::Response& res) {
+    svr.Get(R"(/api/airplanes/(\w+))", [&airlineSystem](const httplib::Request& req, httplib::Response& res) {
         set_common_headers(res);
         std::string flightNumber = req.matches[1];
-        Airplane* plane = airlineSystem.findAirplaneByFlightNumber(flightNumber);
+        const Airplane* plane = airlineSystem.findAirplaneByFlightNumber(flightNumber);
         if (plane) {
             json plane_details_json;
             plane_details_json["flightNumber"] = plane->getFlightNumber();
@@ -136,10 +136,10 @@ int main() {
         res.set_content(customer_list_json.dump(4), "application/json");
     });
 
-    svr.Get(R"(/api/customers/(\w+))", [&](const httplib::Request& req, httplib::Response& res) {
+    svr.Get(R"(/api/customers/(\w+))", [&airlineSystem](const httplib::Request& req, httplib::Response& res) {
         set_common_headers(res);
         std::string customerId = req.matches[1];
-        Customer* customer = airlineSystem.findCustomerById(customerId);
+        const Customer* customer = airlineSystem.findCustomerById(customerId);
 
         if (customer) {
             json customer_json;

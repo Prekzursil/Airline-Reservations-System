@@ -1,3 +1,4 @@
+// cppcheck-suppress-file missingIncludeSystem
 #include "Airplane.h"
 #include <algorithm> // For std::find_if
 

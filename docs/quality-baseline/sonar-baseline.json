@@ -1,0 +1,585 @@
+{
+  "captured_at_utc": "2026-03-04T22:12:12.829493+00:00",
+  "project_key": "Prekzursil_Airline-Reservations-System",
+  "total_open_issues": 6742,
+  "first_party_open_issues": 198,
+  "third_party_open_issues": 6544,
+  "facets": [
+    {
+      "property": "severities",
+      "values": [
+        {
+          "val": "MAJOR",
+          "count": 2779
+        },
+        {
+          "val": "MINOR",
+          "count": 1985
+        },
+        {
+          "val": "CRITICAL",
+          "count": 1599
+        },
+        {
+          "val": "BLOCKER",
+          "count": 314
+        },
+        {
+          "val": "INFO",
+          "count": 65
+        }
+      ]
+    },
+    {
+      "property": "languages",
+      "values": [
+        {
+          "val": "cpp",
+          "count": 6528
+        },
+        {
+          "val": "py",
+          "count": 174
+        },
+        {
+          "val": "js",
+          "count": 37
+        },
+        {
+          "val": "web",
+          "count": 2
+        },
+        {
+          "val": "githubactions",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "property": "tags",
+      "values": [
+        {
+          "val": "cppcoreguidelines",
+          "count": 2729
+        },
+        {
+          "val": "clumsy",
+          "count": 2138
+        },
+        {
+          "val": "bad-practice",
+          "count": 1633
+        },
+        {
+          "val": "since-c++11",
+          "count": 1494
+        },
+        {
+          "val": "since-c++20",
+          "count": 923
+        },
+        {
+          "val": "based-on-misra",
+          "count": 855
+        },
+        {
+          "val": "since-c++17",
+          "count": 542
+        },
+        {
+          "val": "performance",
+          "count": 513
+        },
+        {
+          "val": "pitfall",
+          "count": 501
+        },
+        {
+          "val": "since-c++14",
+          "count": 484
+        },
+        {
+          "val": "suspicious",
+          "count": 470
+        },
+        {
+          "val": "brain-overload",
+          "count": 376
+        },
+        {
+          "val": "design",
+          "count": 310
+        },
+        {
+          "val": "error-handling",
+          "count": 299
+        },
+        {
+          "val": "cert",
+          "count": 289
+        },
+        {
+          "val": "unused",
+          "count": 259
+        },
+        {
+          "val": "confusing",
+          "count": 239
+        },
+        {
+          "val": "convention",
+          "count": 168
+        },
+        {
+          "val": "misra-c++2008",
+          "count": 132
+        },
+        {
+          "val": "cwe",
+          "count": 91
+        },
+        {
+          "val": "misra-c2004",
+          "count": 79
+        },
+        {
+          "val": "misra-c2012",
+          "count": 78
+        },
+        {
+          "val": "since-c++23",
+          "count": 77
+        },
+        {
+          "val": "pep",
+          "count": 73
+        },
+        {
+          "val": "redundant",
+          "count": 63
+        },
+        {
+          "val": "regex",
+          "count": 58
+        },
+        {
+          "val": "api-design",
+          "count": 49
+        },
+        {
+          "val": "obsolete",
+          "count": 47
+        },
+        {
+          "val": "leak",
+          "count": 45
+        },
+        {
+          "val": "react",
+          "count": 22
+        },
+        {
+          "val": "symbolic-execution",
+          "count": 12
+        },
+        {
+          "val": "user-experience",
+          "count": 9
+        },
+        {
+          "val": "accessibility",
+          "count": 8
+        },
+        {
+          "val": "denial-of-service",
+          "count": 6
+        },
+        {
+          "val": "es2020",
+          "count": 5
+        },
+        {
+          "val": "portability",
+          "count": 5
+        },
+        {
+          "val": "type-dependent",
+          "count": 4
+        },
+        {
+          "val": "es2015",
+          "count": 2
+        },
+        {
+          "val": "tests",
+          "count": 2
+        },
+        {
+          "val": "c11",
+          "count": 1
+        },
+        {
+          "val": "finding",
+          "count": 1
+        },
+        {
+          "val": "jsx",
+          "count": 1
+        },
+        {
+          "val": "multi-threading",
+          "count": 1
+        },
+        {
+          "val": "readability",
+          "count": 1
+        },
+        {
+          "val": "unpredictable",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "property": "types",
+      "values": [
+        {
+          "val": "CODE_SMELL",
+          "count": 6677
+        },
+        {
+          "val": "BUG",
+          "count": 64
+        },
+        {
+          "val": "VULNERABILITY",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "top_components": [
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/nlohmann_json.hpp",
+      "count": 1268
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/httplib.h",
+      "count": 1185
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/include/gmock/gmock-matchers.h",
+      "count": 407
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/gtest_unittest.cc",
+      "count": 392
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/src/gtest.cc",
+      "count": 284
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-matchers-containers_test.cc",
+      "count": 219
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-actions_test.cc",
+      "count": 170
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-printers-test.cc",
+      "count": 156
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/include/gmock/gmock-actions.h",
+      "count": 154
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/include/gtest/internal/gtest-port.h",
+      "count": 152
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/include/gtest/gtest-matchers.h",
+      "count": 134
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-output-test_.cc",
+      "count": 110
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/include/gmock/gmock-spec-builders.h",
+      "count": 95
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-param-test-test.cc",
+      "count": 92
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-spec-builders_test.cc",
+      "count": 76
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-more-actions_test.cc",
+      "count": 75
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-matchers-misc_test.cc",
+      "count": 71
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/include/gtest/internal/gtest-internal.h",
+      "count": 66
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/src/gmock-spec-builders.cc",
+      "count": 63
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/include/gtest/internal/gtest-param-util.h",
+      "count": 56
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-matchers-comparisons_test.cc",
+      "count": 55
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/include/gtest/gtest.h",
+      "count": 55
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-list-tests-unittest.py",
+      "count": 49
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/src/gtest-port.cc",
+      "count": 47
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-pp_test.cc",
+      "count": 46
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-catch-exceptions-test_.cc",
+      "count": 44
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/include/gtest/gtest-printers.h",
+      "count": 43
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-port-test.cc",
+      "count": 41
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:src/ReservationSystem.cpp",
+      "count": 40
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/googletest-death-test-test.cc",
+      "count": 40
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-matchers-arithmetic_test.cc",
+      "count": 38
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock-internal-utils_test.cc",
+      "count": 36
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/gtest_pred_impl_unittest.cc",
+      "count": 34
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/include/gmock/internal/gmock-internal-utils.h",
+      "count": 33
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/src/gtest-internal-inl.h",
+      "count": 30
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:src/api_server_main.cpp",
+      "count": 29
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/src/gtest-death-test.cc",
+      "count": 28
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/test/gtest-typed-test_test.cc",
+      "count": 28
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googletest/src/gtest-printers.cc",
+      "count": 26
+    },
+    {
+      "component": "Prekzursil_Airline-Reservations-System:third_party/googletest/googlemock/test/gmock_test.cc",
+      "count": 25
+    }
+  ],
+  "top_rules": [
+    {
+      "rule": "cpp:S5945",
+      "count": 477
+    },
+    {
+      "rule": "cpp:S6020",
+      "count": 439
+    },
+    {
+      "rule": "cpp:S5025",
+      "count": 299
+    },
+    {
+      "rule": "cpp:S5018",
+      "count": 279
+    },
+    {
+      "rule": "cpp:S5416",
+      "count": 274
+    },
+    {
+      "rule": "cpp:S6180",
+      "count": 239
+    },
+    {
+      "rule": "cpp:S125",
+      "count": 214
+    },
+    {
+      "rule": "cpp:S1186",
+      "count": 213
+    },
+    {
+      "rule": "cpp:S6494",
+      "count": 195
+    },
+    {
+      "rule": "cpp:S1709",
+      "count": 181
+    },
+    {
+      "rule": "cpp:S6195",
+      "count": 171
+    },
+    {
+      "rule": "cpp:S3230",
+      "count": 156
+    },
+    {
+      "rule": "cpp:S1238",
+      "count": 153
+    },
+    {
+      "rule": "cpp:S5827",
+      "count": 139
+    },
+    {
+      "rule": "cpp:S5028",
+      "count": 134
+    },
+    {
+      "rule": "cpp:S134",
+      "count": 121
+    },
+    {
+      "rule": "cpp:S6004",
+      "count": 112
+    },
+    {
+      "rule": "cpp:S3608",
+      "count": 107
+    },
+    {
+      "rule": "cpp:S959",
+      "count": 102
+    },
+    {
+      "rule": "cpp:S5817",
+      "count": 102
+    },
+    {
+      "rule": "cpp:S6009",
+      "count": 98
+    },
+    {
+      "rule": "cpp:S6013",
+      "count": 91
+    },
+    {
+      "rule": "cpp:S6190",
+      "count": 76
+    },
+    {
+      "rule": "cpp:S1659",
+      "count": 75
+    },
+    {
+      "rule": "python:S1542",
+      "count": 73
+    },
+    {
+      "rule": "cpp:S3776",
+      "count": 60
+    },
+    {
+      "rule": "cpp:S5008",
+      "count": 57
+    },
+    {
+      "rule": "cpp:S6012",
+      "count": 56
+    },
+    {
+      "rule": "cpp:S3630",
+      "count": 52
+    },
+    {
+      "rule": "python:S6326",
+      "count": 48
+    },
+    {
+      "rule": "cpp:S6022",
+      "count": 46
+    },
+    {
+      "rule": "cpp:S6045",
+      "count": 45
+    },
+    {
+      "rule": "cpp:S1133",
+      "count": 45
+    },
+    {
+      "rule": "cpp:S6003",
+      "count": 45
+    },
+    {
+      "rule": "cpp:S6177",
+      "count": 42
+    },
+    {
+      "rule": "cpp:S5950",
+      "count": 42
+    },
+    {
+      "rule": "cpp:S6005",
+      "count": 41
+    },
+    {
+      "rule": "cpp:S3656",
+      "count": 40
+    },
+    {
+      "rule": "cpp:S5566",
+      "count": 40
+    },
+    {
+      "rule": "cpp:S6226",
+      "count": 40
+    }
+  ]
+}

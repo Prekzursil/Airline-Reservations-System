@@ -1,3 +1,4 @@
+// cppcheck-suppress-file missingIncludeSystem
 #ifndef SEAT_H
 #define SEAT_H
 

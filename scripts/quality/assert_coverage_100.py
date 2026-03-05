@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+from __future__ import absolute_import, annotations, division
 
 import argparse
 import json
-import re
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+from scripts.security_helpers import QualityArtifact, quality_artifact_paths
+
+NODE_LCOV_PATH = Path("airline-gui/coverage/lcov.info")
+NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
+NODE_FINAL_JSON_PATH = Path("airline-gui/coverage/coverage-final.json")
+CPP_LCOV_PATH = Path("coverage/cpp/lcov.info")
 
 
 @dataclass
@@ -24,49 +30,10 @@ class CoverageStats:
         return (self.covered / self.total) * 100.0
 
 
-_PAIR_RE = re.compile(r"^(?P<name>[^=]+)=(?P<path>.+)$")
-_XML_LINES_VALID_RE = re.compile(r'lines-valid="([0-9]+(?:\\.[0-9]+)?)"')
-_XML_LINES_COVERED_RE = re.compile(r'lines-covered="([0-9]+(?:\\.[0-9]+)?)"')
-_XML_LINE_HITS_RE = re.compile(r"<line\\b[^>]*\\bhits=\"([0-9]+(?:\\.[0-9]+)?)\"")
-
-
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assert 100% coverage for all declared components.")
-    parser.add_argument("--xml", action="append", default=[], help="Coverage XML input: name=path")
-    parser.add_argument("--lcov", action="append", default=[], help="LCOV input: name=path")
-    parser.add_argument("--out-json", default="coverage-100/coverage.json", help="Output JSON path")
-    parser.add_argument("--out-md", default="coverage-100/coverage.md", help="Output markdown path")
+    parser = argparse.ArgumentParser(description="Assert 100% coverage for known project components.")
+    parser.add_argument("--require-cpp", action="store_true", help="Fail if C++ lcov report is missing.")
     return parser.parse_args()
-
-
-def parse_named_path(value: str) -> tuple[str, Path]:
-    match = _PAIR_RE.match(value.strip())
-    if not match:
-        raise ValueError(f"Invalid input '{value}'. Expected format: name=path")
-    return match.group("name").strip(), Path(match.group("path").strip())
-
-
-def parse_coverage_xml(name: str, path: Path) -> CoverageStats:
-    text = path.read_text(encoding="utf-8")
-    lines_valid_match = _XML_LINES_VALID_RE.search(text)
-    lines_covered_match = _XML_LINES_COVERED_RE.search(text)
-
-    if lines_valid_match and lines_covered_match:
-        total = int(float(lines_valid_match.group(1)))
-        covered = int(float(lines_covered_match.group(1)))
-        return CoverageStats(name=name, path=str(path), covered=covered, total=total)
-
-    total = 0
-    covered = 0
-    for hits_raw in _XML_LINE_HITS_RE.findall(text):
-        total += 1
-        try:
-            if int(float(hits_raw)) > 0:
-                covered += 1
-        except ValueError:
-            continue
-
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
@@ -83,24 +50,89 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
     return CoverageStats(name=name, path=str(path), covered=covered, total=total)
 
 
-def evaluate(stats: list[CoverageStats]) -> tuple[str, list[str]]:
-    findings: list[str] = []
-    for item in stats:
-        if item.percent < 100.0:
-            findings.append(f"{item.name} coverage below 100%: {item.percent:.2f}% ({item.covered}/{item.total})")
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
+
+def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    total_node = data.get("total", {})
+    lines = total_node.get("lines", {}) if isinstance(total_node, dict) else {}
+
+    covered = _safe_int(lines.get("covered"))
+    total = _safe_int(lines.get("total"))
+
+    if total <= 0:
+        statements = total_node.get("statements", {}) if isinstance(total_node, dict) else {}
+        covered = _safe_int(statements.get("covered"))
+        total = _safe_int(statements.get("total"))
+
+    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+
+
+def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    covered = 0
+    total = 0
+
+    if not isinstance(data, dict):
+        return CoverageStats(name=name, path=str(path), covered=0, total=0)
+
+    for file_cov in data.values():
+        if not isinstance(file_cov, dict):
+            continue
+        statements = file_cov.get("s", {})
+        if not isinstance(statements, dict):
+            continue
+        total += len(statements)
+        covered += sum(1 for count in statements.values() if _safe_int(count) > 0)
+
+    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+
+
+def load_node_stats() -> CoverageStats:
+    if NODE_LCOV_PATH.exists():
+        return parse_lcov("node", NODE_LCOV_PATH)
+    if NODE_SUMMARY_JSON_PATH.exists():
+        return parse_istanbul_summary("node", NODE_SUMMARY_JSON_PATH)
+    if NODE_FINAL_JSON_PATH.exists():
+        return parse_istanbul_final("node", NODE_FINAL_JSON_PATH)
+    raise SystemExit(
+        "Node coverage report is missing. Expected one of: "
+        f"{NODE_LCOV_PATH}, {NODE_SUMMARY_JSON_PATH}, {NODE_FINAL_JSON_PATH}"
+    )
+
+
+def _component_findings(stats: List[CoverageStats]) -> List[str]:
+    findings: List[str] = []
+    for item in stats:
+        if item.percent >= 100.0:
+            continue
+        findings.append(f"{item.name} coverage below 100%: {item.percent:.2f}% ({item.covered}/{item.total})")
+    return findings
+
+
+def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     combined_total = sum(item.total for item in stats)
     combined_covered = sum(item.covered for item in stats)
-    combined = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
+    combined_percent = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
+    return combined_covered, combined_total, combined_percent
 
-    if combined < 100.0:
-        findings.append(f"combined coverage below 100%: {combined:.2f}% ({combined_covered}/{combined_total})")
+
+def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
+    findings = _component_findings(stats)
+    combined_covered, combined_total, combined_percent = _combined_coverage(stats)
+    if combined_percent < 100.0:
+        findings.append(f"combined coverage below 100%: {combined_percent:.2f}% ({combined_covered}/{combined_total})")
 
     status = "pass" if not findings else "fail"
     return status, findings
 
 
-def _render_md(payload: dict) -> str:
+def _render_md(payload: Dict[str, Any]) -> str:
     lines = [
         "# Coverage 100 Gate",
         "",
@@ -128,32 +160,19 @@ def _render_md(payload: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _safe_output_path(raw: str, fallback: str, base: Path | None = None) -> Path:
-    root = (base or Path.cwd()).resolve()
-    candidate = Path((raw or "").strip() or fallback).expanduser()
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    resolved = candidate.resolve(strict=False)
-    try:
-        resolved.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(f"Output path escapes workspace root: {candidate}") from exc
-    return resolved
-
-
 def main() -> int:
     args = _parse_args()
 
-    stats: list[CoverageStats] = []
-    for item in args.xml:
-        name, path = parse_named_path(item)
-        stats.append(parse_coverage_xml(name, path))
-    for item in args.lcov:
-        name, path = parse_named_path(item)
-        stats.append(parse_lcov(name, path))
+    stats: List[CoverageStats] = []
 
-    if not stats:
-        raise SystemExit("No coverage files were provided; pass --xml and/or --lcov inputs.")
+    stats.append(load_node_stats())
+
+    if args.require_cpp:
+        if not CPP_LCOV_PATH.exists():
+            raise SystemExit(f"C++ coverage report is missing: {CPP_LCOV_PATH}")
+        stats.append(parse_lcov("cpp", CPP_LCOV_PATH))
+    elif CPP_LCOV_PATH.exists():
+        stats.append(parse_lcov("cpp", CPP_LCOV_PATH))
 
     status, findings = evaluate(stats)
     payload = {
@@ -172,15 +191,7 @@ def main() -> int:
         "findings": findings,
     }
 
-    try:
-        out_json = _safe_output_path(args.out_json, "coverage-100/coverage.json")
-        out_md = _safe_output_path(args.out_md, "coverage-100/coverage.md")
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_json, out_md = quality_artifact_paths(QualityArtifact.COVERAGE_100)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")

@@ -14,20 +14,33 @@ jobs:
   codacy-zero:
     name: Codacy Zero
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - name: Assert Codacy zero-open gate
-        env:
-          CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Assert Codacy PR analysis context is green
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
-          python3 scripts/quality/check_codacy_zero.py \
+          python3 -m scripts.quality.check_required_checks \
+            --repo "${GITHUB_REPOSITORY}" \
+            --sha "${GITHUB_SHA}" \
+            --required-context "Codacy Static Code Analysis" \
+            --timeout-seconds 1200 \
+            --poll-seconds 20
+      - name: Assert Codacy zero-open gate
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          python3 -m scripts.quality.check_codacy_zero \
             --owner "${GITHUB_REPOSITORY_OWNER}" \
-            --repo "${GITHUB_REPOSITORY#*/}" \
-            --out-json "codacy-zero/codacy.json" \
-            --out-md "codacy-zero/codacy.md"
+            --repo "${GITHUB_REPOSITORY#*/}"
       - name: Upload Codacy artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: codacy-zero
           path: codacy-zero
