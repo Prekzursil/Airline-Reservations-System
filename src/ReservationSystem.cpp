@@ -1,4 +1,3 @@
-// cppcheck-suppress-file missingIncludeSystem
 #include "ReservationSystem.h"
 #include <iostream>
 #include <random>    // For ID generation
@@ -10,6 +9,45 @@ static int g_customerIdCounter = 1; // Global static for resettable ID generatio
 namespace {
 bool isAffirmative(char value) {
     return value == 'y' || value == 'Y';
+}
+
+struct AutoCustomerData {
+    std::string name;
+    int age;
+    double money;
+};
+
+std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::string& prompt) {
+    std::string value;
+    out << prompt;
+    std::getline(in, value);
+    if (!value.empty()) {
+        return value;
+    }
+    out << "Input cannot be empty. Please try again: ";
+    std::getline(in, value);
+    return value;
+}
+
+AutoCustomerData generateAutoCustomerData(const std::string& newId) {
+    static const std::vector<std::string> firstNames = {
+        "AutoPat",
+        "RoboUser",
+        "GenClient",
+        "SysPerson",
+        "BotPassenger",
+    };
+    std::random_device random_device;
+    std::mt19937 generator(random_device());
+    std::uniform_int_distribution<> name_index_distribution(0, static_cast<int>(firstNames.size()) - 1);
+    std::uniform_int_distribution<> age_distribution(18, 80);
+    std::uniform_real_distribution<> money_distribution(100.0, 2000.0);
+
+    const std::string name = firstNames[static_cast<size_t>(name_index_distribution(generator))] + "_" + newId;
+    const int age = age_distribution(generator);
+    double money = money_distribution(generator);
+    money = static_cast<int>(money * 100 + 0.5) / 100.0;
+    return {name, age, money};
 }
 
 void printAvailableFlights(std::ostream& out, const std::vector<Airplane>& availableAirplanes) {
@@ -159,48 +197,25 @@ void ReservationSystem::run() {
 
 void ReservationSystem::handleAddCustomer() {
     (*m_cout_ptr) << "\n--- Add New Customer ---" << std::endl;
-    char choice = getValidatedInput<char>("Add customer manually (m) or automatically (a)? ");
-    
+    const char choice = getValidatedInput<char>("Add customer manually (m) or automatically (a)? ");
+    const std::string newId = generateUniqueCustomerId();
+
     std::string name;
-    int age;
-    double money;
-    std::string newId = generateUniqueCustomerId();
+    int age = 0;
+    double money = 0.0;
 
     if (choice == 'a' || choice == 'A') {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::string firstNames[] = {"AutoPat", "RoboUser", "GenClient", "SysPerson", "BotPassenger"};
-        std::uniform_int_distribution<> nameDist(0, sizeof(firstNames)/sizeof(std::string) - 1);
-        name = firstNames[nameDist(gen)] + "_" + newId;
-
-        std::uniform_int_distribution<> ageDist(18, 80);
-        age = ageDist(gen);
-
-        std::uniform_real_distribution<> moneyDist(100.0, 2000.0);
-        money = moneyDist(gen);
-        money = static_cast<int>(money * 100 + 0.5) / 100.0;
+        const AutoCustomerData generated = generateAutoCustomerData(newId);
+        name = generated.name;
+        age = generated.age;
+        money = generated.money;
 
         (*m_cout_ptr) << "Generated Customer:" << std::endl;
         (*m_cout_ptr) << "  Name: " << name << std::endl;
         (*m_cout_ptr) << "  Age: " << age << std::endl;
         (*m_cout_ptr) << "  Money: $" << std::fixed << std::setprecision(2) << money << std::endl;
-
     } else if (choice == 'm' || choice == 'M') {
-        (*m_cout_ptr) << "Enter customer name: ";
-        std::getline((*m_cin_ptr), name); 
-        if (name.empty() && m_cin_ptr->eof() == false && m_cin_ptr->fail() == false ) { // Check if getline consumed only a newline
-             // This can happen if previous cin >> var left a newline.
-             // The getValidatedInput already clears the buffer, so this might not be strictly needed here
-             // but good for robustness if mixing cin >> and getline.
-             // However, getValidatedInput is used for char, int, double, not typically before this getline.
-             // The issue is more likely if getMenuChoice was the last input.
-             // The ignore in getMenuChoice should handle it.
-             // If name is still empty, prompt again.
-             if(name.empty()) { // If truly empty after first getline
-                (*m_cout_ptr) << "Re-enter customer name: ";
-                std::getline((*m_cin_ptr), name);
-             }
-        }
+        name = readNonEmptyLine(*m_cin_ptr, *m_cout_ptr, "Enter customer name: ");
         age = getValidatedInput<int>("Enter customer age: ");
         money = getValidatedInput<double>("Enter initial money: ");
     } else {
@@ -394,8 +409,8 @@ void ReservationSystem::handleSwapSeats() {
     (void)cust2; // Mark as used
     // if(cust2) cust2->displayDetails(); 
 
-    char confirm = getValidatedInput<char>("\nConfirm swap of these two seats? (y/n): ");
-    if (confirm == 'y' || confirm == 'Y') {
+    const char confirm = getValidatedInput<char>("\nConfirm swap of these two seats? (y/n): ");
+    if (isAffirmative(confirm)) {
         std::string seatId_cust1 = booking1->getSeatId();
         std::string seatId_cust2 = booking2->getSeatId();
         
