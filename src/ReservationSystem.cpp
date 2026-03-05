@@ -1,12 +1,12 @@
 #include "ReservationSystem.h"
-#include <cstdint>
-#include <iomanip>   // For std::setfill, std::setw, std::fixed, std::setprecision
 #include <iostream>
 #include <sstream>   // For ID generation
 
 static int g_customerIdCounter = 1; // Global static for resettable ID generation
 
 namespace {
+using SeedValue = unsigned long long;
+
 bool isAffirmative(char value) {
     return value == 'y' || value == 'Y';
 }
@@ -34,10 +34,10 @@ constexpr int kMaximumAutoAge = 80;
 constexpr int kMinimumAutoMoneyCents = 10000;
 constexpr int kMaximumAutoMoneyCents = 200000;
 
-std::uint64_t buildDeterministicSeed(const std::string& value, std::uint64_t salt) {
-    std::uint64_t hash = 1469598103934665603ULL ^ salt;
+SeedValue buildDeterministicSeed(const std::string& value, SeedValue salt) {
+    SeedValue hash = 1469598103934665603ULL ^ salt;
     for (const char ch : value) {
-        hash ^= static_cast<std::uint64_t>(static_cast<unsigned char>(ch));
+        hash ^= static_cast<SeedValue>(static_cast<unsigned char>(ch));
         hash *= 1099511628211ULL;
     }
     return hash;
@@ -46,20 +46,20 @@ std::uint64_t buildDeterministicSeed(const std::string& value, std::uint64_t sal
 std::string buildDeterministicAutoName(
     const std::vector<std::string>& firstNames,
     const std::string& customerId,
-    std::uint64_t seed
+    SeedValue seed
 ) {
     const auto nameIndex = seed % firstNames.size();
     return firstNames[nameIndex] + "_" + customerId;
 }
 
-int buildDeterministicAutoAge(std::uint64_t seed) {
+int buildDeterministicAutoAge(SeedValue seed) {
     const int ageRange = kMaximumAutoAge - kMinimumAutoAge + 1;
-    return kMinimumAutoAge + static_cast<int>(seed % static_cast<std::uint64_t>(ageRange));
+    return kMinimumAutoAge + static_cast<int>(seed % static_cast<SeedValue>(ageRange));
 }
 
-double buildDeterministicAutoMoney(std::uint64_t seed) {
+double buildDeterministicAutoMoney(SeedValue seed) {
     const int moneyRange = kMaximumAutoMoneyCents - kMinimumAutoMoneyCents + 1;
-    const int moneyCents = kMinimumAutoMoneyCents + static_cast<int>(seed % static_cast<std::uint64_t>(moneyRange));
+    const int moneyCents = kMinimumAutoMoneyCents + static_cast<int>(seed % static_cast<SeedValue>(moneyRange));
     return static_cast<double>(moneyCents) / 100.0;
 }
 
@@ -71,7 +71,7 @@ AutoCustomerData generateAutoCustomerData(const std::string& newId) {
         "SysPerson",
         "BotPassenger",
     };
-    const std::uint64_t seed = buildDeterministicSeed(newId, 0x9E3779B97F4A7C15ULL);
+    const SeedValue seed = buildDeterministicSeed(newId, 0x9E3779B97F4A7C15ULL);
     const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
     const int age = buildDeterministicAutoAge(seed >> 8U);
     const double money = buildDeterministicAutoMoney(seed >> 16U);
@@ -86,11 +86,33 @@ AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
         "SystemPerson",
         "BackendBot",
     };
-    const std::uint64_t seed = buildDeterministicSeed(newId, 0xD1B54A32D192ED03ULL);
+    const SeedValue seed = buildDeterministicSeed(newId, 0xD1B54A32D192ED03ULL);
     const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
     const int age = buildDeterministicAutoAge(seed >> 8U);
     const double money = buildDeterministicAutoMoney(seed >> 16U);
     return {name, age, money};
+}
+
+std::string formatCustomerId(int counter) {
+    std::string numeric_part = std::to_string(counter);
+    while (numeric_part.size() < 4U) {
+        numeric_part.insert(numeric_part.begin(), '0');
+    }
+    return "CUST" + numeric_part;
+}
+
+std::string formatMoneyAmount(double amount) {
+    const long long cents = static_cast<long long>(amount * 100.0 + (amount >= 0.0 ? 0.5 : -0.5));
+    const long long dollars = cents / 100;
+    const long long remainder = cents >= 0 ? cents % 100 : -(cents % 100);
+
+    std::ostringstream out;
+    out << dollars << '.';
+    if (remainder < 10) {
+        out << '0';
+    }
+    out << remainder;
+    return out.str();
 }
 
 void printAvailableFlights(std::ostream& out, const std::vector<Airplane>& availableAirplanes) {
@@ -203,9 +225,8 @@ void ReservationSystem::initializeSystem() {
 }
 
 std::string ReservationSystem::generateUniqueCustomerId() {
-    std::ostringstream oss;
-    oss << "CUST" << std::setfill('0') << std::setw(4) << g_customerIdCounter++;
-    return oss.str();
+    const int nextCounter = g_customerIdCounter++;
+    return formatCustomerId(nextCounter);
 }
 
 Customer* ReservationSystem::findCustomerById(const std::string& customerId) {
@@ -302,7 +323,7 @@ void ReservationSystem::handleAddCustomer() {
         (*m_cout_ptr) << "Generated Customer:" << std::endl;
         (*m_cout_ptr) << "  Name: " << name << std::endl;
         (*m_cout_ptr) << "  Age: " << age << std::endl;
-        (*m_cout_ptr) << "  Money: $" << std::fixed << std::setprecision(2) << money << std::endl;
+        (*m_cout_ptr) << "  Money: $" << formatMoneyAmount(money) << std::endl;
     } else if (choice == 'm' || choice == 'M') {
         name = readNonEmptyLine(*m_cin_ptr, *m_cout_ptr, "Enter customer name: ");
         age = getValidatedInput<int>("Enter customer age: ");
