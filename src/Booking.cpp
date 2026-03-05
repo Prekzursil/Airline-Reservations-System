@@ -13,6 +13,20 @@ bool convertToLocalTime(std::time_t value, std::tm& outTm) {
     return localtime_r(&value, &outTm) != nullptr;
 #endif
 }
+
+void initializeBookingState(
+    const std::string& flightNum,
+    const std::string& seatNum,
+    std::string& flightNumberOut,
+    std::string& seatIdOut,
+    std::chrono::system_clock::time_point& bookingDateOut,
+    BookingStatus& statusOut
+) {
+    flightNumberOut = flightNum;
+    seatIdOut = seatNum;
+    bookingDateOut = std::chrono::system_clock::now();
+    statusOut = BookingStatus::PENDING;
+}
 } // namespace
 
 // Helper to convert BookingStatus to string
@@ -45,11 +59,8 @@ std::string Booking::generateBookingId() {
 
 // Constructor
 Booking::Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum)
-    : customerId(custId)
-    , flightNumber(flightNum)
-    , seatId(seatNum)
-    , bookingDate(std::chrono::system_clock::now())
-    , status(BookingStatus::PENDING) {
+    : customerId(custId) {
+    initializeBookingState(flightNum, seatNum, flightNumber, seatId, bookingDate, status);
     bookingId = generateBookingId();
     // std::cout << "Booking constructor called. ID: " << this->bookingId << std::endl; // Optional
 }
