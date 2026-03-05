@@ -71,6 +71,35 @@ class SecurityHelpersValidationTests(unittest.TestCase):
                 path="https://api.github.com/repos/owner/repo",
             )
 
+    def test_http_method_validation_enforces_known_verbs(self) -> None:
+        self.assertEqual(helpers._normalized_http_method("get"), "GET")
+        self.assertEqual(helpers._normalized_http_method(" PATCH "), "PATCH")
+
+        with self.assertRaises(ValueError):
+            helpers._normalized_http_method("TRACE")
+        with self.assertRaises(ValueError):
+            helpers._normalized_http_method("")
+
+    def test_timeout_validation_rejects_invalid_values(self) -> None:
+        self.assertEqual(helpers._safe_timeout_seconds(1), 1)
+        self.assertEqual(helpers._safe_timeout_seconds(300), 300)
+
+        with self.assertRaises(ValueError):
+            helpers._safe_timeout_seconds(0)
+        with self.assertRaises(ValueError):
+            helpers._safe_timeout_seconds(301)
+
+    def test_header_validation_rejects_invalid_names_and_values(self) -> None:
+        merged = helpers._merge_safe_headers({"X-Test": "token"}, include_json_content_type=False)
+        self.assertEqual(merged["Accept"], "application/json")
+        self.assertEqual(merged["X-Test"], "token")
+        self.assertNotIn("Content-Type", merged)
+
+        with self.assertRaises(ValueError):
+            helpers._merge_safe_headers({"Bad Header": "x"}, include_json_content_type=False)
+        with self.assertRaises(ValueError):
+            helpers._merge_safe_headers({"X-Test": "line1\nline2"}, include_json_content_type=False)
+
     def test_quality_artifact_paths_are_fixed(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()

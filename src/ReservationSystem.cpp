@@ -1,12 +1,38 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "ReservationSystem.h"
 #include <iostream>
-#include <algorithm> // For std::find_if
 #include <random>    // For ID generation
 #include <sstream>   // For ID generation
 #include <iomanip>   // For std::setfill, std::setw, std::fixed, std::setprecision
 
 static int g_customerIdCounter = 1; // Global static for resettable ID generation
+
+namespace {
+bool isAffirmative(char value) {
+    return value == 'y' || value == 'Y';
+}
+
+void printAvailableFlights(std::ostream& out, const std::vector<Airplane>& availableAirplanes) {
+    out << "\nAvailable Flights:" << std::endl;
+    for (size_t i = 0; i < availableAirplanes.size(); ++i) {
+        out << i + 1 << ". Flight " << availableAirplanes[i].getFlightNumber() << std::endl;
+    }
+}
+
+void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& suggestions) {
+    if (suggestions.empty()) {
+        return;
+    }
+    out << "Perhaps one of these seats instead?" << std::endl;
+    for (const Seat* suggestedSeat : suggestions) {
+        if (suggestedSeat == nullptr) {
+            continue;
+        }
+        out << "- " << suggestedSeat->getSeatId() << " (" << suggestedSeat->getSeatClassString()
+            << ") costs $" << suggestedSeat->getPrice() << std::endl;
+    }
+}
+} // namespace
 
 // Constructor
 ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
@@ -205,12 +231,10 @@ void ReservationSystem::handleBookSeat() {
     }
     // customer->displayDetails(); // Uses std::cout, need to pass m_cout_ptr or refactor
 
-    (*m_cout_ptr) << "\nAvailable Flights:" << std::endl;
-    for (size_t i = 0; i < airplanes.size(); ++i) {
-        (*m_cout_ptr) << i + 1 << ". Flight " << airplanes[i].getFlightNumber() << std::endl;
-    }
-    int flightChoice = getMenuChoice(1, airplanes.size()) -1; 
-    Airplane* airplane = &airplanes[flightChoice];
+    printAvailableFlights(*m_cout_ptr, airplanes);
+    const int maxChoice = static_cast<int>(airplanes.size());
+    int flightChoice = getMenuChoice(1, maxChoice) - 1;
+    Airplane* airplane = &airplanes[static_cast<size_t>(flightChoice)];
     
     (*m_cout_ptr) << "Selected Flight: " << airplane->getFlightNumber() << std::endl;
     // airplane->displaySeatingMap(); // Uses std::cout
@@ -229,36 +253,32 @@ void ReservationSystem::handleBookSeat() {
     }
 
     (*m_cout_ptr) << "Seat " << seatIdToBook << " (" << seat->getSeatClassString() << ") costs $" << seat->getPrice() << std::endl;
-    if (customer->getMoney() >= seat->getPrice()) {
-        char confirm = getValidatedInput<char>("Confirm booking? (y/n): ");
-        if (confirm == 'y' || confirm == 'Y') {
-            if (customer->chargeMoney(seat->getPrice())) {
-                if (airplane->bookSpecificSeat(seatIdToBook)) {
-                    bookings.emplace_back(customer->getPersonId(), airplane->getFlightNumber(), seat->getSeatId());
-                    bookings.back().setStatus(BookingStatus::CONFIRMED); 
-                    (*m_cout_ptr) << "Booking successful! Booking ID: " << bookings.back().getBookingId() << std::endl;
-                    // customer->displayDetails(); 
-                } else {
-                    (*m_cout_ptr) << "Booking failed internally (airplane could not book seat)." << std::endl;
-                    customer->addMoney(seat->getPrice()); 
-                }
-            } else {
-                 (*m_cout_ptr) << "Booking failed (could not charge customer - unexpected)." << std::endl;
-            }
-        } else {
-            (*m_cout_ptr) << "Booking cancelled by user." << std::endl;
-        }
-    } else {
+    if (customer->getMoney() < seat->getPrice()) {
         (*m_cout_ptr) << "Insufficient funds. You have $" << customer->getMoney() << ", seat costs $" << seat->getPrice() << "." << std::endl;
-        std::vector<const Seat*> suggestions = airplane->suggestLowerPriceSeats(customer, customer->getMoney()); // Changed to const Seat*
-        if (!suggestions.empty()) {
-            (*m_cout_ptr) << "Perhaps one of these seats instead?" << std::endl;
-            for (const auto* suggestedSeat : suggestions) {
-                (void)suggestedSeat; // Mark as used
-                // suggestedSeat->displaySeatInfo(); // Uses std::cout
-            }
-        }
+        std::vector<const Seat*> suggestions = airplane->suggestLowerPriceSeats(customer, customer->getMoney());
+        printSeatSuggestions(*m_cout_ptr, suggestions);
+        return;
     }
+
+    char confirm = getValidatedInput<char>("Confirm booking? (y/n): ");
+    if (!isAffirmative(confirm)) {
+        (*m_cout_ptr) << "Booking cancelled by user." << std::endl;
+        return;
+    }
+
+    std::string bookingStatusMessage;
+    Booking* booking = createBookingInternal(
+        customer->getPersonId(),
+        airplane->getFlightNumber(),
+        seat->getSeatId(),
+        bookingStatusMessage
+    );
+    if (!booking) {
+        (*m_cout_ptr) << bookingStatusMessage << std::endl;
+        return;
+    }
+
+    (*m_cout_ptr) << "Booking successful! Booking ID: " << booking->getBookingId() << std::endl;
 }
 
 void ReservationSystem::handleViewFlightDetails() {
@@ -267,12 +287,10 @@ void ReservationSystem::handleViewFlightDetails() {
         (*m_cout_ptr) << "No flights available to view." << std::endl;
         return;
     }
-    (*m_cout_ptr) << "Available Flights:" << std::endl;
-    for (size_t i = 0; i < airplanes.size(); ++i) {
-        (*m_cout_ptr) << i + 1 << ". Flight " << airplanes[i].getFlightNumber() << std::endl;
-    }
-    int flightChoice = getMenuChoice(1, airplanes.size()) - 1; 
-    Airplane* airplane = &airplanes[flightChoice];
+    printAvailableFlights(*m_cout_ptr, airplanes);
+    const int maxChoice = static_cast<int>(airplanes.size());
+    int flightChoice = getMenuChoice(1, maxChoice) - 1;
+    Airplane* airplane = &airplanes[static_cast<size_t>(flightChoice)];
     (void)airplane; // Mark as used
 
     // airplane->displaySeatingMap(); 
@@ -325,23 +343,19 @@ void ReservationSystem::handleCancelBooking() {
     // booking->displayBookingDetails(); 
     char confirm = getValidatedInput<char>("Confirm cancellation? (y/n): ");
 
-    if (confirm == 'y' || confirm == 'Y') {
-        Customer* customer = findCustomerById(booking->getCustomerId());
-        Airplane* airplane = findAirplaneByFlightNumber(booking->getFlightNumber());
-        Seat* seat = airplane ? airplane->findSeat(booking->getSeatId()) : nullptr;
-
-        if (customer && airplane && seat) {
-            double refundAmount = seat->getPrice(); 
-            customer->addMoney(refundAmount);
-            airplane->unbookSpecificSeat(seat->getSeatId());
-            booking->setStatus(BookingStatus::CANCELLED);
-            (*m_cout_ptr) << "Booking " << bookingIdToCancel << " cancelled successfully. $" << refundAmount << " refunded to customer " << customer->getName() << "." << std::endl;
-        } else {
-            (*m_cout_ptr) << "Error: Could not find customer, airplane, or seat associated with this booking. Cancellation failed." << std::endl;
-        }
-    } else {
+    if (!isAffirmative(confirm)) {
         (*m_cout_ptr) << "Cancellation aborted by user." << std::endl;
+        return;
     }
+
+    std::string cancelStatusMessage;
+    const bool cancelled = cancelBookingInternal(bookingIdToCancel, cancelStatusMessage);
+    if (cancelled) {
+        (*m_cout_ptr) << cancelStatusMessage << std::endl;
+        return;
+    }
+
+    (*m_cout_ptr) << cancelStatusMessage << std::endl;
 }
 
 void ReservationSystem::handleSwapSeats() {
@@ -502,21 +516,21 @@ Booking* ReservationSystem::createBookingInternal(const std::string& customerId,
         return nullptr;
     }
 
-    if (customer->chargeMoney(seat->getPrice())) {
-        if (airplane->bookSpecificSeat(seat->getSeatId())) {
-            bookings.emplace_back(customer->getPersonId(), airplane->getFlightNumber(), seat->getSeatId());
-            bookings.back().setStatus(BookingStatus::CONFIRMED);
-            errorMessage = "Booking successful.";
-            return &bookings.back(); // Return pointer to the new booking
-        } else {
-            customer->addMoney(seat->getPrice()); // Refund customer
-            errorMessage = "Booking failed internally (airplane could not book seat).";
-            return nullptr;
-        }
-    } else {
+    if (!customer->chargeMoney(seat->getPrice())) {
         errorMessage = "Booking failed (could not charge customer - unexpected).";
         return nullptr;
     }
+
+    if (!airplane->bookSpecificSeat(seat->getSeatId())) {
+        customer->addMoney(seat->getPrice()); // Refund customer
+        errorMessage = "Booking failed internally (airplane could not book seat).";
+        return nullptr;
+    }
+
+    bookings.emplace_back(customer->getPersonId(), airplane->getFlightNumber(), seat->getSeatId());
+    bookings.back().setStatus(BookingStatus::CONFIRMED);
+    errorMessage = "Booking successful.";
+    return &bookings.back(); // Return pointer to the new booking
 }
 
 bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std::string& errorMessage) {
@@ -553,12 +567,6 @@ bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std:
 
 bool ReservationSystem::swapSeatsInternal(const std::string& bookingId1_str, const std::string& bookingId2_str, std::string& errorMessage) {
     errorMessage.clear(); // Ensure errorMessage is in a good state
-
-    if (bookings.size() < 2) {
-        // This check is only for the general case; specific booking IDs might still be invalid.
-        // We proceed to find them individually.
-        // It's possible to have <2 bookings but still attempt a swap with invalid IDs.
-    }
 
     Booking* booking1 = findBookingById(bookingId1_str);
     if (!booking1 || booking1->getStatus() != BookingStatus::CONFIRMED) {

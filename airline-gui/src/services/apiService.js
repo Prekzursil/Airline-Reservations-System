@@ -1,25 +1,78 @@
 const JSON_CONTENT_TYPE = 'application/json';
 const UNKNOWN_ERROR = 'Unknown error occurred';
+const DEFAULT_API_BASE_PATH = '/api';
 
 const trimTrailingSlash = (value) => {
   let end = value.length;
-  while (end > 0 && value[end - 1] === '/') {
+  while (end > 1 && value[end - 1] === '/') {
     end -= 1;
   }
   return value.slice(0, end);
 };
 
-const buildDefaultApiBaseUrl = () => trimTrailingSlash(new URL('/api', 'https://localhost:8080').toString());
-
-const resolveApiBaseUrl = () => {
-  const configured = String(import.meta?.env?.VITE_API_BASE_URL || '').trim();
-  if (configured) {
-    return trimTrailingSlash(configured);
+const normalizeRelativeBasePath = (value) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed || trimmed.startsWith('//') || trimmed.includes('://')) {
+    return '';
   }
-  return buildDefaultApiBaseUrl();
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return trimTrailingSlash(withLeadingSlash);
 };
 
-const API_BASE_URL = resolveApiBaseUrl();
+const parseAbsoluteUrl = (value) => {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+};
+
+const getCurrentOrigin = () => {
+  const origin = globalThis.location?.origin;
+  if (typeof origin !== 'string' || origin === '' || origin === 'null') {
+    return '';
+  }
+  return origin;
+};
+
+const buildDefaultApiBasePath = () => DEFAULT_API_BASE_PATH;
+
+const resolveApiBasePath = () => {
+  const configured = String(import.meta?.env?.VITE_API_BASE_URL || '').trim();
+  if (!configured) {
+    return buildDefaultApiBasePath();
+  }
+
+  const relativePath = normalizeRelativeBasePath(configured);
+  if (relativePath) {
+    return relativePath;
+  }
+
+  const parsed = parseAbsoluteUrl(configured);
+  if (!parsed) {
+    return buildDefaultApiBasePath();
+  }
+
+  const currentOrigin = getCurrentOrigin();
+  if (currentOrigin && parsed.origin !== currentOrigin) {
+    return buildDefaultApiBasePath();
+  }
+
+  const normalizedPathname = normalizeRelativeBasePath(parsed.pathname);
+  return normalizedPathname || buildDefaultApiBasePath();
+};
+
+const API_BASE_PATH = resolveApiBasePath();
+
+const normalizeApiPath = (path) => {
+  const normalizedPath = String(path || '').trim();
+  if (!normalizedPath.startsWith('/') || normalizedPath.startsWith('//')) {
+    throw new Error(`Invalid API path: ${path}`);
+  }
+  return normalizedPath;
+};
+
+const buildRequestTarget = (path) => `${API_BASE_PATH}${normalizeApiPath(path)}`;
 
 const jsonHeaders = { 'Content-Type': JSON_CONTENT_TYPE };
 
@@ -37,7 +90,7 @@ const parseErrorMessage = async (response) => {
 };
 
 const requestJson = async (path, options = {}, includeErrorBody = false) => {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  const response = await fetch(buildRequestTarget(path), options);
   if (!response.ok) {
     if (!includeErrorBody) {
       throw new Error(`HTTP error! status: ${response.status}`);

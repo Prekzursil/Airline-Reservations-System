@@ -124,9 +124,9 @@ describe('apiService', () => {
     await expect(swapSeats(1, 2)).rejects.toThrow('HTTP error! status: 500 - Unknown error occurred');
   });
 
-  it('uses configured VITE_API_BASE_URL when provided', async () => {
+  it('uses configured VITE_API_BASE_URL when provided as a relative path', async () => {
     vi.resetModules();
-    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test/api/');
+    vi.stubEnv('VITE_API_BASE_URL', '/internal-api/');
 
     const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-1' }] }));
     globalThis.fetch = fetchMock;
@@ -135,7 +135,23 @@ describe('apiService', () => {
     await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-1' }]);
 
     expect(fetchMock).toHaveBeenCalled();
-    expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.test/api/airplanes');
+    expect(fetchMock.mock.calls[0][0]).toBe('/internal-api/airplanes');
+
+    vi.unstubAllEnvs();
+  });
+
+  it('falls back to default API path when VITE_API_BASE_URL is an external absolute URL', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test/api/');
+
+    const fetchMock = vi.fn().mockResolvedValue(makeResponse({ body: [{ flightNumber: 'CFG-2' }] }));
+    globalThis.fetch = fetchMock;
+
+    const apiModule = await import('./apiService');
+    await expect(apiModule.fetchAirplanes()).resolves.toEqual([{ flightNumber: 'CFG-2' }]);
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/airplanes');
 
     vi.unstubAllEnvs();
   });

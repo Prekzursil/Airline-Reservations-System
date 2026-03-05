@@ -17,6 +17,7 @@ _SAFE_OUTPUT_NAME_CHARS: FrozenSet[str] = frozenset(string.ascii_letters + strin
 _HEX_CHARS: FrozenSet[str] = frozenset(string.hexdigits)
 _HOST_CHARS: FrozenSet[str] = frozenset(string.ascii_lowercase + string.digits + ".-")
 _JSON_CONTENT_TYPE = "application/json"
+_SAFE_HEADER_NAME_CHARS: FrozenSet[str] = frozenset(string.ascii_letters + string.digits + "-")
 _ALLOWED_HTTPS_HOSTS: FrozenSet[str] = frozenset(
     {
         "api.github.com",
@@ -48,6 +49,16 @@ class QualityArtifact(str, Enum):
 class HTTPSRequestTarget:
     host: str
     path: str
+
+
+@dataclass(frozen=True)
+class HTTPSResponsePayload:
+    host: str
+    path: str
+    status: int
+    reason: str
+    body: str
+    headers: Dict[str, str]
 
 
 _QUALITY_ARTIFACT_LAYOUT: Dict[QualityArtifact, Tuple[str, str, str]] = {
@@ -375,6 +386,97 @@ def _https_connection() -> Any:
     return https_connection_factory
 
 
+def _normalized_http_method(method: str) -> str:
+    normalized = str(method or "").strip().upper()
+    if normalized not in {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}:
+        raise ValueError(f"Unsupported HTTP method: {method!r}")
+    return normalized
+
+
+def _safe_timeout_seconds(timeout: int) -> int:
+    checked = int(timeout)
+    if checked <= 0 or checked > 300:
+        raise ValueError(f"Invalid timeout value: {timeout!r}")
+    return checked
+
+
+def _contains_control_characters(value: str) -> bool:
+    return any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value)
+
+
+def _validate_header_name(name: str) -> str:
+    checked = str(name or "").strip()
+    if not checked:
+        raise ValueError("Header name cannot be empty")
+    if any(ch not in _SAFE_HEADER_NAME_CHARS for ch in checked):
+        raise ValueError(f"Invalid HTTP header name: {name!r}")
+    return checked
+
+
+def _validate_header_value(value: str, *, name: str) -> str:
+    checked = str(value or "")
+    if _contains_control_characters(checked):
+        raise ValueError(f"Invalid HTTP header value for {name!r}")
+    return checked
+
+
+def _merge_safe_headers(headers: Optional[Dict[str, str]], *, include_json_content_type: bool) -> Dict[str, str]:
+    final_headers: Dict[str, str] = {"Accept": _JSON_CONTENT_TYPE}
+    if headers:
+        for key, value in headers.items():
+            safe_name = _validate_header_name(key)
+            final_headers[safe_name] = _validate_header_value(value, name=safe_name)
+    if include_json_content_type:
+        final_headers.setdefault("Content-Type", _JSON_CONTENT_TYPE)
+    return final_headers
+
+
+def _request_https_payload(
+    *,
+    target: HTTPSRequestTarget,
+    method: str,
+    headers: Optional[Dict[str, str]],
+    timeout: int,
+    body: Optional[Dict[str, Any]] = None,
+    allowed_hosts: Optional[Set[str]] = None,
+) -> HTTPSResponsePayload:
+    safe_host = require_allowed_https_host(target.host, allowed_hosts=allowed_hosts)
+    safe_path = require_https_path(target.path)
+    safe_method = _normalized_http_method(method)
+    safe_timeout = _safe_timeout_seconds(timeout)
+
+    payload = None
+    include_content_type = body is not None
+    if body is not None:
+        payload = json.dumps(body).encode("utf-8")
+    final_headers = _merge_safe_headers(headers, include_json_content_type=include_content_type)
+
+    conn = _https_connection()(safe_host, timeout=safe_timeout)  # nosemgrep: validated allowlist host and path
+    try:
+        conn.request(safe_method, safe_path, body=payload, headers=final_headers)
+        response = conn.getresponse()
+        raw = response.read().decode("utf-8", errors="replace")
+        response_headers = {str(k).lower(): str(v) for k, v in response.getheaders()}
+    finally:
+        conn.close()
+
+    return HTTPSResponsePayload(
+        host=safe_host,
+        path=safe_path,
+        status=response.status,
+        reason=str(response.reason),
+        body=raw,
+        headers=response_headers,
+    )
+
+
+def _parse_json_response(raw: str, *, host: str, path: str) -> Any:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid JSON response body from {host}{path}") from exc
+
+
 def request_json_https(
     *,
     host: str,
@@ -408,32 +510,18 @@ def request_json_https_target(
     timeout: int = 30,
     allowed_hosts: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
-    safe_host = require_allowed_https_host(target.host, allowed_hosts=allowed_hosts)
-    safe_path = require_https_path(target.path)
-
-    payload = None
-    final_headers = {"Accept": _JSON_CONTENT_TYPE}
-    if headers:
-        final_headers.update(headers)
-    if body is not None:
-        payload = json.dumps(body).encode("utf-8")
-        final_headers.setdefault("Content-Type", _JSON_CONTENT_TYPE)
-
-    conn = _https_connection()(safe_host, timeout=timeout)  # nosemgrep: validated allowlist host and path
-    try:
-        conn.request(method, safe_path, body=payload, headers=final_headers)
-        response = conn.getresponse()
-        raw = response.read().decode("utf-8", errors="replace")
-    finally:
-        conn.close()
-
+    response = _request_https_payload(
+        target=target,
+        method=method,
+        headers=headers,
+        body=body,
+        timeout=timeout,
+        allowed_hosts=allowed_hosts,
+    )
     if response.status >= 400:
-        raise HTTPSRequestError(response.status, str(response.reason), raw)
+        raise HTTPSRequestError(response.status, response.reason, response.body)
 
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Invalid JSON response body from {safe_host}{safe_path}") from exc
+    parsed = _parse_json_response(response.body, host=response.host, path=response.path)
     if not isinstance(parsed, dict):
         raise RuntimeError("Expected JSON object response")
     return parsed
@@ -469,30 +557,18 @@ def request_json_list_https_target(
     timeout: int = 30,
     allowed_hosts: Optional[Set[str]] = None,
 ) -> Tuple[List[Any], Dict[str, str]]:
-    safe_host = require_allowed_https_host(target.host, allowed_hosts=allowed_hosts)
-    safe_path = require_https_path(target.path)
-
-    final_headers = {"Accept": _JSON_CONTENT_TYPE}
-    if headers:
-        final_headers.update(headers)
-
-    conn = _https_connection()(safe_host, timeout=timeout)  # nosemgrep: validated allowlist host and path
-    try:
-        conn.request(method, safe_path, headers=final_headers)
-        response = conn.getresponse()
-        raw = response.read().decode("utf-8", errors="replace")
-        response_headers = {k.lower(): v for k, v in response.getheaders()}
-    finally:
-        conn.close()
-
+    response = _request_https_payload(
+        target=target,
+        method=method,
+        headers=headers,
+        timeout=timeout,
+        allowed_hosts=allowed_hosts,
+    )
     if response.status >= 400:
-        raise HTTPSRequestError(response.status, str(response.reason), raw)
+        raise HTTPSRequestError(response.status, response.reason, response.body)
 
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Invalid JSON response body from {safe_host}{safe_path}") from exc
+    parsed = _parse_json_response(response.body, host=response.host, path=response.path)
     if not isinstance(parsed, list):
         raise RuntimeError("Expected JSON list response")
 
-    return parsed, response_headers
+    return parsed, response.headers
