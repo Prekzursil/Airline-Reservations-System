@@ -13,14 +13,12 @@ std::string seatClassToString(SeatClass sc) {
 
 // Constructor
 Seat::Seat(const std::string& id, SeatClass sc, double basePrice)
-{
-    seatId = id;
-    isBooked = false;
-    seatClass = sc;
+    : seatId(id)
+    , isBooked(false)
+    , price(basePrice)
+    , seatClass(sc) {
     if (sc == SeatClass::BUSINESS) {
-        this->price = basePrice * 2.0; // Business seats are twice the price of economy base
-    } else {
-        this->price = basePrice;
+        price *= 2.0; // Business seats are twice the price of economy base
     }
     // std::cout << "Seat constructor called for " << this->seatId << std::endl; // Optional
 }

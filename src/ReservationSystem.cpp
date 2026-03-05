@@ -1,6 +1,5 @@
 #include "ReservationSystem.h"
 #include "ReservationSystemHelpers.h"
-#include <array>
 #include <iostream>
 
 static int g_customerIdCounter = 1; // Global static for resettable ID generation
@@ -124,7 +123,7 @@ void ReservationSystem::run() {
 
 void ReservationSystem::executeMenuChoice(int choice) {
     using MenuAction = void (ReservationSystem::*)();
-    static constexpr std::array<MenuAction, 7> kActions = {
+    static const MenuAction kActions[] = {
         &ReservationSystem::handleAddCustomer,
         &ReservationSystem::handleBookSeat,
         &ReservationSystem::handleViewFlightDetails,
@@ -133,13 +132,14 @@ void ReservationSystem::executeMenuChoice(int choice) {
         &ReservationSystem::handleSwapSeats,
         &ReservationSystem::handleAdminMenu,
     };
+    constexpr int kActionCount = static_cast<int>(sizeof(kActions) / sizeof(kActions[0]));
 
     if (choice == 0) {
         (*m_cout_ptr) << "Exiting system. Goodbye!" << std::endl;
         return;
     }
 
-    if (choice >= 1 && choice <= static_cast<int>(kActions.size())) {
+    if (choice >= 1 && choice <= kActionCount) {
         (this->*kActions[static_cast<size_t>(choice - 1)])();
         return;
     }

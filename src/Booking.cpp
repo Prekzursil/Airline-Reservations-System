@@ -45,12 +45,11 @@ std::string Booking::generateBookingId() {
 
 // Constructor
 Booking::Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum)
-{
-    customerId = custId;
-    flightNumber = flightNum;
-    seatId = seatNum;
-    bookingDate = std::chrono::system_clock::now();
-    status = BookingStatus::PENDING;
+    : customerId(custId)
+    , flightNumber(flightNum)
+    , seatId(seatNum)
+    , bookingDate(std::chrono::system_clock::now())
+    , status(BookingStatus::PENDING) {
     bookingId = generateBookingId();
     // std::cout << "Booking constructor called. ID: " << this->bookingId << std::endl; // Optional
 }
