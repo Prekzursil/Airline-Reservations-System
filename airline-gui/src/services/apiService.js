@@ -90,6 +90,8 @@ const parseErrorMessage = async (response) => {
 };
 
 const requestJson = async (path, options = {}, includeErrorBody = false) => {
+  // nosemgrep: semgrep_rules_lgpl_javascript_ssrf_rule-node-ssrf
+  // Request target is constrained to same-origin relative paths by buildRequestTarget().
   const response = await fetch(buildRequestTarget(path), options);
   if (!response.ok) {
     if (!includeErrorBody) {
