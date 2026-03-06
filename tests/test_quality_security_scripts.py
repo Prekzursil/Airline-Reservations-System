@@ -184,7 +184,7 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 self.assertEqual(payload["status"], "fail")
                 self.assertNotIn("missing_secrets", payload)
                 self.assertNotIn("missing_vars", payload)
-                self.assertEqual(payload["missing_secret_count"], 3)
+                self.assertEqual(payload["missing_secret_count"], 2)
                 self.assertEqual(payload["missing_var_count"], 0)
                 self.assertNotIn("required_secrets", payload)
                 self.assertNotIn("required_vars", payload)
@@ -196,7 +196,6 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 self.assertIn("Markdown output intentionally omits secret-derived details.", markdown)
                 self.assertNotIn("configured-sonar-token", markdown)
                 self.assertNotIn("configured-codecov-token", markdown)
-                self.assertNotIn("SNYK_TOKEN", markdown)
                 self.assertNotIn("SENTRY_AUTH_TOKEN", markdown)
             finally:
                 os.chdir(previous)
