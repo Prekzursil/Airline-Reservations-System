@@ -149,7 +149,7 @@ TEST_F(ReservationSystemTest, HandleBookSeatNoCustomers) {
     // Let's re-initialize and then clear customers
     rs.resetSystemForTest();
     rs.initializeSystem(); // Adds planes and customers
-    const_cast<std::vector<Customer>*>(&rs.getCustomersForTest())->clear(); // Hacky way to clear private member for test
+    rs.clearCustomersForTest();
 
     test_in.str("2\n0\n"); 
     rs.run();
@@ -420,8 +420,7 @@ TEST_F(ReservationSystemTest, CancelBookingInternalFailsWhenAssociatedCustomerIs
     Booking* booking = createConfirmedBooking("CUST0001", "FL101", "6A");
     ASSERT_NE(booking, nullptr);
 
-    auto& customers = const_cast<std::vector<Customer>&>(rs.getCustomersForTest());
-    customers.clear();
+    rs.clearCustomersForTest();
 
     std::string error_message;
     EXPECT_FALSE(rs.cancelBookingInternal(booking->getBookingId(), error_message));

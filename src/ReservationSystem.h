@@ -62,6 +62,7 @@ public:
     void setInputStreamForTest(std::istream& inputStream);
     void setOutputStreamForTest(std::ostream& outputStream);
     void resetSystemForTest(); // Clears vectors
+    void clearCustomersForTest() { customers.clear(); }
     const std::vector<Customer>& getCustomersForTest() const { return customers; }
     const std::vector<Airplane>& getAirplanesForTest() const { return airplanes; }
     const std::vector<Booking>& getBookingsForTest() const { return bookings; }
