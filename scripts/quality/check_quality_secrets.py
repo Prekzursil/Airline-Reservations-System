@@ -66,20 +66,15 @@ def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[
     }
 
 
-def _render_md(payload: Dict[str, Any]) -> str:
+def _render_md(*, status: str, timestamp_utc: str) -> str:
     lines = [
         "# Quality Secrets Preflight",
         "",
-        f"- Status: `{payload['status']}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        f"- Status: `{status}`",
+        f"- Timestamp (UTC): `{timestamp_utc}`",
         "",
-        "## Missing secrets",
-        f"- Count: `{payload['missing_secret_count']}`",
-        "- Names omitted from artifacts to avoid persisting secret-related identifiers.",
-        "",
-        "## Missing variables",
-        f"- Count: `{payload['missing_var_count']}`",
-        "- Names omitted from artifacts to avoid persisting secret-related identifiers.",
+        "Machine-readable summary is available in `secrets.json`.",
+        "Markdown output intentionally omits secret-derived details.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -100,7 +95,7 @@ def main() -> int:
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    out_md.write_text(_render_md(payload), encoding="utf-8")
+    out_md.write_text(_render_md(status=status, timestamp_utc=payload["timestamp_utc"]), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 
     return 0 if status == "pass" else 1
