@@ -14,7 +14,7 @@ protected:
 
 public:
     // Constructors
-    Person(std::string_view name = "Unknown", int age = 0, std::string_view personId = "00000");
+    explicit Person(std::string_view name = "Unknown", int age = 0, std::string_view personId = "00000");
     
     // Virtual destructor
     virtual ~Person();

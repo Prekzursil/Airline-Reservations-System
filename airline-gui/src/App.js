@@ -13,6 +13,7 @@ function App() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [searchCustomerId, setSearchCustomerId] = useState('');
   const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0);
+  const [customerDetailsRefreshKey, setCustomerDetailsRefreshKey] = useState(0);
 
   const loadCustomers = async () => {
     try {
@@ -27,14 +28,22 @@ function App() {
     }
   };
 
-  const handleCustomerAdded = (newCustomer) => {
-    console.log("New customer added/simulated:", newCustomer);
+  const incrementBookingsRefreshKey = () => {
+    setBookingsRefreshKey((prevKey) => prevKey + 1);
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    setSearchCustomerId(customerId);
+    setSelectedCustomerId(customerId);
+  };
+
+  const handleCustomerAdded = () => {
     loadCustomers();
-    setBookingsRefreshKey(prevKey => prevKey + 1);
+    incrementBookingsRefreshKey();
   };
 
   const triggerBookingsRefresh = () => {
-    setBookingsRefreshKey(prevKey => prevKey + 1);
+    incrementBookingsRefreshKey();
   };
 
   const handleSearchCustomer = () => {
@@ -42,10 +51,10 @@ function App() {
   };
   
   const refreshCustomerDetails = (customerId) => {
-    setSelectedCustomerId('');
-    setTimeout(() => setSelectedCustomerId(customerId), 0);
+    setSelectedCustomerId(customerId);
+    setCustomerDetailsRefreshKey((prevKey) => prevKey + 1);
     loadCustomers();
-    setBookingsRefreshKey(prevKey => prevKey + 1);
+    incrementBookingsRefreshKey();
   };
 
   const handleSeatsSwapped = () => {
@@ -53,7 +62,7 @@ function App() {
       refreshCustomerDetails(selectedCustomerId);
     } else {
       loadCustomers();
-      setBookingsRefreshKey(prevKey => prevKey + 1);
+      incrementBookingsRefreshKey();
     }
     alert("Seats swapped. Customer details (if viewing) and booking lists refreshed. You may need to re-select a flight to see seat map updates.");
   };
@@ -88,10 +97,9 @@ function App() {
                     <li key={cust.personId}>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSearchCustomerId(cust.personId);
-                          setSelectedCustomerId(cust.personId);
-                        }}
+                        onClick={() => handleCustomerSelect(cust.personId)}
+                        aria-pressed={selectedCustomerId === cust.personId}
+                        aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
                         style={{
                           cursor: 'pointer',
                           border: 'none',
@@ -126,7 +134,15 @@ function App() {
               style={{ marginRight: '10px' }}
             />
             <button type="button" onClick={handleSearchCustomer}>Search Customer</button>
-            {selectedCustomerId && <CustomerDetails customerId={selectedCustomerId} onBookingCancelled={refreshCustomerDetails} />}
+            {selectedCustomerId && (
+              <div id="customer-details-panel">
+                <CustomerDetails
+                  customerId={selectedCustomerId}
+                  onBookingCancelled={refreshCustomerDetails}
+                  refreshTrigger={customerDetailsRefreshKey}
+                />
+              </div>
+            )}
           </section>
         </div>
         

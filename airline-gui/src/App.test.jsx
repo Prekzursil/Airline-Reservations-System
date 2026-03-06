@@ -17,9 +17,10 @@ vi.mock('./components/CustomerForm', () => ({
 }));
 
 vi.mock('./components/CustomerDetails', () => ({
-  default: ({ customerId, onBookingCancelled }) => (
+  default: ({ customerId, onBookingCancelled, refreshTrigger }) => (
     <div data-testid="mock-customer-details">
       <span>Mock CustomerDetails for {customerId}</span>
+      <span data-testid="customer-details-refresh-trigger">{String(refreshTrigger)}</span>
       <button onClick={() => onBookingCancelled?.(customerId)}>Mock Cancel Booking</button>
     </div>
   )
@@ -63,19 +64,27 @@ describe('App', () => {
     render(<App />);
 
     expect(await screen.findByText('All Customers:')).toBeInTheDocument();
-    expect(screen.getByText('Alice (ID: C1)')).toBeInTheDocument();
-    expect(screen.getByText('Bob (ID: C2)')).toBeInTheDocument();
+    const aliceButton = screen.getByRole('button', { name: 'Alice (ID: C1)' });
+    const bobButton = screen.getByRole('button', { name: 'Bob (ID: C2)' });
+    expect(aliceButton).toBeInTheDocument();
+    expect(bobButton).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh Customer List' })).toBeInTheDocument();
+    expect(aliceButton).toHaveAttribute('aria-pressed', 'false');
+    expect(bobButton).toHaveAttribute('aria-pressed', 'false');
 
-    fireEvent.click(screen.getByText('Alice (ID: C1)'));
+    fireEvent.click(aliceButton);
     expect(screen.getByDisplayValue('C1')).toBeInTheDocument();
     expect(screen.getByText('Mock CustomerDetails for C1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Alice (ID: C1)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Bob (ID: C2)' })).toHaveAttribute('aria-pressed', 'false');
 
     const searchInput = screen.getByPlaceholderText('Enter Customer ID');
     fireEvent.change(searchInput, { target: { value: 'C2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search Customer' }));
 
     expect(screen.getByText('Mock CustomerDetails for C2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Alice (ID: C1)' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Bob (ID: C2)' })).toHaveAttribute('aria-pressed', 'true');
     expect(fetchCustomers).toHaveBeenCalledTimes(1);
   });
 
@@ -121,15 +130,18 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Alice (ID: C1)'));
     expect(screen.getByText('Mock CustomerDetails for C1')).toBeInTheDocument();
+    expect(screen.getByTestId('customer-details-refresh-trigger')).toHaveTextContent('0');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mock Cancel Booking' }));
     await waitFor(() => expect(fetchCustomers).toHaveBeenCalledTimes(4));
     await waitFor(() => expect(screen.getByText('Mock CustomerDetails for C1')).toBeInTheDocument());
+    expect(screen.getByTestId('customer-details-refresh-trigger')).toHaveTextContent('1');
     expect(screen.getByTestId('refresh-trigger')).toHaveTextContent('4');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mock Swap Seats' }));
     await waitFor(() => expect(fetchCustomers).toHaveBeenCalledTimes(5));
     await waitFor(() => expect(screen.getByText('Mock CustomerDetails for C1')).toBeInTheDocument());
+    expect(screen.getByTestId('customer-details-refresh-trigger')).toHaveTextContent('2');
     expect(screen.getByTestId('refresh-trigger')).toHaveTextContent('5');
   });
 });

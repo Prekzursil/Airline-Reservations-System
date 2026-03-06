@@ -8,6 +8,7 @@ static int g_customerIdCounter = 1; // Global static for resettable ID generatio
 
 namespace rsh = reservation_system_helpers;
 
+// cppcheck-suppress misra-c2012-12.3
 ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
     : m_cin_ptr(&cin_ref), m_cout_ptr(&cout_ref) {
     initializeSystem();
@@ -119,6 +120,7 @@ void ReservationSystem::run() {
 
 void ReservationSystem::executeMenuChoice(int choice) {
     using MenuAction = void (ReservationSystem::*)();
+    // cppcheck-suppress misra-c2012-12.3
     static const std::array<MenuAction, 7> kActions = {
         &ReservationSystem::handleAddCustomer,
         &ReservationSystem::handleBookSeat,
@@ -128,7 +130,7 @@ void ReservationSystem::executeMenuChoice(int choice) {
         &ReservationSystem::handleSwapSeats,
         &ReservationSystem::handleAdminMenu,
     };
-    constexpr int kActionCount = static_cast<int>(kActions.size());
+    constexpr auto kActionCount = static_cast<int>(kActions.size());
 
     if (choice == 0) {
         (*m_cout_ptr) << "Exiting system. Goodbye!" << std::endl;

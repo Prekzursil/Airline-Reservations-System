@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { fetchCustomerDetails, cancelBooking as apiCancelBooking } from '../services/apiService';
 
-const CustomerDetails = ({ customerId, onBookingCancelled = null }) => {
+const CustomerDetails = ({ customerId, onBookingCancelled = null, refreshTrigger = 0 }) => {
     const [customer, setCustomer] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -28,7 +28,7 @@ const CustomerDetails = ({ customerId, onBookingCancelled = null }) => {
         } else {
             setCustomer(null);
         }
-    }, [customerId]);
+    }, [customerId, refreshTrigger]);
 
     const handleCancelBooking = async (bookingId) => {
         if (!globalThis.confirm(`Are you sure you want to cancel booking ${bookingId}?`)) {
@@ -94,6 +94,7 @@ const CustomerDetails = ({ customerId, onBookingCancelled = null }) => {
 CustomerDetails.propTypes = {
     customerId: PropTypes.string,
     onBookingCancelled: PropTypes.func,
+    refreshTrigger: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
 };
 
 export default CustomerDetails;

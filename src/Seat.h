@@ -24,7 +24,7 @@ private:
 
 public:
     // Constructor
-    Seat(std::string_view id = "N/A", SeatClass sc = SeatClass::ECONOMY, double basePrice = 50.0);
+    explicit Seat(std::string_view id = "N/A", SeatClass sc = SeatClass::ECONOMY, double basePrice = 50.0);
 
     // Destructor
     ~Seat();

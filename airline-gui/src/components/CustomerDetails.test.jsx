@@ -47,6 +47,34 @@ describe('CustomerDetails', () => {
     expect(screen.getByText('No bookings found for this customer.')).toBeInTheDocument();
   });
 
+  it('reloads customer details when refreshTrigger changes for the same customer', async () => {
+    fetchCustomerDetails
+      .mockResolvedValueOnce({
+        personId: 'C1',
+        name: 'Alice',
+        age: 28,
+        money: 350,
+        bookings: []
+      })
+      .mockResolvedValueOnce({
+        personId: 'C1',
+        name: 'Alice Updated',
+        age: 28,
+        money: 325,
+        bookings: []
+      });
+
+    const { rerender } = render(<CustomerDetails customerId="C1" refreshTrigger={0} />);
+
+    expect(await screen.findByText('Customer Details: Alice (ID: C1)')).toBeInTheDocument();
+    expect(fetchCustomerDetails).toHaveBeenCalledTimes(1);
+
+    rerender(<CustomerDetails customerId="C1" refreshTrigger={1} />);
+
+    expect(await screen.findByText('Customer Details: Alice Updated (ID: C1)')).toBeInTheDocument();
+    expect(fetchCustomerDetails).toHaveBeenCalledTimes(2);
+  });
+
   it('loads bookings and hides cancel button for cancelled entries', async () => {
     fetchCustomerDetails.mockResolvedValue({
       personId: 'C2',

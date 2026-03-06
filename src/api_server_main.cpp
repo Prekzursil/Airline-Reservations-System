@@ -56,6 +56,13 @@ namespace {
 
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
+using ServerListenCallback = bool (*)(httplib::Server&, const char*, int);
+
+bool listen_on_host(httplib::Server& server, const char* host, int port) {
+    return server.listen(host, port);
+}
+
+ServerListenCallback g_server_listen_callback = listen_on_host;
 
 void set_common_headers(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Origin", "*");
@@ -321,12 +328,7 @@ void register_routes(httplib::Server& server, ReservationSystem& airline_system)
     });
 }
 
-}  // namespace
-
-int main() {
-    ReservationSystem airline_system(std::cin, std::cout);
-    httplib::Server server;
-
+int run_api_server(ReservationSystem& airline_system, httplib::Server& server, std::ostream& out, std::ostream& err) {
     register_routes(server, airline_system);
 
     server.set_base_dir("./");
@@ -334,11 +336,19 @@ int main() {
         std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl;
     });
 
-    std::cout << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
-    if (!server.listen("0.0.0.0", kServerPort)) {
-        std::cerr << "Failed to start server!" << std::endl;
+    out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
+    if (!g_server_listen_callback(server, "0.0.0.0", kServerPort)) {
+        err << "Failed to start server!" << std::endl;
         return 1;
     }
 
     return 0;
+}
+
+}  // namespace
+
+int main() {
+    ReservationSystem airline_system(std::cin, std::cout);
+    httplib::Server server;
+    return run_api_server(airline_system, server, std::cout, std::cerr);
 }

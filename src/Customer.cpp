@@ -4,6 +4,7 @@
 #include <iomanip>  // For std::setprecision
 
 // Constructors
+// cppcheck-suppress misra-c2012-12.3
 Customer::Customer(const std::string& name, int age, const std::string& personId, double initialMoney)
     : Person(name, age, personId), money(initialMoney) {}
 

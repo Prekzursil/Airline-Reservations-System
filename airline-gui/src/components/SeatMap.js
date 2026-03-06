@@ -158,6 +158,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
                                     onClick={() => handleSeatClick(seat)}
                                     style={getSeatButtonStyle(seat)}
                                     aria-label={`Seat ${seat.seatId}`}
+                                    aria-pressed={selectedSeatId === seat.seatId}
                                 >
                                     {seat.seatId}
                                 </button>

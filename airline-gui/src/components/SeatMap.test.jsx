@@ -170,14 +170,17 @@ describe('SeatMap', () => {
     render(<SeatMap seats={baseSeats} flightNumber="FL-310" />);
 
     const seatButton = await screen.findByRole('button', { name: 'Seat 1B' });
+    expect(seatButton).toHaveAttribute('aria-pressed', 'false');
     seatButton.focus();
     expect(seatButton).toHaveFocus();
 
     await userEvent.keyboard('{Enter}');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
 
     await userEvent.keyboard(' ');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
   });
 
 });
