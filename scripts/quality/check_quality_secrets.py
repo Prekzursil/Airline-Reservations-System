@@ -66,29 +66,16 @@ def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[
     }
 
 
-def _render_md(payload: Dict[str, Any]) -> str:
+def _render_md(*, status: str, timestamp_utc: str) -> str:
     lines = [
         "# Quality Secrets Preflight",
         "",
-        f"- Status: `{payload['status']}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        f"- Status: `{status}`",
+        f"- Timestamp (UTC): `{timestamp_utc}`",
         "",
-        "## Missing secrets",
+        "Machine-readable summary is available in `secrets.json`.",
+        "Markdown output intentionally omits secret-derived details.",
     ]
-
-    missing_secrets = payload.get("missing_secrets") or []
-    if missing_secrets:
-        lines.extend(f"- `{name}`" for name in missing_secrets)
-    else:
-        lines.append("- None")
-
-    lines.extend(["", "## Missing variables"])
-    missing_vars = payload.get("missing_vars") or []
-    if missing_vars:
-        lines.extend(f"- `{name}`" for name in missing_vars)
-    else:
-        lines.append("- None")
-
     return "\n".join(lines) + "\n"
 
 
@@ -102,14 +89,13 @@ def main() -> int:
     payload = {
         "status": status,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "required_secrets": required_secrets,
-        "required_vars": required_vars,
-        **result,
+        "missing_secret_count": len(result["missing_secrets"]),
+        "missing_var_count": len(result["missing_vars"]),
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    out_md.write_text(_render_md(payload), encoding="utf-8")
+    out_md.write_text(_render_md(status=status, timestamp_utc=payload["timestamp_utc"]), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 
     return 0 if status == "pass" else 1

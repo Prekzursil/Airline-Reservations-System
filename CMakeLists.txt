@@ -22,6 +22,8 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 set(HTTPLIB_REQUIRE_OPENSSL OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_COMPILE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_INSTALL OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_TEST OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
   cpp_httplib
@@ -37,7 +39,7 @@ FetchContent_Declare(
   GIT_SHALLOW TRUE
 )
 
-set(BUILD_GMOCK ON CACHE BOOL "" FORCE)
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -99,9 +101,8 @@ target_include_directories(
   run_tests_executable
   PRIVATE
     ${googletest_SOURCE_DIR}/googletest/include
-    ${googletest_SOURCE_DIR}/googlemock/include
 )
-target_link_libraries(run_tests_executable PRIVATE airline_core GTest::gtest GTest::gmock)
+target_link_libraries(run_tests_executable PRIVATE airline_core GTest::gtest)
 
 include(GoogleTest)
 gtest_discover_tests(run_tests_executable DISCOVERY_TIMEOUT 120)

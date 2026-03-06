@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -13,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts import security_helpers as helpers
 from scripts.quality import check_codacy_zero as codacy
 from scripts.quality import check_deepscan_zero as deepscan
+from scripts.quality import check_quality_secrets as quality_secrets
 from scripts.quality import check_required_checks as required_checks
 from scripts.quality import check_sentry_zero as sentry
 
@@ -154,6 +157,49 @@ class ScriptPathBuilderTests(unittest.TestCase):
             deepscan._build_commit_api_path("owner/repo", "bad sha")
         with self.assertRaises(ValueError):
             required_checks._build_commit_api_path("owner/repo/extra", "a1b2c3d")
+
+
+class QualitySecretsScriptTests(unittest.TestCase):
+    def test_quality_secrets_artifacts_exclude_present_secret_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                env_updates = {
+                    "SONAR_TOKEN": "configured-sonar-token",
+                    "CODECOV_TOKEN": "configured-codecov-token",
+                    "SENTRY_ORG": "example-org",
+                    "SENTRY_PROJECT": "example-project",
+                }
+                with mock.patch.dict(os.environ, env_updates, clear=False):
+                    with mock.patch.object(sys, "argv", ["check_quality_secrets.py"]):
+                        exit_code = quality_secrets.main()
+
+                out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.QUALITY_SECRETS)
+                payload_text = out_json.read_text(encoding="utf-8")
+                payload = json.loads(payload_text)
+                markdown = out_md.read_text(encoding="utf-8")
+
+                self.assertEqual(exit_code, 1)
+                self.assertEqual(payload["status"], "fail")
+                self.assertNotIn("missing_secrets", payload)
+                self.assertNotIn("missing_vars", payload)
+                self.assertEqual(payload["missing_secret_count"], 3)
+                self.assertEqual(payload["missing_var_count"], 0)
+                self.assertNotIn("required_secrets", payload)
+                self.assertNotIn("required_vars", payload)
+                self.assertNotIn("present_secrets", payload)
+                self.assertNotIn("present_vars", payload)
+                self.assertNotIn("configured-sonar-token", payload_text)
+                self.assertNotIn("configured-codecov-token", payload_text)
+                self.assertIn("Machine-readable summary is available", markdown)
+                self.assertIn("Markdown output intentionally omits secret-derived details.", markdown)
+                self.assertNotIn("configured-sonar-token", markdown)
+                self.assertNotIn("configured-codecov-token", markdown)
+                self.assertNotIn("SNYK_TOKEN", markdown)
+                self.assertNotIn("SENTRY_AUTH_TOKEN", markdown)
+            finally:
+                os.chdir(previous)
 
 
 if __name__ == "__main__":
