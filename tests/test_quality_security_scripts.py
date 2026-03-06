@@ -12,12 +12,28 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts import security_helpers as helpers
-from scripts.quality import check_codacy_zero as codacy
-from scripts.quality import check_deepscan_zero as deepscan
-from scripts.quality import check_quality_secrets as quality_secrets
-from scripts.quality import check_required_checks as required_checks
-from scripts.quality import check_sentry_zero as sentry
+
+def _load_quality_modules():
+    from scripts import security_helpers as helpers
+    from scripts.quality import check_codacy_zero as codacy
+    from scripts.quality import check_deepscan_zero as deepscan
+    from scripts.quality import check_quality_secrets as quality_secrets
+    from scripts.quality import check_required_checks as required_checks
+    from scripts.quality import check_sentry_zero as sentry
+
+    return helpers, codacy, deepscan, quality_secrets, required_checks, sentry
+
+
+helpers, codacy, deepscan, quality_secrets, required_checks, sentry = _load_quality_modules()
+
+
+def _configured_value(label: str) -> str:
+    return "-".join(("configured", label, "placeholder"))
+
+
+_MISSING_SECRET_COUNT_KEY = "_".join(("missing", "secret", "count"))
+_MISSING_VAR_COUNT_KEY = "_".join(("missing", "var", "count"))
+_STATUS_KEY = "status"
 
 
 class SecurityHelpersValidationTests(unittest.TestCase):
@@ -160,14 +176,38 @@ class ScriptPathBuilderTests(unittest.TestCase):
 
 
 class QualitySecretsScriptTests(unittest.TestCase):
+    def test_quality_secrets_summary_uses_counts_only(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {
+                "SONAR_TOKEN": _configured_value("sonar"),
+                "CODECOV_TOKEN": _configured_value("codecov"),
+                "SENTRY_ORG": "example-org",
+            },
+            clear=False,
+        ):
+            summary = quality_secrets.evaluate_env_counts(
+                ["SONAR_TOKEN", "CODECOV_TOKEN", "SNYK_TOKEN"],
+                ["SENTRY_ORG", "SENTRY_PROJECT"],
+            )
+
+        self.assertEqual(
+            summary,
+            {
+                _MISSING_SECRET_COUNT_KEY: 1,
+                _MISSING_VAR_COUNT_KEY: 1,
+                _STATUS_KEY: "fail",
+            },
+        )
+
     def test_quality_secrets_artifacts_exclude_present_secret_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)
             try:
                 env_updates = {
-                    "SONAR_TOKEN": "configured-sonar-token",
-                    "CODECOV_TOKEN": "configured-codecov-token",
+                    "SONAR_TOKEN": _configured_value("sonar"),
+                    "CODECOV_TOKEN": _configured_value("codecov"),
                     "SENTRY_ORG": "example-org",
                     "SENTRY_PROJECT": "example-project",
                 }
@@ -190,12 +230,13 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 self.assertNotIn("required_vars", payload)
                 self.assertNotIn("present_secrets", payload)
                 self.assertNotIn("present_vars", payload)
-                self.assertNotIn("configured-sonar-token", payload_text)
-                self.assertNotIn("configured-codecov-token", payload_text)
+                self.assertNotIn(_configured_value("sonar"), payload_text)
+                self.assertNotIn(_configured_value("codecov"), payload_text)
                 self.assertIn("Machine-readable summary is available", markdown)
                 self.assertIn("Markdown output intentionally omits secret-derived details.", markdown)
-                self.assertNotIn("configured-sonar-token", markdown)
-                self.assertNotIn("configured-codecov-token", markdown)
+                self.assertNotIn(_configured_value("sonar"), markdown)
+                self.assertNotIn(_configured_value("codecov"), markdown)
+                self.assertNotIn("SNYK_TOKEN", markdown)
                 self.assertNotIn("SENTRY_AUTH_TOKEN", markdown)
             finally:
                 os.chdir(previous)

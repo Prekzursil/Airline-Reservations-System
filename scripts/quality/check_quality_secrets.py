@@ -65,6 +65,16 @@ def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[
     }
 
 
+def evaluate_env_counts(required_secrets: List[str], required_vars: List[str]) -> Dict[str, Any]:
+    missing_secret_count = sum(1 for name in required_secrets if not _is_configured(name))
+    missing_var_count = sum(1 for name in required_vars if not _is_configured(name))
+    return {
+        "status": "pass" if missing_secret_count == 0 and missing_var_count == 0 else "fail",
+        "missing_secret_count": missing_secret_count,
+        "missing_var_count": missing_var_count,
+    }
+
+
 def _render_md(*, status: str, timestamp_utc: str) -> str:
     lines = [
         "# Quality Secrets Preflight",
@@ -83,13 +93,13 @@ def main() -> int:
     required_secrets = _dedupe(DEFAULT_REQUIRED_SECRETS + list(args.required_secret or []))
     required_vars = _dedupe(DEFAULT_REQUIRED_VARS + list(args.required_var or []))
 
-    result = evaluate_env(required_secrets, required_vars)
-    status = "pass" if not result["missing_secrets"] and not result["missing_vars"] else "fail"
+    result = evaluate_env_counts(required_secrets, required_vars)
+    status = str(result["status"])
     payload = {
         "status": status,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "missing_secret_count": len(result["missing_secrets"]),
-        "missing_var_count": len(result["missing_vars"]),
+        "missing_secret_count": int(result["missing_secret_count"]),
+        "missing_var_count": int(result["missing_var_count"]),
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
