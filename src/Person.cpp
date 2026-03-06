@@ -1,7 +1,7 @@
 #include "Person.h"
 
-// cppcheck-suppress misra-c2012-12.3
 Person::Person(std::string_view nameValue, int ageValue, std::string_view personIdValue)
+    // cppcheck-suppress misra-c2012-12.3
     : name(nameValue), age(ageValue), personId(personIdValue) {}
 
 Person::~Person() = default;

@@ -8,8 +8,8 @@ static int g_customerIdCounter = 1; // Global static for resettable ID generatio
 
 namespace rsh = reservation_system_helpers;
 
-// cppcheck-suppress misra-c2012-12.3
 ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
+    // cppcheck-suppress misra-c2012-12.3
     : m_cin_ptr(&cin_ref), m_cout_ptr(&cout_ref) {
     initializeSystem();
 }

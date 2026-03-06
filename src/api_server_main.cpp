@@ -52,8 +52,6 @@ void to_json(json& j, const Booking& b) {
     };
 }
 
-namespace {
-
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
 using ServerListenCallback = bool (*)(httplib::Server&, const char*, int);
@@ -344,8 +342,6 @@ int run_api_server(ReservationSystem& airline_system, httplib::Server& server, s
 
     return 0;
 }
-
-}  // namespace
 
 int main() {
     ReservationSystem airline_system(std::cin, std::cout);
