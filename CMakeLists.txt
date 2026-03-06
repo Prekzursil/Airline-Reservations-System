@@ -118,35 +118,8 @@ if(WIN32)
   target_link_libraries(run_tests_executable PRIVATE ws2_32 wsock32)
 endif()
 
-add_executable(
-  api_server_additional_tests
-  tests/api_server_additional_test.cpp
-  src/api_server_main.cpp
-)
-target_compile_definitions(api_server_additional_tests PRIVATE main=airline_api_server_entry_main)
-target_include_directories(
-  api_server_additional_tests
-  PRIVATE
-    ${googletest_SOURCE_DIR}/googletest/include
-    ${cpp_httplib_SOURCE_DIR}
-    ${nlohmann_json_SOURCE_DIR}/include
-    ${PROJECT_SOURCE_DIR}/src
-)
-target_link_libraries(
-  api_server_additional_tests
-  PRIVATE
-    airline_core
-    GTest::gtest_main
-    nlohmann_json::nlohmann_json
-    httplib::httplib
-)
-if(WIN32)
-  target_link_libraries(api_server_additional_tests PRIVATE ws2_32 wsock32)
-endif()
-
 include(GoogleTest)
 gtest_discover_tests(run_tests_executable DISCOVERY_TIMEOUT 120)
-gtest_discover_tests(api_server_additional_tests DISCOVERY_TIMEOUT 120)
 
 add_test(
   NAME airline_cli_smoke_exit

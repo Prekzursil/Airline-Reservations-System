@@ -2,7 +2,9 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <optional>
 #include <sstream>
 #include <thread>
 
@@ -148,6 +150,9 @@ TEST(ApiServerHelpersTest, DetailBuildersReturnExpectedPayloads) {
     const Airplane* flight = reservation_system.findAirplaneByFlightNumber("FL101");
     ASSERT_NE(flight, nullptr);
     json airplane_details = build_airplane_details(reservation_system, *flight);
+    EXPECT_EQ(airplane_details.at("capacity"), flight->getCapacity());
+    EXPECT_EQ(airplane_details.at("bookedSeatsCount"), flight->getBookedSeatsCount());
+    EXPECT_EQ(airplane_details.at("isFull"), flight->isFull());
     const auto seat_it = std::ranges::find_if(
         airplane_details.at("seats"),
         [](const json& seat_details) { return seat_details.at("seatId") == "4A"; });
@@ -187,7 +192,7 @@ TEST(ApiServerEntryTest, RunApiServerReportsFailureWhenListenFails) {
     httplib::Server server;
 
     EXPECT_EQ(
-        run_api_server(
+        run_api_server_with_listener(
             reservation_system,
             server,
             out,
@@ -207,7 +212,7 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
     ReservationSystem reservation_system(input, output_stream);
     httplib::Server server;
 
-    const int exit_code = run_api_server(
+    const int exit_code = run_api_server_with_listener(
         reservation_system,
         server,
         output_stream,
@@ -218,6 +223,73 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
 
     EXPECT_EQ(exit_code, 0);
     EXPECT_NE(output_stream.str().find("Starting API server"), std::string::npos);
+    EXPECT_TRUE(error_stream.str().empty());
+}
+
+TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
+    constexpr auto startup_timeout = std::chrono::seconds(2);
+    constexpr auto poll_interval = std::chrono::milliseconds(20);
+    constexpr int test_port_start = 18080;
+    constexpr int test_port_count = 32;
+
+    auto wait_for_status = [&](const int port, const std::string& path, const int expected_status) {
+        const auto deadline = std::chrono::steady_clock::now() + startup_timeout;
+        httplib::Client client("127.0.0.1", port);
+        while (std::chrono::steady_clock::now() < deadline) {
+            if (const auto response = client.Get(path); response && response->status == expected_status) {
+                return true;
+            }
+            std::this_thread::sleep_for(poll_interval);
+        }
+        return false;
+    };
+
+    std::atomic<int> selected_port{-1};
+    auto listen_on_first_available_port = [&selected_port](httplib::Server& server, const char* host, int) {
+        for (int offset = 0; offset < test_port_count; ++offset) {
+            const int port = test_port_start + offset;
+            selected_port.store(port, std::memory_order_release);
+            if (listen_on_host(server, host, port)) {
+                return true;
+            }
+        }
+        selected_port.store(-1, std::memory_order_release);
+        return false;
+    };
+
+    std::stringstream input;
+    std::ostringstream output_stream;
+    std::ostringstream error_stream;
+    std::ostringstream log_stream;
+    std::streambuf* original_cout = std::cout.rdbuf(log_stream.rdbuf());
+
+    ReservationSystem reservation_system(input, output_stream);
+    httplib::Server server;
+    std::optional<int> exit_code;
+    std::jthread server_thread([&]() {
+        exit_code = run_api_server_with_listener(
+            reservation_system,
+            server,
+            output_stream,
+            error_stream,
+            listen_on_first_available_port);
+    });
+
+    const auto deadline = std::chrono::steady_clock::now() + startup_timeout;
+    while (std::chrono::steady_clock::now() < deadline && selected_port.load(std::memory_order_acquire) < 0) {
+        std::this_thread::sleep_for(poll_interval);
+    }
+    const int port = selected_port.load(std::memory_order_acquire);
+    ASSERT_GT(port, 0);
+    ASSERT_TRUE(wait_for_status(port, "/api/airplanes", 200));
+    server.stop();
+    server_thread.join();
+    std::cout.rdbuf(original_cout);
+
+    ASSERT_TRUE(exit_code.has_value());
+    EXPECT_EQ(*exit_code, 0);
+    EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
+    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_TRUE(error_stream.str().empty());
 }
 

@@ -1,11 +1,21 @@
+// cppcheck-suppress-file missingIncludeSystem
 #include <algorithm>
 #include "gtest/gtest.h"
 #include <sstream>
 
-#define private public
 #include "../src/Airplane.h"
 #include "../src/Customer.h"
-#undef private
+
+class AirplaneTestAccess {
+public:
+    static void truncateSeats(Airplane& plane, const std::size_t size) {
+        plane.seats.resize(size);
+    }
+
+    static void clearSeats(Airplane& plane) {
+        plane.seats.clear();
+    }
+};
 
 class AirplaneTest : public ::testing::Test {
 protected:
@@ -49,10 +59,10 @@ TEST_F(AirplaneTest, ParameterizedConstructorMixed) {
 
 TEST_F(AirplaneTest, ConstructorInvalidDimensions) {
     Airplane plane_invalid_rows("IVR01", 0, 6);
-    EXPECT_EQ(plane_invalid_rows.getCapacity(), 1 * 6);
+    EXPECT_EQ(plane_invalid_rows.getCapacity(), 6);
 
     Airplane plane_invalid_cols("IVC01", 5, 0);
-    EXPECT_EQ(plane_invalid_cols.getCapacity(), 5 * 1);
+    EXPECT_EQ(plane_invalid_cols.getCapacity(), 5);
 }
 
 TEST_F(AirplaneTest, FindSeat) {
@@ -188,13 +198,26 @@ TEST_F(AirplaneTest, DisplayAvailableSeatsWhenFull) {
     EXPECT_NE(captured.str().find("No seats available."), std::string::npos);
 }
 
+TEST_F(AirplaneTest, DisplaySeatingMapShowsBookedSeatsAsX) {
+    ASSERT_TRUE(plane_small.bookSpecificSeat("1A"));
+
+    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
+    std::ostringstream captured;
+    std::cout.rdbuf(captured.rdbuf());
+
+    plane_small.displaySeatingMap();
+
+    std::cout.rdbuf(oldCoutStreamBuf);
+    EXPECT_NE(captured.str().find("X "), std::string::npos);
+}
+
 TEST_F(AirplaneTest, SuggestLowerPriceSeatsNullCustomer) {
     const std::vector<const Seat*> suggestions = plane_mixed.suggestLowerPriceSeats(nullptr, 100.0);
     EXPECT_TRUE(suggestions.empty());
 }
 
 TEST_F(AirplaneTest, DisplaySeatingMapHandlesSparseSeatStorage) {
-    plane_small.seats.resize(1);
+    AirplaneTestAccess::truncateSeats(plane_small, 1);
 
     std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
     std::ostringstream captured;
@@ -208,7 +231,7 @@ TEST_F(AirplaneTest, DisplaySeatingMapHandlesSparseSeatStorage) {
 }
 
 TEST_F(AirplaneTest, DisplayAllSeatDetailsReportsWhenSeatStorageIsEmpty) {
-    plane_small.seats.clear();
+    AirplaneTestAccess::clearSeats(plane_small);
 
     std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
     std::ostringstream captured;
@@ -221,11 +244,15 @@ TEST_F(AirplaneTest, DisplayAllSeatDetailsReportsWhenSeatStorageIsEmpty) {
 }
 
 TEST_F(AirplaneTest, SuggestLowerPriceSeatsSortsCustomSeatPricesAscending) {
-    ASSERT_EQ(plane_small.seats.size(), 4U);
-    plane_small.seats[0].setPrice(120.0);
-    plane_small.seats[1].setPrice(80.0);
-    plane_small.seats[2].setPrice(100.0);
-    plane_small.seats[3].setPrice(60.0);
+    ASSERT_EQ(plane_small.getAllSeats().size(), 4U);
+    ASSERT_NE(plane_small.findSeat("1A"), nullptr);
+    ASSERT_NE(plane_small.findSeat("1B"), nullptr);
+    ASSERT_NE(plane_small.findSeat("2A"), nullptr);
+    ASSERT_NE(plane_small.findSeat("2B"), nullptr);
+    plane_small.findSeat("1A")->setPrice(120.0);
+    plane_small.findSeat("1B")->setPrice(80.0);
+    plane_small.findSeat("2A")->setPrice(100.0);
+    plane_small.findSeat("2B")->setPrice(60.0);
 
     Customer budgetCustomer{"Budget Buyer", 28, "TC999", 150.0};
     const std::vector<const Seat*> suggestions = plane_small.suggestLowerPriceSeats(&budgetCustomer, 150.0);

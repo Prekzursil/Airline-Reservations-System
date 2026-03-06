@@ -4,9 +4,14 @@
 #include <regex>
 #include <thread>
 
-#define private public
 #include "../src/Booking.h"
-#undef private
+
+class BookingTestAccess {
+public:
+    static void setBookingDate(Booking& booking, const std::chrono::system_clock::time_point booking_date) {
+        booking.bookingDate = booking_date;
+    }
+};
 
 std::string bookingStatusToString(BookingStatus status);
 
@@ -78,9 +83,9 @@ TEST_F(BookingTest, GenerateBookingIdUniqueness) {
 }
 
 TEST_F(BookingTest, GetBookingDateStringHandlesEpochAndNegativeTimes) {
-    b1.bookingDate = std::chrono::system_clock::time_point{};
+    BookingTestAccess::setBookingDate(b1, std::chrono::system_clock::time_point{});
     EXPECT_EQ(b1.getBookingDateString(), "1970-01-01 00:00:00");
 
-    b1.bookingDate = std::chrono::system_clock::time_point{std::chrono::seconds{-1}};
+    BookingTestAccess::setBookingDate(b1, std::chrono::system_clock::time_point{std::chrono::seconds{-1}});
     EXPECT_EQ(b1.getBookingDateString(), "1969-12-31 23:59:59");
 }

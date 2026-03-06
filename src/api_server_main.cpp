@@ -2,7 +2,6 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
-#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -55,8 +54,6 @@ void to_json(json& j, const Booking& b) {
 
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
-using ServerListenCallback = std::function<bool(httplib::Server&, const char*, int)>;
-
 bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
@@ -325,12 +322,13 @@ void register_routes(httplib::Server& server, ReservationSystem& airline_system)
     });
 }
 
-int run_api_server(
+template <typename ListenCallback>
+int run_api_server_with_listener(
     ReservationSystem& airline_system,
     httplib::Server& server,
     std::ostream& out,
     std::ostream& err,
-    ServerListenCallback listen_callback = listen_on_host) {
+    ListenCallback&& listen_callback) {
     register_routes(server, airline_system);
 
     server.set_base_dir("./");
@@ -345,6 +343,14 @@ int run_api_server(
     }
 
     return 0;
+}
+
+int run_api_server(
+    ReservationSystem& airline_system,
+    httplib::Server& server,
+    std::ostream& out,
+    std::ostream& err) {
+    return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
 }
 
 int main() {
