@@ -8,34 +8,37 @@ vi.mock('../services/apiService', () => ({
 }));
 
 vi.mock('react-select', () => ({
-  default: ({ id, options = [], value, onChange, placeholder, isDisabled }) => (
-    <div>
-      <select
-        aria-label={id || 'react-select'}
-        data-testid={id || 'react-select'}
-        disabled={isDisabled}
-        value={value?.value ?? ''}
-        onChange={(event) => {
-          const next = options.find((opt) => String(opt.value) === event.target.value) || null;
-          onChange(next);
-        }}
-      >
-        <option value="">{placeholder || 'Select'}</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        data-testid={`${id || 'react-select'}-force-1`}
-        onClick={() => onChange({ value: 1, label: 'Forced booking 1' })}
-      >
-        Force 1
-      </button>
-    </div>
-  )
+  default: ({ id, inputId, options = [], value, onChange, placeholder, isDisabled }) => {
+    const controlId = inputId || id || 'react-select';
+    return (
+      <div>
+        <select
+          aria-label={controlId}
+          data-testid={controlId}
+          disabled={isDisabled}
+          value={value?.value ?? ''}
+          onChange={(event) => {
+            const next = options.find((opt) => String(opt.value) === event.target.value) || null;
+            onChange(next);
+          }}
+        >
+          <option value="">{placeholder || 'Select'}</option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          data-testid={`${controlId}-force-1`}
+          onClick={() => onChange({ value: 1, label: 'Forced booking 1' })}
+        >
+          Force 1
+        </button>
+      </div>
+    );
+  }
 }));
 
 const bookings = [

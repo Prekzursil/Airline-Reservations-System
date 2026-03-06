@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { createBooking, fetchCustomers, cancelBooking as apiCancelBooking } from '../services/apiService';
 
-const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
+const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     const [selectedSeatId, setSelectedSeatId] = useState(null);
     const [bookingStatus, setBookingStatus] = useState('');
     const [customerIdForBooking, setCustomerIdForBooking] = useState(null);
@@ -18,7 +19,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
                 const fetchedCustomers = await fetchCustomers();
                 setCustomers(fetchedCustomers || []);
             } catch (error) {
-                console.error("Failed to load customers for dropdown:", error);
+                console.error('Failed to load customers for dropdown:', error);
                 setCustomerLoadingError('Could not load customers for selection.');
                 setCustomers([]);
             } finally {
@@ -65,12 +66,12 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
         try {
             const result = await apiCancelBooking(bookingIdToCancel);
             setBookingStatus(result.message || `Booking ${bookingIdToCancel} cancellation processed.`);
-            if (onBookingSuccess) { 
-                onBookingSuccess(flightNumber); // Re-use to refresh flight details
+            if (onBookingSuccess) {
+                onBookingSuccess(flightNumber);
             }
         } catch (err) {
             setBookingStatus(`Failed to cancel booking ${bookingIdToCancel}: ${err.message}`);
-            console.error("Cancellation error from seat map:", err);
+            console.error('Cancellation error from seat map:', err);
         }
     };
 
@@ -87,15 +88,14 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
         /* c8 ignore end */
 
         const bookingData = {
-            customerId: customerIdForBooking.value, 
-            flightNumber: flightNumber,
+            customerId: customerIdForBooking.value,
+            flightNumber,
             seatId: selectedSeatId,
         };
         try {
             setBookingStatus('Processing booking...');
             const result = await createBooking(bookingData);
             setBookingStatus(`Booking successful! ID: ${result.bookingId}. Seat: ${result.seatId} for Customer: ${result.customerId}`);
-
             setSelectedSeatId(null);
             setCustomerIdForBooking(null);
 
@@ -104,29 +104,34 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
             }
         } catch (error) {
             setBookingStatus(`Booking failed: ${error.message}`);
-            console.error("Booking error:", error);
+            console.error('Booking error:', error);
         }
     };
-    
+
     const getSeatStyle = (seat) => {
         let backgroundColor = 'lightgreen';
-        if (seat.isBooked) backgroundColor = 'lightcoral';
-        else if (seat.seatClass === 'Business') backgroundColor = 'lightblue';
+        if (seat.isBooked) {
+            backgroundColor = 'lightcoral';
+        } else if (seat.seatClass === 'Business') {
+            backgroundColor = 'lightblue';
+        }
 
-        if (seat.seatId === selectedSeatId) backgroundColor = 'yellow';
+        if (seat.seatId === selectedSeatId) {
+            backgroundColor = 'yellow';
+        }
 
         return {
             width: '60px',
             height: '60px',
             margin: '5px',
             border: '1px solid #ccc',
-            backgroundColor: backgroundColor,
+            backgroundColor,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '0.8em',
-            position: 'relative'
+            position: 'relative',
         };
     };
 
@@ -137,20 +142,17 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
         padding: 0,
         margin: 0,
         cursor: seat.isBooked ? 'default' : 'pointer',
-        color: 'inherit'
+        color: 'inherit',
     });
 
     return (
         <div>
             <h4>Seat Map for {flightNumber}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                {rows.map((row, rowIndex) => (
-                    <div key={rowIndex} style={{ display: 'flex' }}>
-                        {row.map(seat => (
-                            <div
-                                key={seat.seatId}
-                                style={getSeatStyle(seat)}
-                            >
+                {rows.map((row) => (
+                    <div key={row[0]?.seatId || 'seat-row'} style={{ display: 'flex' }}>
+                        {row.map((seat) => (
+                            <div key={seat.seatId} style={getSeatStyle(seat)}>
                                 <button
                                     type="button"
                                     onClick={() => handleSeatClick(seat)}
@@ -160,10 +162,11 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
                                     {seat.seatId}
                                 </button>
                                 {seat.isBooked && seat.bookingId && (
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => handleCancelBookingFromSeat(seat.bookingId)}
-                                        style={{fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer'}}
+                                        style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
+                                        aria-label={`Cancel booking ${seat.bookingId}`}
                                         title={`Cancel booking ${seat.bookingId}`}
                                     >
                                         Cancel
@@ -174,24 +177,24 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
                     </div>
                 ))}
             </div>
-            {bookingStatus && <p>{bookingStatus}</p>}
-            {customerLoadingError && <p style={{color: 'red'}}>{customerLoadingError}</p>}
+            {bookingStatus && <p aria-live="polite">{bookingStatus}</p>}
+            {customerLoadingError && <p aria-live="polite" style={{ color: 'red' }}>{customerLoadingError}</p>}
             {selectedSeatId && (
-                <div style={{marginTop: '10px'}}>
-                    <label htmlFor="customerSelectBooking">Select Customer: </label>
+                <div style={{ marginTop: '10px' }}>
+                    <label htmlFor="customerSelectBooking" style={{ marginRight: '10px' }}>Select Customer:</label>
                     {loadingCustomers ? (
                         <span>Loading customers...</span>
                     ) : (
                         <Select
-                            id="customerSelectBooking"
+                            inputId="customerSelectBooking"
                             value={customerIdForBooking}
-                            onChange={setCustomerIdForBooking} 
-                            options={customers.map(cust => ({ value: cust.personId, label: `${cust.name} (ID: ${cust.personId})` }))}
+                            onChange={setCustomerIdForBooking}
+                            options={customers.map((cust) => ({ value: cust.personId, label: `${cust.name} (ID: ${cust.personId})` }))}
                             isClearable
                             isSearchable
                             placeholder="Select or type to search Customer..."
                             isDisabled={customers.length === 0 && !customerLoadingError}
-                            styles={{ container: base => ({ ...base, width: '300px', marginRight: '10px', display: 'inline-block' }) }}
+                            styles={{ container: (base) => ({ ...base, width: '300px', marginRight: '10px', display: 'inline-block' }) }}
                         />
                     )}
                     <button
@@ -203,15 +206,28 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess }) => {
                     </button>
                 </div>
             )}
-            <div style={{marginTop: '10px'}}>
-                Legend: 
-                <span style={{backgroundColor: 'lightgreen', padding: '2px 5px', margin: '0 5px'}}>Available Economy</span>
-                <span style={{backgroundColor: 'lightblue', padding: '2px 5px', margin: '0 5px'}}>Available Business</span>
-                <span style={{backgroundColor: 'lightcoral', padding: '2px 5px', margin: '0 5px'}}>Booked</span>
-                <span style={{backgroundColor: 'yellow', padding: '2px 5px', margin: '0 5px'}}>Selected</span>
+            <div style={{ marginTop: '10px' }}>
+                <span style={{ marginRight: '5px' }}>Legend:</span>
+                <span style={{ backgroundColor: 'lightgreen', padding: '2px 5px', margin: '0 5px' }}>Available Economy</span>
+                <span style={{ backgroundColor: 'lightblue', padding: '2px 5px', margin: '0 5px' }}>Available Business</span>
+                <span style={{ backgroundColor: 'lightcoral', padding: '2px 5px', margin: '0 5px' }}>Booked</span>
+                <span style={{ backgroundColor: 'yellow', padding: '2px 5px', margin: '0 5px' }}>Selected</span>
             </div>
         </div>
     );
+};
+
+SeatMap.propTypes = {
+    seats: PropTypes.arrayOf(PropTypes.shape({
+        seatId: PropTypes.string.isRequired,
+        seatClass: PropTypes.string.isRequired,
+        price: PropTypes.number.isRequired,
+        isBooked: PropTypes.bool.isRequired,
+        bookedByCustomerId: PropTypes.string,
+        bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    })).isRequired,
+    flightNumber: PropTypes.string.isRequired,
+    onBookingSuccess: PropTypes.func,
 };
 
 export default SeatMap;

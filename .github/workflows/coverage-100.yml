@@ -32,15 +32,35 @@ jobs:
           npm --prefix airline-gui ci
           npm --prefix airline-gui test -- --coverage --watch=false
 
+      - name: Build and test C++ with coverage
+        run: |
+          bash scripts/verify
+
+      - name: Generate C++ coverage report
+        run: |
+          python3 -m venv .venv-gcovr
+          . .venv-gcovr/bin/activate
+          python -m pip install --disable-pip-version-check gcovr
+          mkdir -p coverage/cpp
+          gcovr \
+            --root . \
+            --filter 'src' \
+            --exclude 'tests' \
+            --object-directory build \
+            --lcov coverage/cpp/lcov.info \
+            --print-summary
+
       - name: Enforce 100% coverage
         run: |
-          python3 -m scripts.quality.assert_coverage_100
+          python3 -m scripts.quality.assert_coverage_100 --require-cpp
+
       - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage-100
           path: |
-            coverage
-            **/coverage
-            **/TestResults
+            airline-gui/coverage
+            coverage/cpp/lcov.info
+            build/Testing
+            coverage-100

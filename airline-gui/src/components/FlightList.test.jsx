@@ -35,17 +35,20 @@ describe('FlightList', () => {
 
     render(<FlightList />);
 
-    expect(await screen.findByRole('button', { name: /FL-100/i })).toBeInTheDocument();
+    const flightOneButton = await screen.findByRole('button', { name: /FL-100/i });
+    expect(flightOneButton).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: /FL-200/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /FL-100/i }));
+    fireEvent.click(flightOneButton);
     expect(await screen.findByText('Details for Flight: FL-100')).toBeInTheDocument();
     expect(screen.getByText('Mock SeatMap for FL-100')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /FL-100/i })).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /FL-100/i }));
     await waitFor(() => {
       expect(screen.queryByText('Details for Flight: FL-100')).not.toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: /FL-100/i })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('shows airplane-load error when fetchAirplanes fails', async () => {

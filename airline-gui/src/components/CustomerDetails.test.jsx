@@ -64,7 +64,7 @@ describe('CustomerDetails', () => {
     expect(await screen.findByText('Customer Details: Bob (ID: C2)')).toBeInTheDocument();
     expect(screen.getByText('ID: 10, Flight: FL-100, Seat: 1A, Status: Confirmed')).toBeInTheDocument();
     expect(screen.getByText('ID: 11, Flight: FL-200, Seat: 2B, Status: CANCELLED')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Cancel Booking' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Cancel booking/i })).toHaveLength(1);
   });
 
   it('shows load error when customer details fetch fails', async () => {
@@ -89,7 +89,7 @@ describe('CustomerDetails', () => {
 
     render(<CustomerDetails customerId="C3" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel Booking' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 21' }));
 
     expect(cancelBooking).not.toHaveBeenCalled();
     expect(screen.queryByText(/Cancelling booking 21.../)).not.toBeInTheDocument();
@@ -108,7 +108,7 @@ describe('CustomerDetails', () => {
 
     render(<CustomerDetails customerId="C4" onBookingCancelled={onBookingCancelled} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel Booking' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 31' }));
 
     expect(await screen.findByText('Booking 31 cancelled')).toBeInTheDocument();
     expect(cancelBooking).toHaveBeenCalledWith(31);
@@ -127,7 +127,7 @@ describe('CustomerDetails', () => {
 
     render(<CustomerDetails customerId="C4B" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel Booking' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 32' }));
 
     expect(await screen.findByText('Booking 32 cancellation processed.')).toBeInTheDocument();
   });
@@ -144,7 +144,7 @@ describe('CustomerDetails', () => {
 
     render(<CustomerDetails customerId="C5" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel Booking' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 41' }));
 
     await waitFor(() => {
       expect(screen.getByText('Failed to cancel booking 41: Cancellation blocked')).toBeInTheDocument();

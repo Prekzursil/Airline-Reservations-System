@@ -7,18 +7,12 @@ static int g_customerIdCounter = 1; // Global static for resettable ID generatio
 
 namespace rsh = reservation_system_helpers;
 
-// Constructor
-ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref) {
-    m_cin_ptr = &cin_ref;
-    m_cout_ptr = &cout_ref;
-    // (*m_cout_ptr) << "ReservationSystem constructor called." << std::endl; // Optional
-    initializeSystem(); // Populate with some initial data
+ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
+    : m_cin_ptr(&cin_ref), m_cout_ptr(&cout_ref) {
+    initializeSystem();
 }
 
-// Destructor
-ReservationSystem::~ReservationSystem() {
-    // (*m_cout_ptr) << "ReservationSystem destructor called." << std::endl; // Optional
-}
+ReservationSystem::~ReservationSystem() = default;
 
 void ReservationSystem::setInputStreamForTest(std::istream& inputStream) {
     m_cin_ptr = &inputStream;
@@ -32,7 +26,7 @@ void ReservationSystem::resetSystemForTest() {
     airplanes.clear();
     customers.clear();
     bookings.clear();
-    resetCustomerIdCounterForTest(); 
+    resetCustomerIdCounterForTest();
 }
 
 void ReservationSystem::resetCustomerIdCounterForTest() {
@@ -40,12 +34,12 @@ void ReservationSystem::resetCustomerIdCounterForTest() {
 }
 
 void ReservationSystem::initializeSystem() {
-    airplanes.emplace_back("FL101", 15, 6); 
-    airplanes.emplace_back("FL202", 20, 6); 
+    airplanes.emplace_back("FL101", 15, 6);
+    airplanes.emplace_back("FL202", 20, 6);
 
     customers.emplace_back("Alice Wonderland", 30, generateUniqueCustomerId(), 1500.0);
     customers.emplace_back("Bob The Builder", 45, generateUniqueCustomerId(), 800.0);
-    
+
     (*m_cout_ptr) << "System initialized with default airplanes and customers." << std::endl;
 }
 
@@ -175,7 +169,7 @@ void ReservationSystem::handleAddCustomer() {
         (*m_cout_ptr) << "Invalid choice. Aborting customer creation." << std::endl;
         return;
     }
-    
+
     customers.emplace_back(name, age, newId, money);
     (*m_cout_ptr) << "Customer " << name << " with ID " << newId << " added successfully." << std::endl;
 }
@@ -192,16 +186,13 @@ void ReservationSystem::handleBookSeat() {
         (*m_cout_ptr) << "Customer with ID " << custId << " not found." << std::endl;
         return;
     }
-    // customer->displayDetails(); // Uses std::cout, need to pass m_cout_ptr or refactor
 
     rsh::printAvailableFlights(*m_cout_ptr, airplanes);
     const auto maxChoice = static_cast<int>(airplanes.size());
     const int flightChoice = getMenuChoice(1, maxChoice) - 1;
     Airplane& airplane = airplanes[static_cast<size_t>(flightChoice)];
-    
+
     (*m_cout_ptr) << "Selected Flight: " << airplane.getFlightNumber() << std::endl;
-    // airplane->displaySeatingMap(); // Uses std::cout
-    // airplane->displayAvailableSeats(); // Uses std::cout
 
     const std::string seatIdToBook = getValidatedInput<std::string>("Enter Seat ID to book (e.g., 1A): ");
     Seat* seat = nullptr;
@@ -237,12 +228,11 @@ void ReservationSystem::handleViewFlightDetails() {
     }
     rsh::printAvailableFlights(*m_cout_ptr, airplanes);
     const auto maxChoice = static_cast<int>(airplanes.size());
-    int flightChoice = getMenuChoice(1, maxChoice) - 1;
-    const auto* airplane = &airplanes[static_cast<size_t>(flightChoice)];
-    (void)airplane; // Mark as used
+    const int flightChoice = getMenuChoice(1, maxChoice) - 1;
+    const auto& airplane = airplanes[static_cast<size_t>(flightChoice)];
 
-    // airplane->displaySeatingMap(); 
-    // airplane->displayAvailableSeats(); 
+    airplane.displaySeatingMap();
+    airplane.displayAvailableSeats();
 }
 
 void ReservationSystem::handleSearchCustomer() {
@@ -254,12 +244,10 @@ void ReservationSystem::handleSearchCustomer() {
     std::string id = getValidatedInput<std::string>("Enter Customer ID to search: ");
     Customer* customer = findCustomerById(id);
     if (customer) {
-        // customer->displayDetails(); 
         (*m_cout_ptr) << "Bookings for " << customer->getName() << ":" << std::endl;
         bool foundBookings = false;
         for(const auto& booking : bookings) {
             if (booking.getCustomerId() == customer->getPersonId() && booking.getStatus() == BookingStatus::CONFIRMED) {
-                // booking.displayBookingDetails(); 
                 foundBookings = true;
             }
         }
@@ -434,7 +422,7 @@ Customer* ReservationSystem::addCustomerInternal(const std::string& name_param, 
             money = generated.money;
         }
     }
-    
+
     customers.emplace_back(name, age, newId, money);
     return &customers.back(); // Return pointer to the newly added customer
 }
@@ -497,7 +485,7 @@ bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std:
         errorMessage = "Booking " + bookingId + " is already cancelled.";
         return false; // Or true, as it's already in the desired state for cancellation
     }
-    
+
     // Logic from handleCancelBooking
     Customer* customer = findCustomerById(booking->getCustomerId());
     Airplane* airplane = findAirplaneByFlightNumber(booking->getFlightNumber());
@@ -542,12 +530,12 @@ bool ReservationSystem::swapSeatsInternal(const std::string& bookingId1_str, con
         errorMessage = "Seat swaps only supported for bookings on the same flight."; 
         return false;
     }
-    
+
     // Price difference handling is not implemented.
     // This assumes a direct swap of seat assignments.
 
     std::string tempSeatId1 = booking1->getSeatId(); // Store original seat of booking1
-    
+
     std::string b2_original_seat = booking2->getSeatId();
     booking1->setSeatId(b2_original_seat); // Set booking1's seat to booking2's current/original seat
     booking2->setSeatId(tempSeatId1);      // Set booking2's seat to booking1's original seat

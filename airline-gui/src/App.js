@@ -76,17 +76,34 @@ function App() {
           </section>
 
           <section style={{ marginBottom: '20px' }}>
-            <button onClick={loadCustomers} style={{marginRight: '10px'}}>
+            <button type="button" onClick={loadCustomers} style={{marginRight: '10px'}}>
               {showCustomers ? 'Refresh Customer List' : 'Show Customer List'}
             </button>
-            {customerError && <p style={{color: 'red'}}>{customerError}</p>}
+            {customerError && <p aria-live="polite" style={{color: 'red'}}>{customerError}</p>}
             {showCustomers && customers.length > 0 && (
               <div>
                 <h3>All Customers:</h3>
                 <ul>
-                  {customers.map(cust => (
-                    <li key={cust.personId} onClick={() => {setSearchCustomerId(cust.personId); setSelectedCustomerId(cust.personId);}} style={{cursor: 'pointer'}}>
-                      {cust.name} (ID: {cust.personId})
+                  {customers.map((cust) => (
+                    <li key={cust.personId}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchCustomerId(cust.personId);
+                          setSelectedCustomerId(cust.personId);
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          border: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          font: 'inherit',
+                          color: 'inherit',
+                          textAlign: 'left',
+                        }}
+                      >
+                        {cust.name} (ID: {cust.personId})
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -97,14 +114,18 @@ function App() {
 
           <section>
             <h3>View Specific Customer Details</h3>
-            <input 
-              type="text" 
-              value={searchCustomerId} 
+            <label htmlFor="searchCustomerIdInput" style={{ marginRight: '10px' }}>
+              Customer ID
+            </label>
+            <input
+              id="searchCustomerIdInput"
+              type="text"
+              value={searchCustomerId}
               onChange={(e) => setSearchCustomerId(e.target.value)}
               placeholder="Enter Customer ID"
-              style={{marginRight: '10px'}}
+              style={{ marginRight: '10px' }}
             />
-            <button onClick={handleSearchCustomer}>Search Customer</button>
+            <button type="button" onClick={handleSearchCustomer}>Search Customer</button>
             {selectedCustomerId && <CustomerDetails customerId={selectedCustomerId} onBookingCancelled={refreshCustomerDetails} />}
           </section>
         </div>

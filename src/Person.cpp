@@ -1,20 +1,10 @@
 #include "Person.h"
 
-// Constructors
-Person::Person(const std::string& name, int age, const std::string& personId)
-{
-    this->name = name;
-    this->age = age;
-    this->personId = personId;
-    // std::cout << "Person constructor called for " << this->name << std::endl; // Optional: for debugging
-}
+Person::Person(const std::string& nameValue, int ageValue, const std::string& personIdValue)
+    : name(nameValue), age(ageValue), personId(personIdValue) {}
 
-// Virtual destructor
-Person::~Person() {
-    // std::cout << "Person destructor called for " << this->name << std::endl; // Optional: for debugging
-}
+Person::~Person() = default;
 
-// Getters
 std::string Person::getName() const {
     return name;
 }
@@ -27,19 +17,12 @@ std::string Person::getPersonId() const {
     return personId;
 }
 
-// Setters
 void Person::setName(const std::string& name) {
     this->name = name;
 }
 
 void Person::setAge(int age) {
-    if (age >= 0) { // Basic validation
+    if (age >= 0) {
         this->age = age;
-    } else {
-        // Potentially throw an error or log, for now, just ignore invalid age
-        // std::cerr << "Error: Age cannot be negative." << std::endl;
     }
 }
-
-// Note: displayDetails is a pure virtual function and has no implementation in Person.cpp
-// Derived classes must implement it.
