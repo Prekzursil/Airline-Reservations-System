@@ -10,27 +10,24 @@
 #include "../src/api_server_main.cpp"
 #undef main
 
-namespace {
+namespace api_server_test_support {
 
 class ApiServerRoutesTest : public ::testing::Test {
 protected:
-    std::stringstream input;
-    std::stringstream output;
-    ReservationSystem system{input, output};
-    httplib::Server server;
-    std::thread server_thread;
-    int port = -1;
+    int bound_port() const {
+        return port_;
+    }
 
     void start_server() {
-        register_routes(server, system);
-        port = server.bind_to_any_port("127.0.0.1");
-        ASSERT_GT(port, 0);
+        register_routes(server_, system_);
+        port_ = server_.bind_to_any_port("127.0.0.1");
+        ASSERT_GT(port_, 0);
 
-        server_thread = std::thread([this]() {
-            server.listen_after_bind();
+        server_thread_ = std::jthread([this]() {
+            server_.listen_after_bind();
         });
 
-        httplib::Client probe("127.0.0.1", port);
+        httplib::Client probe("127.0.0.1", port_);
         for (int attempt = 0; attempt < 50; ++attempt) {
             if (probe.Get("/api/airplanes")) {
                 return;
@@ -41,9 +38,9 @@ protected:
     }
 
     void TearDown() override {
-        server.stop();
-        if (server_thread.joinable()) {
-            server_thread.join();
+        server_.stop();
+        if (server_thread_.joinable()) {
+            server_thread_.join();
         }
     }
 
@@ -52,7 +49,7 @@ protected:
         int age = 30,
         double money = 500.0,
         bool auto_generate = false) {
-        Customer* customer = system.addCustomerInternal(name, age, money, auto_generate);
+        Customer* customer = system_.addCustomerInternal(name, age, money, auto_generate);
         if (customer == nullptr) {
             ADD_FAILURE() << "Failed to add customer";
         }
@@ -61,12 +58,20 @@ protected:
 
     Booking* createBooking(const std::string& customer_id, const std::string& flight_number, const std::string& seat_id) {
         std::string booking_error;
-        Booking* booking = system.createBookingInternal(customer_id, flight_number, seat_id, booking_error);
+        Booking* booking = system_.createBookingInternal(customer_id, flight_number, seat_id, booking_error);
         if (booking == nullptr) {
             ADD_FAILURE() << "Booking creation failed: " << booking_error;
         }
         return booking;
     }
+
+private:
+    std::stringstream input_;
+    std::stringstream output_;
+    ReservationSystem system_{input_, output_};
+    httplib::Server server_;
+    std::jthread server_thread_;
+    int port_ = -1;
 };
 
 TEST(ApiServerHelpersTest, ErrorStatusHelpersReturnExpectedCodes) {
@@ -162,7 +167,7 @@ TEST(ApiServerHelpersTest, RespondJsonSetsContentTypeAndCorsHeaders) {
     respond_json(response, json{{"ok", true}}, 201);
 
     EXPECT_EQ(response.status, 201);
-    EXPECT_EQ(response.get_header_value("Content-Type"), std::string(kJsonMimeType));
+    EXPECT_EQ(response.get_header_value("Content-Type"), kJsonMimeType);
     EXPECT_EQ(response.get_header_value("Access-Control-Allow-Origin"), "*");
     EXPECT_EQ(
         response.get_header_value("Access-Control-Allow-Methods"),
@@ -176,8 +181,8 @@ TEST(ApiServerEntryTest, RunApiServerReportsFailureWhenListenFails) {
     ReservationSystem system(input, out);
     httplib::Server server;
 
-    const auto original_callback = g_server_listen_callback;
-    g_server_listen_callback = +[](httplib::Server&, const char*, int) {
+    const auto original_callback = server_listen_callback();
+    server_listen_callback() = +[](httplib::Server&, const char*, int) {
         return false;
     };
 
@@ -185,7 +190,7 @@ TEST(ApiServerEntryTest, RunApiServerReportsFailureWhenListenFails) {
     EXPECT_NE(out.str().find("Starting API server"), std::string::npos);
     EXPECT_NE(err.str().find("Failed to start server!"), std::string::npos);
 
-    g_server_listen_callback = original_callback;
+    server_listen_callback() = original_callback;
 }
 
 TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
@@ -195,14 +200,14 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
     ReservationSystem system(input, output_stream);
     httplib::Server server;
 
-    const auto original_callback = g_server_listen_callback;
-    g_server_listen_callback = +[](httplib::Server&, const char*, int) {
+    const auto original_callback = server_listen_callback();
+    server_listen_callback() = +[](httplib::Server&, const char*, int) {
         return true;
     };
 
     const int exit_code = run_api_server(system, server, output_stream, error_stream);
 
-    g_server_listen_callback = original_callback;
+    server_listen_callback() = original_callback;
 
     EXPECT_EQ(exit_code, 0);
     EXPECT_NE(output_stream.str().find("Starting API server"), std::string::npos);
@@ -211,7 +216,7 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
 
 TEST_F(ApiServerRoutesTest, ListsDefaultAirplanesAndCustomers) {
     start_server();
-    httplib::Client client("127.0.0.1", port);
+    httplib::Client client("127.0.0.1", bound_port());
 
     const auto airplanes_response = client.Get("/api/airplanes");
     ASSERT_TRUE(airplanes_response);
@@ -228,7 +233,7 @@ TEST_F(ApiServerRoutesTest, ListsDefaultAirplanesAndCustomers) {
 
 TEST_F(ApiServerRoutesTest, ListsBookingsAndReturnsNotFoundForMissingResources) {
     start_server();
-    httplib::Client client("127.0.0.1", port);
+    httplib::Client client("127.0.0.1", bound_port());
 
     const auto bookings_response = client.Get("/api/bookings");
     ASSERT_TRUE(bookings_response);
@@ -248,7 +253,7 @@ TEST_F(ApiServerRoutesTest, ListsBookingsAndReturnsNotFoundForMissingResources) 
 
 TEST_F(ApiServerRoutesTest, SupportsCustomerBookingLifecycleRoutes) {
     start_server();
-    httplib::Client client("127.0.0.1", port);
+    httplib::Client client("127.0.0.1", bound_port());
 
     const auto new_customer_response = client.Post(
         "/api/customers",
@@ -260,7 +265,7 @@ TEST_F(ApiServerRoutesTest, SupportsCustomerBookingLifecycleRoutes) {
     const json new_customer = json::parse(new_customer_response->body);
     const std::string customer_id = new_customer.at("personId").get<std::string>();
 
-    const auto customer_details = client.Get(("/api/customers/" + customer_id).c_str());
+    const auto customer_details = client.Get("/api/customers/" + customer_id);
     ASSERT_TRUE(customer_details);
     EXPECT_EQ(customer_details->status, 200);
 
@@ -279,7 +284,7 @@ TEST_F(ApiServerRoutesTest, SupportsCustomerBookingLifecycleRoutes) {
     EXPECT_EQ(airplane_details->status, 200);
     EXPECT_NE(airplane_details->body.find(booking_id), std::string::npos);
 
-    const auto cancel_response = client.Delete(("/api/bookings/" + booking_id).c_str());
+    const auto cancel_response = client.Delete("/api/bookings/" + booking_id);
     ASSERT_TRUE(cancel_response);
     EXPECT_EQ(cancel_response->status, 200);
 
@@ -290,7 +295,7 @@ TEST_F(ApiServerRoutesTest, SupportsCustomerBookingLifecycleRoutes) {
 
 TEST_F(ApiServerRoutesTest, SupportsAutoGeneratedCustomersAndBookingErrorStatuses) {
     start_server();
-    httplib::Client client("127.0.0.1", port);
+    httplib::Client client("127.0.0.1", bound_port());
 
     const auto auto_customer_response = client.Post(
         "/api/customers",
@@ -388,17 +393,17 @@ TEST_F(ApiServerRoutesTest, CancelAndSwapRoutesMapErrorsAndSuccess) {
     const std::string third_booking_id = third_booking->getBookingId();
 
     start_server();
-    httplib::Client client("127.0.0.1", port);
+    httplib::Client client("127.0.0.1", bound_port());
 
     const auto missing_cancel_response = client.Delete("/api/bookings/BK_FAKE");
     ASSERT_TRUE(missing_cancel_response);
     EXPECT_EQ(missing_cancel_response->status, 404);
 
-    const auto cancel_response = client.Delete(("/api/bookings/" + first_booking_id).c_str());
+    const auto cancel_response = client.Delete("/api/bookings/" + first_booking_id);
     ASSERT_TRUE(cancel_response);
     ASSERT_EQ(cancel_response->status, 200);
 
-    const auto already_cancelled_response = client.Delete(("/api/bookings/" + first_booking_id).c_str());
+    const auto already_cancelled_response = client.Delete("/api/bookings/" + first_booking_id);
     ASSERT_TRUE(already_cancelled_response);
     EXPECT_EQ(already_cancelled_response->status, 409);
 
@@ -434,7 +439,7 @@ TEST_F(ApiServerRoutesTest, CancelAndSwapRoutesMapErrorsAndSuccess) {
 
 TEST_F(ApiServerRoutesTest, ReturnsBadRequestForMalformedPayloads) {
     start_server();
-    httplib::Client client("127.0.0.1", port);
+    httplib::Client client("127.0.0.1", bound_port());
 
     const auto customer_response = client.Post("/api/customers", "{bad json", kJsonMimeType);
     ASSERT_TRUE(customer_response);
@@ -449,4 +454,4 @@ TEST_F(ApiServerRoutesTest, ReturnsBadRequestForMalformedPayloads) {
     EXPECT_EQ(swap_response->status, 400);
 }
 
-}  // namespace
+}  // namespace api_server_test_support

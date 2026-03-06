@@ -60,7 +60,10 @@ bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
 
-ServerListenCallback g_server_listen_callback = listen_on_host;
+ServerListenCallback& server_listen_callback() {
+    static ServerListenCallback callback = listen_on_host;
+    return callback;
+}
 
 void set_common_headers(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Origin", "*");
@@ -335,7 +338,7 @@ int run_api_server(ReservationSystem& airline_system, httplib::Server& server, s
     });
 
     out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
-    if (!g_server_listen_callback(server, "0.0.0.0", kServerPort)) {
+    if (!server_listen_callback()(server, "0.0.0.0", kServerPort)) {
         err << "Failed to start server!" << std::endl;
         return 1;
     }
