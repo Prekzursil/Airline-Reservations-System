@@ -74,21 +74,13 @@ def _render_md(payload: Dict[str, Any]) -> str:
         f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
         "",
         "## Missing secrets",
+        f"- Count: `{payload['missing_secret_count']}`",
+        "- Names omitted from artifacts to avoid persisting secret-related identifiers.",
+        "",
+        "## Missing variables",
+        f"- Count: `{payload['missing_var_count']}`",
+        "- Names omitted from artifacts to avoid persisting secret-related identifiers.",
     ]
-
-    missing_secrets = payload.get("missing_secrets") or []
-    if missing_secrets:
-        lines.extend(f"- `{name}`" for name in missing_secrets)
-    else:
-        lines.append("- None")
-
-    lines.extend(["", "## Missing variables"])
-    missing_vars = payload.get("missing_vars") or []
-    if missing_vars:
-        lines.extend(f"- `{name}`" for name in missing_vars)
-    else:
-        lines.append("- None")
-
     return "\n".join(lines) + "\n"
 
 
@@ -102,8 +94,6 @@ def main() -> int:
     payload = {
         "status": status,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "missing_secrets": result["missing_secrets"],
-        "missing_vars": result["missing_vars"],
         "missing_secret_count": len(result["missing_secrets"]),
         "missing_var_count": len(result["missing_vars"]),
     }
