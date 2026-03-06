@@ -102,9 +102,10 @@ def main() -> int:
     payload = {
         "status": status,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "required_secrets": required_secrets,
-        "required_vars": required_vars,
-        **result,
+        "missing_secrets": result["missing_secrets"],
+        "missing_vars": result["missing_vars"],
+        "missing_secret_count": len(result["missing_secrets"]),
+        "missing_var_count": len(result["missing_vars"]),
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
