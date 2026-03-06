@@ -6,6 +6,12 @@ BUILD_TYPE="${BUILD_TYPE:-Debug}"
 JOBS="${JOBS:-2}"
 TEST_EXCLUDE="${TEST_EXCLUDE:-ReservationSystemTest\\.SwapSeatsInternal_DifferentFlights}"
 
+cleanup_coverage_artifacts() {
+  rm -rf "${BUILD_DIR}" obj coverage/cpp coverage-100
+}
+
+cleanup_coverage_artifacts
+
 cmake -S . -B "${BUILD_DIR}" \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DENABLE_COVERAGE=ON \
