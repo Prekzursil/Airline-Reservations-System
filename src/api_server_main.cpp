@@ -60,11 +60,6 @@ bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
 
-ServerListenCallback& server_listen_callback() {
-    static ServerListenCallback callback = listen_on_host;
-    return callback;
-}
-
 void set_common_headers(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Origin", "*");
     res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -329,7 +324,12 @@ void register_routes(httplib::Server& server, ReservationSystem& airline_system)
     });
 }
 
-int run_api_server(ReservationSystem& airline_system, httplib::Server& server, std::ostream& out, std::ostream& err) {
+int run_api_server(
+    ReservationSystem& airline_system,
+    httplib::Server& server,
+    std::ostream& out,
+    std::ostream& err,
+    ServerListenCallback listen_callback = listen_on_host) {
     register_routes(server, airline_system);
 
     server.set_base_dir("./");
@@ -338,7 +338,7 @@ int run_api_server(ReservationSystem& airline_system, httplib::Server& server, s
     });
 
     out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
-    if (!server_listen_callback()(server, "0.0.0.0", kServerPort)) {
+    if (!listen_callback(server, "0.0.0.0", kServerPort)) {
         err << "Failed to start server!" << std::endl;
         return 1;
     }

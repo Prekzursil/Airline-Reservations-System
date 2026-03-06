@@ -186,16 +186,18 @@ TEST(ApiServerEntryTest, RunApiServerReportsFailureWhenListenFails) {
     ReservationSystem reservation_system(input, out);
     httplib::Server server;
 
-    const auto original_callback = server_listen_callback();
-    server_listen_callback() = +[](httplib::Server&, const char*, int) {
-        return false;
-    };
-
-    EXPECT_EQ(run_api_server(reservation_system, server, out, err), 1);
+    EXPECT_EQ(
+        run_api_server(
+            reservation_system,
+            server,
+            out,
+            err,
+            +[](httplib::Server&, const char*, int) {
+                return false;
+            }),
+        1);
     EXPECT_NE(out.str().find("Starting API server"), std::string::npos);
     EXPECT_NE(err.str().find("Failed to start server!"), std::string::npos);
-
-    server_listen_callback() = original_callback;
 }
 
 TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
@@ -205,14 +207,14 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
     ReservationSystem reservation_system(input, output_stream);
     httplib::Server server;
 
-    const auto original_callback = server_listen_callback();
-    server_listen_callback() = +[](httplib::Server&, const char*, int) {
-        return true;
-    };
-
-    const int exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
-
-    server_listen_callback() = original_callback;
+    const int exit_code = run_api_server(
+        reservation_system,
+        server,
+        output_stream,
+        error_stream,
+        +[](httplib::Server&, const char*, int) {
+            return true;
+        });
 
     EXPECT_EQ(exit_code, 0);
     EXPECT_NE(output_stream.str().find("Starting API server"), std::string::npos);
@@ -353,6 +355,14 @@ TEST_F(ApiServerRoutesTest, MapsBookingErrorStatusesForRoutes) {
     );
     ASSERT_TRUE(missing_seat_response);
     EXPECT_EQ(missing_seat_response->status, 404);
+}
+
+TEST_F(ApiServerRoutesTest, ReturnsConflictAndPaymentErrorsForRoutes) {
+    start_server();
+    httplib::Client client("127.0.0.1", bound_port());
+
+    const json auto_customer = create_auto_generated_customer(client);
+    const std::string customer_id = auto_customer.at("personId").get<std::string>();
 
     const auto first_booking_response = client.Post(
         "/api/bookings",
