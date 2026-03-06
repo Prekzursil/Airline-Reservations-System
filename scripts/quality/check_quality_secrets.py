@@ -42,7 +42,7 @@ def _dedupe(items: List[str]) -> List[str]:
 
 
 def _is_configured(name: str) -> bool:
-    return bool(str(os.environ.get(name, "")).strip())
+    return name in os.environ
 
 
 def _partition_presence(required: List[str]) -> Dict[str, List[str]]:

@@ -1,5 +1,6 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "gtest/gtest.h"
+#include "auto_generated_customer_test_helpers.h"
 #include "../src/ReservationSystem.h" 
 #include "../src/Customer.h"
 #include "../src/Airplane.h"
@@ -772,11 +773,7 @@ TEST_F(ReservationSystemTest, AddCustomerInternalAutoGeneratesApiDefaults) {
     Customer* customer = rs.addCustomerInternal("Ignored", 0, 0.0, true);
     ASSERT_NE(customer, nullptr);
 
-    EXPECT_TRUE(customer->getName().rfind("ApiPat_", 0) == 0 ||
-                customer->getName().rfind("WebServiceUser_", 0) == 0 ||
-                customer->getName().rfind("JsonGenClient_", 0) == 0 ||
-                customer->getName().rfind("SystemPerson_", 0) == 0 ||
-                customer->getName().rfind("BackendBot_", 0) == 0);
+    EXPECT_TRUE(has_expected_auto_generated_customer_name(customer->getName()));
     EXPECT_GE(customer->getAge(), 18);
     EXPECT_LE(customer->getAge(), 80);
     EXPECT_GE(customer->getMoney(), 100.0);
