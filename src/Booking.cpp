@@ -38,15 +38,15 @@ CivilDateTime toCivilDateTime(std::chrono::system_clock::time_point timePoint) {
     const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
     const auto dayOfEra = static_cast<unsigned int>(z - era * 146097);
     const auto yearOfEra = (dayOfEra - dayOfEra / 1460 + dayOfEra / 36524 - dayOfEra / 146096) / 365;
-    const int year = static_cast<int>(yearOfEra + era * 400);
+    const auto year = static_cast<int>(yearOfEra + era * 400);
     const auto dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100);
     const auto monthPart = static_cast<int>((5 * dayOfYear + 2) / 153);
-    const int day = static_cast<int>(dayOfYear - (153 * static_cast<unsigned int>(monthPart) + 2) / 5 + 1);
-    const int month = monthPart + (monthPart < 10 ? 3 : -9);
+    const auto day = static_cast<int>(dayOfYear - (153 * static_cast<unsigned int>(monthPart) + 2) / 5 + 1);
+    const auto month = monthPart + (monthPart < 10 ? 3 : -9);
 
-    const int hour = static_cast<int>(secondsIntoDay / 3600);
-    const int minute = static_cast<int>((secondsIntoDay % 3600) / 60);
-    const int second = static_cast<int>(secondsIntoDay % 60);
+    const auto hour = static_cast<int>(secondsIntoDay / 3600);
+    const auto minute = static_cast<int>((secondsIntoDay % 3600) / 60);
+    const auto second = static_cast<int>(secondsIntoDay % 60);
 
     return {
         year + (month <= 2 ? 1 : 0),

@@ -109,7 +109,8 @@ void Airplane::displaySeatingMap() const {
         std::cout << i << (i < 10 ? "  " : " ");
         for (int j = 0; j < seatsPerRow; ++j) {
             if (seatIndex < seats.size()) {
-                const Seat& seat = seats[seatIndex++];
+                const auto& seat = seats[seatIndex];
+                ++seatIndex;
                 const char displayChar = seatDisplayChar(seat);
                 std::cout << displayChar << ' ';
             } else {
