@@ -76,7 +76,7 @@ TEST_F(SeatTest, GetSeatClassString) {
 }
 
 TEST_F(SeatTest, SeatClassToStringDefault) {
-    const SeatClass unknownSc = static_cast<SeatClass>(99);
+    const auto unknownSc = static_cast<SeatClass>(99);
     EXPECT_EQ(seatClassToString(unknownSc), "Unknown");
 }
 

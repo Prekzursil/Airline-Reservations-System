@@ -50,7 +50,7 @@ TEST_F(BookingTest, GetStatusStringAll) {
 }
 
 TEST_F(BookingTest, BookingStatusToStringDefault) {
-    const BookingStatus unknownBs = static_cast<BookingStatus>(99);
+    const auto unknownBs = static_cast<BookingStatus>(99);
     EXPECT_EQ(bookingStatusToString(unknownBs), "Unknown");
 }
 

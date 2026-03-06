@@ -1,9 +1,8 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "Booking.h"
 #include <cstdint>
-#include <iomanip>
+#include <format>
 #include <random>
-#include <sstream>
 
 namespace {
 constexpr std::int64_t kSecondsPerDay = 24LL * 60LL * 60LL;
@@ -19,8 +18,7 @@ struct CivilDateTime {
 
 std::int64_t floorDiv(std::int64_t dividend, std::int64_t divisor) {
     std::int64_t quotient = dividend / divisor;
-    const std::int64_t remainder = dividend % divisor;
-    if (remainder != 0 && ((remainder < 0) != (divisor < 0))) {
+    if (const auto remainder = dividend % divisor; remainder != 0 && ((remainder < 0) != (divisor < 0))) {
         --quotient;
     }
     return quotient;
@@ -36,13 +34,13 @@ CivilDateTime toCivilDateTime(std::chrono::system_clock::time_point timePoint) {
         --dayCount;
     }
 
-    std::int64_t z = dayCount + 719468;
+    auto z = dayCount + 719468;
     const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
-    const unsigned int dayOfEra = static_cast<unsigned int>(z - era * 146097);
-    const unsigned int yearOfEra = (dayOfEra - dayOfEra / 1460 + dayOfEra / 36524 - dayOfEra / 146096) / 365;
+    const auto dayOfEra = static_cast<unsigned int>(z - era * 146097);
+    const auto yearOfEra = (dayOfEra - dayOfEra / 1460 + dayOfEra / 36524 - dayOfEra / 146096) / 365;
     const int year = static_cast<int>(yearOfEra + era * 400);
-    const unsigned int dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100);
-    const int monthPart = static_cast<int>((5 * dayOfYear + 2) / 153);
+    const auto dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100);
+    const auto monthPart = static_cast<int>((5 * dayOfYear + 2) / 153);
     const int day = static_cast<int>(dayOfYear - (153 * static_cast<unsigned int>(monthPart) + 2) / 5 + 1);
     const int month = monthPart + (monthPart < 10 ? 3 : -9);
 
@@ -62,16 +60,15 @@ CivilDateTime toCivilDateTime(std::chrono::system_clock::time_point timePoint) {
 
 std::string formatBookingDate(std::chrono::system_clock::time_point timePoint) {
     const CivilDateTime civil = toCivilDateTime(timePoint);
-
-    std::ostringstream stream;
-    stream << std::setfill('0')
-           << std::setw(4) << civil.year << '-'
-           << std::setw(2) << civil.month << '-'
-           << std::setw(2) << civil.day << ' '
-           << std::setw(2) << civil.hour << ':'
-           << std::setw(2) << civil.minute << ':'
-           << std::setw(2) << civil.second;
-    return stream.str();
+    return std::format(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+        civil.year,
+        civil.month,
+        civil.day,
+        civil.hour,
+        civil.minute,
+        civil.second
+    );
 }
 
 void initializeBookingState(
