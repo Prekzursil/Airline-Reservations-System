@@ -50,6 +50,24 @@ protected:
     }
 };
 
+class ReservationSystemTestAccess {
+public:
+    static int getValidatedInt(ReservationSystem& reservation_system, const std::string& prompt) {
+        return reservation_system.getValidatedInput<int>(prompt);
+    }
+
+    static void executeMenuChoice(ReservationSystem& reservation_system, const int choice) {
+        reservation_system.executeMenuChoice(choice);
+    }
+
+    static bool validateSwapPair(
+        const ReservationSystem& reservation_system,
+        const Booking& first_booking,
+        const Booking& second_booking) {
+        return reservation_system.validateSwapPair(first_booking, second_booking);
+    }
+};
+
 TEST_F(ReservationSystemTest, InitialSystemStateAndFinders) {
     Airplane* plane1 = rs.findAirplaneByFlightNumber("FL101");
     ASSERT_NE(plane1, nullptr);
@@ -129,6 +147,40 @@ TEST_F(ReservationSystemTest, RunRejectsInvalidMenuInputBeforeExit) {
 
     EXPECT_NE(
         test_out.str().find("Invalid choice. Please enter a number between 0 and 7."),
+        std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetValidatedInputRetriesAfterInvalidNumericInput) {
+    test_in.str("oops\n42\n");
+
+    const int value = ReservationSystemTestAccess::getValidatedInt(rs, "Enter number: ");
+
+    EXPECT_EQ(value, 42);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, ExecuteMenuChoiceReportsOutOfRangeChoice) {
+    ReservationSystemTestAccess::executeMenuChoice(rs, 99);
+
+    EXPECT_NE(test_out.str().find("Invalid choice. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, ValidateSwapPairReportsDifferentFlights) {
+    Customer* first_customer = addCustomer("HelperUserA", 30, 500.0, false);
+    Customer* second_customer = addCustomer("HelperUserB", 31, 500.0, false);
+    ASSERT_NE(first_customer, nullptr);
+    ASSERT_NE(second_customer, nullptr);
+    const std::string first_customer_id = first_customer->getPersonId();
+    const std::string second_customer_id = second_customer->getPersonId();
+
+    Booking* first_booking = createConfirmedBooking(first_customer_id, "FL101", "8A");
+    Booking* second_booking = createConfirmedBooking(second_customer_id, "FL202", "1A");
+    ASSERT_NE(first_booking, nullptr);
+    ASSERT_NE(second_booking, nullptr);
+
+    EXPECT_FALSE(ReservationSystemTestAccess::validateSwapPair(rs, *first_booking, *second_booking));
+    EXPECT_NE(
+        test_out.str().find("Booking 1 is for flight FL101, Booking 2 is for flight FL202"),
         std::string::npos);
 }
 
@@ -416,6 +468,23 @@ TEST_F(ReservationSystemTest, HandleCancelBookingSuccessfulViaMenu) {
     EXPECT_NE(test_out.str().find("cancelled successfully"), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, HandleCancelBookingReportsInternalFailureMessage) {
+    Customer* customer = addCustomer("CancelFailureUser", 30, 500.0, false);
+    ASSERT_NE(customer, nullptr);
+
+    Booking* booking = createConfirmedBooking(customer->getPersonId(), "FL101", "7A");
+    ASSERT_NE(booking, nullptr);
+    const std::string booking_id = booking->getBookingId();
+
+    rs.clearCustomersForTest();
+    test_in.str("5\n" + booking_id + "\ny\n0\n");
+    rs.run();
+
+    EXPECT_NE(
+        test_out.str().find("Error: Could not find customer, airplane, or seat associated with this booking."),
+        std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, CancelBookingInternalFailsWhenAssociatedCustomerIsMissing) {
     Booking* booking = createConfirmedBooking("CUST0001", "FL101", "6A");
     ASSERT_NE(booking, nullptr);
@@ -677,6 +746,13 @@ TEST_F(ReservationSystemTest, HandleAdminMenuShowsEmptyCustomersAndBookings) {
     EXPECT_NE(output.find("No customers in system."), std::string::npos);
     EXPECT_NE(output.find("--- All Bookings ---"), std::string::npos);
     EXPECT_NE(output.find("No bookings in system."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleAdminMenuReturnsToMainMenuOnZero) {
+    test_in.str("7\n0\n0\n");
+    rs.run();
+
+    EXPECT_NE(test_out.str().find("--- Admin Options ---"), std::string::npos);
 }
 
 TEST_F(ReservationSystemTest, HandleAdminMenuAddsAirplaneAndRejectsDuplicateFlight) {

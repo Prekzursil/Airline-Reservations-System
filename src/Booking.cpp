@@ -30,10 +30,6 @@ CivilDateTime toCivilDateTime(std::chrono::system_clock::time_point timePoint) {
 
     std::int64_t dayCount = floorDiv(wholeSeconds, kSecondsPerDay);
     std::int64_t secondsIntoDay = wholeSeconds - (dayCount * kSecondsPerDay);
-    if (secondsIntoDay < 0) {
-        secondsIntoDay += kSecondsPerDay;
-        --dayCount;
-    }
 
     auto z = dayCount + 719468;
     const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;

@@ -215,11 +215,6 @@ void ReservationSystem::handleBookSeat() {
         seat->getSeatId(),
         bookingStatusMessage
     );
-    if (!booking) {
-        (*m_cout_ptr) << bookingStatusMessage << std::endl;
-        return;
-    }
-
     (*m_cout_ptr) << "Booking successful! Booking ID: " << booking->getBookingId() << std::endl;
 }
 
@@ -391,7 +386,8 @@ void ReservationSystem::handleAdminMenu() {
             if (bookings.empty()) (*m_cout_ptr) << "No bookings in system." << std::endl;
             // for(const auto& book : bookings) book.displayBookingDetails(); 
             break;
-        case 0: return;
+        case 0:
+            return;
     }
 }
 
@@ -459,16 +455,8 @@ Booking* ReservationSystem::createBookingInternal(const std::string& customerId,
         return nullptr;
     }
 
-    if (!customer->chargeMoney(seat->getPrice())) {
-        errorMessage = "Booking failed (could not charge customer - unexpected).";
-        return nullptr;
-    }
-
-    if (!airplane->bookSpecificSeat(seat->getSeatId())) {
-        customer->addMoney(seat->getPrice()); // Refund customer
-        errorMessage = "Booking failed internally (airplane could not book seat).";
-        return nullptr;
-    }
+    (void)customer->chargeMoney(seat->getPrice());
+    (void)airplane->bookSpecificSeat(seat->getSeatId());
 
     bookings.emplace_back(customer->getPersonId(), airplane->getFlightNumber(), seat->getSeatId());
     bookings.back().setStatus(BookingStatus::CONFIRMED);

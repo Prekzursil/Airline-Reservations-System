@@ -15,30 +15,15 @@
 using json = nlohmann::json;
 
 void to_json(json& j, const Seat& s) {
-    j = json{
-        {"seatId", s.getSeatId()},
-        {"isBooked", s.getIsBooked()},
-        {"price", s.getPrice()},
-        {"seatClass", s.getSeatClassString()},
-    };
+    j = json{{"seatId", s.getSeatId()}, {"isBooked", s.getIsBooked()}, {"price", s.getPrice()}, {"seatClass", s.getSeatClassString()}};
 }
 
 void to_json(json& j, const Airplane& p) {
-    j = json{
-        {"flightNumber", p.getFlightNumber()},
-        {"capacity", p.getCapacity()},
-        {"bookedSeatsCount", p.getBookedSeatsCount()},
-        {"isFull", p.isFull()},
-    };
+    j = json{{"flightNumber", p.getFlightNumber()}, {"capacity", p.getCapacity()}, {"bookedSeatsCount", p.getBookedSeatsCount()}, {"isFull", p.isFull()}};
 }
 
 void to_json(json& j, const Customer& c) {
-    j = json{
-        {"personId", c.getPersonId()},
-        {"name", c.getName()},
-        {"age", c.getAge()},
-        {"money", c.getMoney()},
-    };
+    j = json{{"personId", c.getPersonId()}, {"name", c.getName()}, {"age", c.getAge()}, {"money", c.getMoney()}};
 }
 
 void to_json(json& j, const Booking& b) {
@@ -136,13 +121,9 @@ const Booking* find_confirmed_booking_for_seat(
 }
 
 json build_airplane_details(const ReservationSystem& airline_system, const Airplane& plane) {
-    json details = {
-        {"flightNumber", plane.getFlightNumber()},
-        {"capacity", plane.getCapacity()},
-        {"bookedSeatsCount", plane.getBookedSeatsCount()},
-        {"isFull", plane.isFull()},
-        {"seats", json::array()},
-    };
+    json details = {{"flightNumber", plane.getFlightNumber()}, {"capacity", plane.getCapacity()},
+                    {"bookedSeatsCount", plane.getBookedSeatsCount()}, {"isFull", plane.isFull()},
+                    {"seats", json::array()}};
 
     const auto& all_bookings = airline_system.getBookingsForTest();
     const std::string flight_number = plane.getFlightNumber();
@@ -223,13 +204,8 @@ void handle_create_customer(ReservationSystem& airline_system, const httplib::Re
         const double money = body.value("money", 0.0);
         const bool auto_generate = body.value("autoGenerate", false);
 
-        if (Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
-            new_customer != nullptr) {
-            respond_json(res, json(*new_customer), 201);
-            return;
-        }
-
-        respond_json(res, json{{"error", "Failed to add customer internally"}}, 500);
+        Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
+        respond_json(res, json(*new_customer), 201);
     } catch (const json::exception& error) {
         respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400);
     }

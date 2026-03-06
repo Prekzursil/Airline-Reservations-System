@@ -19,19 +19,20 @@ constexpr auto kPollInterval = std::chrono::milliseconds(20);
 constexpr int kTestPortStart = 18080;
 constexpr int kTestPortCount = 32;
 
-class ScopedCoutRedirect {
+class ScopedStreamRedirect {
 public:
-    explicit ScopedCoutRedirect(const std::ostream& target)
-        : original_(std::cout.rdbuf(target.rdbuf())) {}
+    ScopedStreamRedirect(std::ostream& stream, const std::ostream& target)
+        : stream_(stream), original_(stream.rdbuf(target.rdbuf())) {}
 
-    ~ScopedCoutRedirect() {
-        std::cout.rdbuf(original_);
+    ~ScopedStreamRedirect() {
+        stream_.rdbuf(original_);
     }
 
-    ScopedCoutRedirect(const ScopedCoutRedirect&) = delete;
-    ScopedCoutRedirect& operator=(const ScopedCoutRedirect&) = delete;
+    ScopedStreamRedirect(const ScopedStreamRedirect&) = delete;
+    ScopedStreamRedirect& operator=(const ScopedStreamRedirect&) = delete;
 
 private:
+    std::ostream& stream_;
     std::streambuf* original_;
 };
 
@@ -288,7 +289,7 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     std::ostringstream output_stream;
     std::ostringstream error_stream;
     std::ostringstream log_stream;
-    ScopedCoutRedirect redirect(log_stream);
+    ScopedStreamRedirect redirect(std::cout, log_stream);
     ReservationSystem reservation_system(input, output_stream);
     httplib::Server server;
     std::optional<int> exit_code;
@@ -312,6 +313,63 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_TRUE(error_stream.str().empty());
+}
+
+TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
+    std::stringstream input;
+    std::ostringstream output_stream;
+    std::ostringstream error_stream;
+    std::ostringstream log_stream;
+    ScopedStreamRedirect redirect(std::cout, log_stream);
+    ReservationSystem reservation_system(input, output_stream);
+    httplib::Server server;
+    std::optional<int> exit_code;
+    std::jthread server_thread([&error_stream, &exit_code, &output_stream, &reservation_system, &server]() {
+        exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
+    });
+
+    const bool observed_healthy = wait_for_status(kServerPort, "/api/airplanes", 200);
+    if (observed_healthy) {
+        server.stop();
+    }
+    server_thread.join();
+
+    ASSERT_TRUE(exit_code.has_value());
+    if (*exit_code == 0) {
+        EXPECT_TRUE(observed_healthy);
+        EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+        EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
+        EXPECT_TRUE(error_stream.str().empty());
+        return;
+    }
+
+    EXPECT_EQ(*exit_code, 1);
+    EXPECT_TRUE(output_stream.str().empty());
+    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
+}
+
+TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultPortIsAlreadyInUse) {
+    httplib::Server blocker;
+    if (blocker.bind_to_port("127.0.0.1", kServerPort) <= 0) {
+        GTEST_SKIP() << "Port 8080 is not available for the blocker setup";
+    }
+    std::jthread blocker_thread([&blocker]() {
+        blocker.listen_after_bind();
+    });
+
+    std::ostringstream output_stream;
+    std::ostringstream error_stream;
+    ScopedStreamRedirect out_redirect(std::cout, output_stream);
+    ScopedStreamRedirect err_redirect(std::cerr, error_stream);
+
+    const int exit_code = airline_api_server_entry_main();
+
+    blocker.stop();
+    blocker_thread.join();
+
+    EXPECT_EQ(exit_code, 1);
+    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
 
 TEST_F(ApiServerRoutesTest, ListsDefaultAirplanesAndCustomers) {

@@ -96,6 +96,7 @@ add_executable(
   tests/booking_test.cpp
   tests/customer_test.cpp
   tests/person_test.cpp
+  tests/reservation_system_helpers_test.cpp
   tests/reservation_system_test.cpp
   tests/seat_test.cpp
 )

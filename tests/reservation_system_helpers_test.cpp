@@ -19,6 +19,18 @@ TEST(ReservationSystemHelpersTest, ReadNonEmptyLineRetriesOnceAfterEmptyInput) {
         "Enter customer name: Input cannot be empty. Please try again: ");
 }
 
+TEST(ReservationSystemHelpersTest, ReadNonEmptyLineReturnsSecondAttemptEvenIfStillEmpty) {
+    std::istringstream input("\n\n");
+    std::ostringstream output;
+
+    const std::string value = rsh::readNonEmptyLine(input, output, "Enter customer name: ");
+
+    EXPECT_TRUE(value.empty());
+    EXPECT_EQ(
+        output.str(),
+        "Enter customer name: Input cannot be empty. Please try again: ");
+}
+
 TEST(ReservationSystemHelpersTest, FormatMoneyAmountPadsSingleDigitCents) {
     EXPECT_EQ(rsh::formatMoneyAmount(12.04), "12.04");
 }
