@@ -545,7 +545,6 @@ TEST_F(ReservationSystemTest, HandleSwapSeatsRejectsUnconfirmedFirstBooking) {
     const std::string first_booking_id = booking1->getBookingId();
     Booking* booking2 = createConfirmedBooking(cust2->getPersonId(), "FL101", "8B");
     ASSERT_NE(booking2, nullptr);
-    const std::string second_booking_id = booking2->getBookingId();
 
     std::string cancel_error;
     ASSERT_TRUE(rs.cancelBookingInternal(first_booking_id, cancel_error));
