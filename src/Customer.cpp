@@ -4,11 +4,8 @@
 #include <iomanip>  // For std::setprecision
 
 // Constructors
-Customer::Customer(const std::string& name, int age, const std::string& personId, double money)
-    : Person(name, age, personId) {
-    this->money = money;
-    // std::cout << "Customer constructor called for " << this->name << std::endl; // Optional: for debugging
-}
+Customer::Customer(const std::string& name, int age, const std::string& personId, double initialMoney)
+    : Person(name, age, personId), money(initialMoney) {}
 
 // Destructor
 Customer::~Customer() {

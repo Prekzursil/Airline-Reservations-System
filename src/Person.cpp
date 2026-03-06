@@ -1,6 +1,6 @@
 #include "Person.h"
 
-Person::Person(const std::string& nameValue, int ageValue, const std::string& personIdValue)
+Person::Person(std::string_view nameValue, int ageValue, std::string_view personIdValue)
     : name(nameValue), age(ageValue), personId(personIdValue) {}
 
 Person::~Person() = default;
@@ -17,12 +17,12 @@ std::string Person::getPersonId() const {
     return personId;
 }
 
-void Person::setName(const std::string& name) {
-    this->name = name;
+void Person::setName(std::string_view newName) {
+    name = newName;
 }
 
-void Person::setAge(int age) {
-    if (age >= 0) {
-        this->age = age;
+void Person::setAge(int newAge) {
+    if (newAge >= 0) {
+        age = newAge;
     }
 }

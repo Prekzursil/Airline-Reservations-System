@@ -4,7 +4,7 @@
 
 namespace {
 void assignSeatValues(
-    const std::string& id,
+    std::string_view id,
     SeatClass sc,
     double basePrice,
     std::string& seatIdOut,
@@ -29,7 +29,7 @@ std::string seatClassToString(SeatClass sc) {
 }
 
 // Constructor
-Seat::Seat(const std::string& id, SeatClass sc, double basePrice)
+Seat::Seat(std::string_view id, SeatClass sc, double basePrice)
 {
     assignSeatValues(id, sc, basePrice, seatId, isBooked, price, seatClass);
     // std::cout << "Seat constructor called for " << this->seatId << std::endl; // Optional

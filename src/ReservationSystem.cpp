@@ -1,6 +1,7 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "ReservationSystem.h"
 #include "ReservationSystemHelpers.h"
+#include <array>
 #include <iostream>
 
 static int g_customerIdCounter = 1; // Global static for resettable ID generation
@@ -118,7 +119,7 @@ void ReservationSystem::run() {
 
 void ReservationSystem::executeMenuChoice(int choice) {
     using MenuAction = void (ReservationSystem::*)();
-    static const MenuAction kActions[] = {
+    static const std::array<MenuAction, 7> kActions = {
         &ReservationSystem::handleAddCustomer,
         &ReservationSystem::handleBookSeat,
         &ReservationSystem::handleViewFlightDetails,
@@ -127,7 +128,7 @@ void ReservationSystem::executeMenuChoice(int choice) {
         &ReservationSystem::handleSwapSeats,
         &ReservationSystem::handleAdminMenu,
     };
-    constexpr int kActionCount = static_cast<int>(sizeof(kActions) / sizeof(kActions[0]));
+    constexpr int kActionCount = static_cast<int>(kActions.size());
 
     if (choice == 0) {
         (*m_cout_ptr) << "Exiting system. Goodbye!" << std::endl;

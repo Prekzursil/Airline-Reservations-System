@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <format>
 #include <random>
+#include <string_view>
 
 namespace {
 constexpr std::int64_t kSecondsPerDay = 24LL * 60LL * 60LL;
@@ -72,8 +73,8 @@ std::string formatBookingDate(std::chrono::system_clock::time_point timePoint) {
 }
 
 void initializeBookingState(
-    const std::string& flightNum,
-    const std::string& seatNum,
+    std::string_view flightNum,
+    std::string_view seatNum,
     std::string& flightNumberOut,
     std::string& seatIdOut,
     std::chrono::system_clock::time_point& bookingDateOut,
