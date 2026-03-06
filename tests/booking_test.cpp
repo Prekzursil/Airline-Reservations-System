@@ -1,9 +1,12 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "gtest/gtest.h"
-#include "../src/Booking.h"
 #include <chrono>
 #include <regex>
 #include <thread>
+
+#define private public
+#include "../src/Booking.h"
+#undef private
 
 std::string bookingStatusToString(BookingStatus status);
 
@@ -72,4 +75,12 @@ TEST_F(BookingTest, GenerateBookingIdUniqueness) {
     Booking tempBooking2("C0004", "FL404", "4D");
     EXPECT_NE(id1, tempBooking2.getBookingId());
     EXPECT_NE(id2, tempBooking2.getBookingId());
+}
+
+TEST_F(BookingTest, GetBookingDateStringHandlesEpochAndNegativeTimes) {
+    b1.bookingDate = std::chrono::system_clock::time_point{};
+    EXPECT_EQ(b1.getBookingDateString(), "1970-01-01 00:00:00");
+
+    b1.bookingDate = std::chrono::system_clock::time_point{std::chrono::seconds{-1}};
+    EXPECT_EQ(b1.getBookingDateString(), "1969-12-31 23:59:59");
 }

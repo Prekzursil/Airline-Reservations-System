@@ -1,7 +1,11 @@
+#include <algorithm>
 #include "gtest/gtest.h"
+#include <sstream>
+
+#define private public
 #include "../src/Airplane.h"
 #include "../src/Customer.h"
-#include <sstream>
+#undef private
 
 class AirplaneTest : public ::testing::Test {
 protected:
@@ -187,4 +191,53 @@ TEST_F(AirplaneTest, DisplayAvailableSeatsWhenFull) {
 TEST_F(AirplaneTest, SuggestLowerPriceSeatsNullCustomer) {
     const std::vector<const Seat*> suggestions = plane_mixed.suggestLowerPriceSeats(nullptr, 100.0);
     EXPECT_TRUE(suggestions.empty());
+}
+
+TEST_F(AirplaneTest, DisplaySeatingMapHandlesSparseSeatStorage) {
+    plane_small.seats.resize(1);
+
+    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
+    std::ostringstream captured;
+    std::cout.rdbuf(captured.rdbuf());
+
+    plane_small.displaySeatingMap();
+
+    std::cout.rdbuf(oldCoutStreamBuf);
+    EXPECT_NE(captured.str().find("Legend: X=Booked, B=Available Business, E=Available Economy"), std::string::npos);
+    EXPECT_NE(captured.str().find("\n2  "), std::string::npos);
+}
+
+TEST_F(AirplaneTest, DisplayAllSeatDetailsReportsWhenSeatStorageIsEmpty) {
+    plane_small.seats.clear();
+
+    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
+    std::ostringstream captured;
+    std::cout.rdbuf(captured.rdbuf());
+
+    plane_small.displayAllSeatDetails();
+
+    std::cout.rdbuf(oldCoutStreamBuf);
+    EXPECT_NE(captured.str().find("No seats configured for this airplane."), std::string::npos);
+}
+
+TEST_F(AirplaneTest, SuggestLowerPriceSeatsSortsCustomSeatPricesAscending) {
+    ASSERT_EQ(plane_small.seats.size(), 4U);
+    plane_small.seats[0].setPrice(120.0);
+    plane_small.seats[1].setPrice(80.0);
+    plane_small.seats[2].setPrice(100.0);
+    plane_small.seats[3].setPrice(60.0);
+
+    Customer budgetCustomer{"Budget Buyer", 28, "TC999", 150.0};
+    const std::vector<const Seat*> suggestions = plane_small.suggestLowerPriceSeats(&budgetCustomer, 150.0);
+
+    ASSERT_EQ(suggestions.size(), 4U);
+    std::vector<double> prices;
+    prices.reserve(suggestions.size());
+    for (const auto* seat : suggestions) {
+        prices.push_back(seat->getPrice());
+    }
+
+    EXPECT_TRUE(std::is_sorted(prices.begin(), prices.end()));
+    EXPECT_DOUBLE_EQ(prices.front(), 60.0);
+    EXPECT_DOUBLE_EQ(prices.back(), 120.0);
 }
