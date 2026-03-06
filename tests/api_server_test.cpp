@@ -21,7 +21,7 @@ constexpr int kTestPortCount = 32;
 
 class ScopedCoutRedirect {
 public:
-    explicit ScopedCoutRedirect(std::ostream& target)
+    explicit ScopedCoutRedirect(const std::ostream& target)
         : original_(std::cout.rdbuf(target.rdbuf())) {}
 
     ~ScopedCoutRedirect() {
@@ -271,7 +271,7 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
 }
 
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
-    std::atomic<int> selected_port{-1};
+    std::atomic selected_port{-1};
     auto listen_on_first_available_port = [&selected_port](httplib::Server& server, const char* host, int) {
         for (int offset = 0; offset < kTestPortCount; ++offset) {
             const int port = kTestPortStart + offset;
@@ -292,7 +292,7 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     ReservationSystem reservation_system(input, output_stream);
     httplib::Server server;
     std::optional<int> exit_code;
-    std::jthread server_thread([&]() {
+    std::jthread server_thread([&error_stream, &exit_code, &listen_on_first_available_port, &output_stream, &reservation_system, &server]() {
         exit_code = run_api_server_with_listener(
             reservation_system,
             server,
