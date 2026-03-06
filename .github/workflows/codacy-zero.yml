@@ -25,6 +25,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
+      CODACY_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
       CHECK_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -38,11 +39,11 @@ jobs:
             --timeout-seconds 1200 \
             --poll-seconds 20
       - name: Assert Codacy zero-open gate
-        if: ${{ github.event_name != 'pull_request' }}
         run: |
           python3 -m scripts.quality.check_codacy_zero \
             --owner "${GITHUB_REPOSITORY_OWNER}" \
-            --repo "${GITHUB_REPOSITORY#*/}"
+            --repo "${GITHUB_REPOSITORY#*/}" \
+            --branch "${CODACY_BRANCH}"
       - name: Upload Codacy artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

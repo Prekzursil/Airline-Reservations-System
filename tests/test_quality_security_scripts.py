@@ -146,6 +146,23 @@ class ScriptPathBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             codacy._build_issue_search_path("github", "owner/evil", "repo")
 
+    def test_codacy_fetch_open_issues_forwards_branch_name(self) -> None:
+        args = mock.Mock(provider="github", owner="Owner_1", repo="Repo-1", branch="feature/zero")
+        captured: dict[str, object] = {}
+
+        def _fake_request_json_https_target(*, target, method, headers, body):
+            captured["target"] = target
+            captured["method"] = method
+            captured["headers"] = headers
+            captured["body"] = body
+            return {"total": 0}
+
+        with mock.patch.object(codacy, "request_json_https_target", side_effect=_fake_request_json_https_target):
+            self.assertEqual(codacy._fetch_open_issues(args, "token"), 0)
+
+        self.assertEqual(captured["method"], "POST")
+        self.assertEqual(captured["body"], {"branchName": "feature/zero"})
+
     def test_sentry_path_builder_rejects_invalid_project(self) -> None:
         path = sentry._build_project_issues_path("org-name", "project_name")
         self.assertTrue(path.startswith("/api/0/projects/org-name/project_name/issues/?"))
