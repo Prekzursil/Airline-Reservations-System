@@ -7,6 +7,21 @@
 
 namespace rsh = reservation_system_helpers;
 
+namespace {
+void expect_book_seat_prerequisites_result(
+    const std::vector<Airplane>& airplanes,
+    const std::vector<Customer>& customers,
+    const std::string& expected_output
+) {
+    std::ostringstream output;
+
+    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers);
+
+    EXPECT_FALSE(ready);
+    EXPECT_EQ(output.str(), expected_output);
+}
+} // namespace
+
 TEST(ReservationSystemHelpersTest, ReadNonEmptyLineRetriesOnceAfterEmptyInput) {
     std::istringstream input("\nRecovered Name\n");
     std::ostringstream output;
@@ -93,23 +108,18 @@ TEST(ReservationSystemHelpersTest, PrintSeatSuggestionsReturnsSilentlyWhenThereA
 }
 
 TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesRejectsEmptyAirplaneList) {
-    std::ostringstream output;
     const std::vector<Airplane> airplanes;
     const std::vector<Customer> customers = {Customer{"Ready Customer", 34, "CUST001", 120.0}};
 
-    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers);
-
-    EXPECT_FALSE(ready);
-    EXPECT_EQ(output.str(), "No flights available to book.\n");
+    expect_book_seat_prerequisites_result(airplanes, customers, "No flights available to book.\n");
 }
 
 TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesRejectsEmptyCustomerList) {
-    std::ostringstream output;
     const std::vector<Airplane> airplanes = {Airplane{"FL101", 2, 2}};
     const std::vector<Customer> customers;
 
-    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers);
-
-    EXPECT_FALSE(ready);
-    EXPECT_EQ(output.str(), "No customers in the system. Please add a customer first.\n");
+    expect_book_seat_prerequisites_result(
+        airplanes,
+        customers,
+        "No customers in the system. Please add a customer first.\n");
 }

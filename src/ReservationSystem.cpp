@@ -117,11 +117,11 @@ void ReservationSystem::run() {
             const int choice = getMenuChoice(0, 7);
             executeMenuChoice(choice);
             if (choice == 0) {
-                break;
+                return;
             }
         } catch (const rsh::InputExhaustedError&) {
             (*m_cout_ptr) << "Input stream exhausted. Exiting system." << std::endl;
-            break;
+            return;
         }
     }
 }

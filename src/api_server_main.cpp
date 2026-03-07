@@ -228,8 +228,7 @@ void handle_create_booking(ReservationSystem& airline_system, const httplib::Req
 
 void handle_cancel_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
     std::string error_message;
-    const bool success = airline_system.cancelBookingInternal(req.matches[1].str(), error_message);
-    if (!success) {
+    if (const bool success = airline_system.cancelBookingInternal(req.matches[1].str(), error_message); !success) {
         respond_json(res, json{{"error", error_message}}, cancel_error_status(error_message));
         return;
     }

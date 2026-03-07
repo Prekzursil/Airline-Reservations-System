@@ -1,7 +1,6 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "ReservationSystemHelpers.h"
-#include <iomanip>
-#include <sstream>
+#include <format>
 
 namespace reservation_system_helpers {
 namespace {
@@ -100,9 +99,7 @@ std::string formatMoneyAmount(double amount) {
     const auto cents = static_cast<long long>(amount * 100.0 + (amount >= 0.0 ? 0.5 : -0.5));
     const long long dollars = cents / 100;
     const long long remainder = cents >= 0 ? cents % 100 : -(cents % 100);
-    std::ostringstream out;
-    out << dollars << '.' << std::setw(2) << std::setfill('0') << remainder;
-    return out.str();
+    return std::format("{}.{:02d}", dollars, remainder);
 }
 
 void printAvailableFlights(std::ostream& out, const std::vector<Airplane>& availableAirplanes) {
@@ -121,24 +118,11 @@ void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& sug
     } }
 
 bool hasBookSeatPrerequisites(std::ostream& out, const std::vector<Airplane>& availableAirplanes, const std::vector<Customer>& knownCustomers) {
-    if (availableAirplanes.empty()) {
-        out << "No flights available to book." << std::endl;
-        return false;
-    }
-    if (knownCustomers.empty()) {
-        out << "No customers in the system. Please add a customer first." << std::endl;
-        return false;
-    }
-    return true;
-}
+    if (availableAirplanes.empty()) { out << "No flights available to book." << std::endl; return false; }
+    if (knownCustomers.empty()) { out << "No customers in the system. Please add a customer first." << std::endl; return false; }
+    return true; }
 
-bool tryPrepareSeatForBooking(
-    std::ostream& out,
-    Airplane& airplane,
-    const Customer& customer,
-    const std::string& seatIdToBook,
-    Seat*& selectedSeat
-) {
+bool tryPrepareSeatForBooking(std::ostream& out, Airplane& airplane, const Customer& customer, const std::string& seatIdToBook, Seat*& selectedSeat) {
     selectedSeat = airplane.findSeat(seatIdToBook);
     if (selectedSeat == nullptr) {
         out << "Seat " << seatIdToBook << " does not exist on this flight." << std::endl;

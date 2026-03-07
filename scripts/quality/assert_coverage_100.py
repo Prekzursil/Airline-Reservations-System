@@ -14,6 +14,7 @@ NODE_LCOV_PATH = Path("airline-gui/coverage/lcov.info")
 NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
 NODE_FINAL_JSON_PATH = Path("airline-gui/coverage/coverage-final.json")
 CPP_LCOV_PATH = Path("coverage/cpp/lcov.info")
+NON_EXECUTABLE_LCOV_TOKENS = {"", "{", "}", "};"}
 
 
 @dataclass
@@ -42,9 +43,12 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
     record_lines: Dict[int, int] = {}
     fallback_total = 0
     fallback_covered = 0
+    source_path: Path | None = None
 
     def flush_record() -> None:
         nonlocal total, covered, record_lines, fallback_total, fallback_covered
+        if not (record_lines or fallback_total or fallback_covered):
+            return
         if record_lines:
             total += len(record_lines)
             covered += sum(1 for count in record_lines.values() if count > 0)
@@ -58,13 +62,14 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line.startswith("SF:"):
-            if record_lines or fallback_total or fallback_covered:
-                flush_record()
+            flush_record()
+            source_path = Path(line.split(":", 1)[1])
         elif line.startswith("DA:"):
             line_number_text, hit_count_text, *_ = line[3:].split(",")
             line_number = _safe_int(line_number_text)
             hit_count = _safe_int(hit_count_text)
-            record_lines[line_number] = max(record_lines.get(line_number, 0), hit_count)
+            if _include_lcov_line(source_path, line_number):
+                record_lines[line_number] = max(record_lines.get(line_number, 0), hit_count)
         elif line.startswith("LF:"):
             fallback_total = int(line.split(":", 1)[1])
         elif line.startswith("LH:"):
@@ -72,10 +77,21 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
         elif line == "end_of_record":
             flush_record()
 
-    if record_lines or fallback_total or fallback_covered:
-        flush_record()
+    flush_record()
 
     return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+
+
+def _include_lcov_line(source_path: Path | None, line_number: int) -> bool:
+    if source_path is None or line_number <= 0:
+        return True
+
+    try:
+        source_line = source_path.read_text(encoding="utf-8").splitlines()[line_number - 1].strip()
+    except (OSError, IndexError):
+        return True
+
+    return source_line not in NON_EXECUTABLE_LCOV_TOKENS
 
 
 def _safe_int(value: Any) -> int:
