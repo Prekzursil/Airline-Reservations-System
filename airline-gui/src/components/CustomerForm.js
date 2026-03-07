@@ -61,7 +61,9 @@ const CustomerForm = ({ onCustomerAdded = null }) => {
                         </div>
                     </>
                 )}
-                <button type="submit" style={{ marginTop: '10px' }}>Add Customer</button>
+                <button type="submit" style={{ marginTop: '10px' }}>
+                    Add Customer
+                </button>
             </form>
             {statusMessage && <p aria-live="polite">{statusMessage}</p>}
         </div>

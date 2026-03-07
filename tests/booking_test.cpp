@@ -6,55 +6,65 @@
 
 #include "../src/Booking.h"
 
+using enum BookingStatus;
+
 class BookingTestAccess {
 public:
     static void setBookingDate(Booking& booking, const std::chrono::system_clock::time_point booking_date) {
         booking.bookingDate = booking_date;
     }
+
+private:
+    BookingTestAccess() = default;
+    ~BookingTestAccess() = default;
 };
 
 std::string bookingStatusToString(BookingStatus status);
 
 class BookingTest : public ::testing::Test {
 protected:
-    Booking b1{"C0001", "FL101", "1A"};
-    Booking b2 = [] {
+    Booking& firstBooking() { return b1_; }
+    Booking& secondBooking() { return b2_; }
+
+private:
+    Booking b1_{"C0001", "FL101", "1A"};
+    Booking b2_ = [] {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         return Booking("C0002", "FL202", "2B");
     }();
 };
 
 TEST_F(BookingTest, ConstructorAndGetters) {
-    EXPECT_EQ(b1.getCustomerId(), "C0001");
-    EXPECT_EQ(b1.getFlightNumber(), "FL101");
-    EXPECT_EQ(b1.getSeatId(), "1A");
-    EXPECT_EQ(b1.getStatus(), BookingStatus::PENDING);
-    EXPECT_EQ(b1.getStatusString(), "Pending");
+    EXPECT_EQ(firstBooking().getCustomerId(), "C0001");
+    EXPECT_EQ(firstBooking().getFlightNumber(), "FL101");
+    EXPECT_EQ(firstBooking().getSeatId(), "1A");
+    EXPECT_EQ(firstBooking().getStatus(), PENDING);
+    EXPECT_EQ(firstBooking().getStatusString(), "Pending");
 
-    EXPECT_FALSE(b1.getBookingId().empty());
-    EXPECT_NE(b1.getBookingId(), b2.getBookingId());
+    EXPECT_FALSE(firstBooking().getBookingId().empty());
+    EXPECT_NE(firstBooking().getBookingId(), secondBooking().getBookingId());
 
-    EXPECT_FALSE(b1.getBookingDateString().empty());
-    EXPECT_TRUE(std::regex_match(b1.getBookingDateString(), std::regex(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")));
+    EXPECT_FALSE(firstBooking().getBookingDateString().empty());
+    EXPECT_TRUE(std::regex_match(firstBooking().getBookingDateString(), std::regex(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")));
 }
 
 TEST_F(BookingTest, SetStatus) {
-    b1.setStatus(BookingStatus::CONFIRMED);
-    EXPECT_EQ(b1.getStatus(), BookingStatus::CONFIRMED);
-    EXPECT_EQ(b1.getStatusString(), "Confirmed");
+    firstBooking().setStatus(CONFIRMED);
+    EXPECT_EQ(firstBooking().getStatus(), CONFIRMED);
+    EXPECT_EQ(firstBooking().getStatusString(), "Confirmed");
 
-    b1.setStatus(BookingStatus::CANCELLED);
-    EXPECT_EQ(b1.getStatus(), BookingStatus::CANCELLED);
-    EXPECT_EQ(b1.getStatusString(), "Cancelled");
+    firstBooking().setStatus(CANCELLED);
+    EXPECT_EQ(firstBooking().getStatus(), CANCELLED);
+    EXPECT_EQ(firstBooking().getStatusString(), "Cancelled");
 }
 
 TEST_F(BookingTest, GetStatusStringAll) {
-    b1.setStatus(BookingStatus::PENDING);
-    EXPECT_EQ(b1.getStatusString(), "Pending");
-    b1.setStatus(BookingStatus::CONFIRMED);
-    EXPECT_EQ(b1.getStatusString(), "Confirmed");
-    b1.setStatus(BookingStatus::CANCELLED);
-    EXPECT_EQ(b1.getStatusString(), "Cancelled");
+    firstBooking().setStatus(PENDING);
+    EXPECT_EQ(firstBooking().getStatusString(), "Pending");
+    firstBooking().setStatus(CONFIRMED);
+    EXPECT_EQ(firstBooking().getStatusString(), "Confirmed");
+    firstBooking().setStatus(CANCELLED);
+    EXPECT_EQ(firstBooking().getStatusString(), "Cancelled");
 }
 
 TEST_F(BookingTest, BookingStatusToStringDefault) {
@@ -63,16 +73,16 @@ TEST_F(BookingTest, BookingStatusToStringDefault) {
 }
 
 TEST_F(BookingTest, SetSeatId) {
-    b1.setSeatId("NEW10X");
-    EXPECT_EQ(b1.getSeatId(), "NEW10X");
+    firstBooking().setSeatId("NEW10X");
+    EXPECT_EQ(firstBooking().getSeatId(), "NEW10X");
 }
 
 TEST_F(BookingTest, DisplayBookingDetailsNoCrash) {
-    EXPECT_NO_THROW(b1.displayBookingDetails());
+    EXPECT_NO_THROW(firstBooking().displayBookingDetails());
 }
 
 TEST_F(BookingTest, GenerateBookingIdUniqueness) {
-    const std::string id1 = b1.getBookingId();
+    const std::string id1 = firstBooking().getBookingId();
     Booking tempBooking("C0003", "FL303", "3C");
     const std::string id2 = tempBooking.getBookingId();
     EXPECT_NE(id1, id2);
@@ -83,9 +93,9 @@ TEST_F(BookingTest, GenerateBookingIdUniqueness) {
 }
 
 TEST_F(BookingTest, GetBookingDateStringHandlesEpochAndNegativeTimes) {
-    BookingTestAccess::setBookingDate(b1, std::chrono::system_clock::time_point{});
-    EXPECT_EQ(b1.getBookingDateString(), "1970-01-01 00:00:00");
+    BookingTestAccess::setBookingDate(firstBooking(), std::chrono::system_clock::time_point{});
+    EXPECT_EQ(firstBooking().getBookingDateString(), "1970-01-01 00:00:00");
 
-    BookingTestAccess::setBookingDate(b1, std::chrono::system_clock::time_point{std::chrono::seconds{-1}});
-    EXPECT_EQ(b1.getBookingDateString(), "1969-12-31 23:59:59");
+    BookingTestAccess::setBookingDate(firstBooking(), std::chrono::system_clock::time_point{std::chrono::seconds{-1}});
+    EXPECT_EQ(firstBooking().getBookingDateString(), "1969-12-31 23:59:59");
 }

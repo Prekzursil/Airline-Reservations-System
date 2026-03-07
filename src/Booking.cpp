@@ -28,10 +28,10 @@ std::int64_t floorDiv(std::int64_t dividend, std::int64_t divisor) {
 CivilDateTime toCivilDateTime(std::chrono::system_clock::time_point timePoint) {
     const auto wholeSeconds = std::chrono::duration_cast<std::chrono::seconds>(timePoint.time_since_epoch()).count();
 
-    std::int64_t dayCount = floorDiv(wholeSeconds, kSecondsPerDay);
-    std::int64_t secondsIntoDay = wholeSeconds - (dayCount * kSecondsPerDay);
+    const std::int64_t dayCount = floorDiv(wholeSeconds, kSecondsPerDay);
+    const std::int64_t secondsIntoDay = wholeSeconds - (dayCount * kSecondsPerDay);
 
-    auto z = dayCount + 719468;
+    const auto z = dayCount + 719468;
     const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
     const auto dayOfEra = static_cast<unsigned int>(z - era * 146097);
     const auto yearOfEra = (dayOfEra - dayOfEra / 1460 + dayOfEra / 36524 - dayOfEra / 146096) / 365;
@@ -56,7 +56,7 @@ CivilDateTime toCivilDateTime(std::chrono::system_clock::time_point timePoint) {
 }
 
 std::string formatBookingDate(std::chrono::system_clock::time_point timePoint) {
-    const CivilDateTime civil = toCivilDateTime(timePoint);
+    const auto civil = toCivilDateTime(timePoint);
     return std::format(
         "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
         civil.year,
@@ -84,22 +84,23 @@ void initializeBookingState(
 } // namespace
 
 std::string bookingStatusToString(BookingStatus status) {
+    using enum BookingStatus;
     switch (status) {
-        case BookingStatus::CONFIRMED: return "Confirmed";
-        case BookingStatus::CANCELLED: return "Cancelled";
-        case BookingStatus::PENDING: return "Pending";
+        case CONFIRMED: return "Confirmed";
+        case CANCELLED: return "Cancelled";
+        case PENDING: return "Pending";
         default: return "Unknown";
     }
 }
 
-std::string Booking::generateBookingId() {
+std::string Booking::generateBookingId() const {
     const auto now = std::chrono::system_clock::now();
     const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distrib(100, 999);
-    const int randomNumber = distrib(gen);
+    std::uniform_int_distribution distrib(100, 999);
+    const auto randomNumber = distrib(gen);
 
     std::ostringstream stream;
     stream << "BK" << seconds << '-' << randomNumber;
@@ -142,15 +143,15 @@ BookingStatus Booking::getStatus() const {
 }
 
 std::string Booking::getStatusString() const {
-    return bookingStatusToString(this->status);
+    return bookingStatusToString(status);
 }
 
 void Booking::setStatus(BookingStatus newStatus) {
-    this->status = newStatus;
+    status = newStatus;
 }
 
-void Booking::setSeatId(const std::string& newSeatId) {
-    this->seatId = newSeatId;
+void Booking::setSeatId(std::string_view newSeatId) {
+    seatId = newSeatId;
 }
 
 void Booking::displayBookingDetails() const {

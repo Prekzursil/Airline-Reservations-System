@@ -2,6 +2,7 @@
 #include "Airplane.h"
 #include <algorithm>
 #include <format>
+#include <iostream>
 #include <ranges>
 
 namespace {
@@ -10,10 +11,12 @@ std::string buildSeatId(const int rowNumber, const int seatOffset) {
 }
 
 char seatDisplayChar(const Seat& seat) {
+    using enum SeatClass;
+
     if (seat.getIsBooked()) {
         return 'X';
     }
-    return seat.getSeatClass() == SeatClass::BUSINESS ? 'B' : 'E';
+    return seat.getSeatClass() == BUSINESS ? 'B' : 'E';
 }
 
 void applyAirplaneLayout(int rows, int seatsPerRow, int& totalRowsOut, int& seatsPerRowOut, int& bookedSeatsOut) {
@@ -23,7 +26,7 @@ void applyAirplaneLayout(int rows, int seatsPerRow, int& totalRowsOut, int& seat
 }
 } // namespace
 
-Airplane::Airplane(const std::string& flightNum, int rows, int sPerRow)
+Airplane::Airplane(std::string_view flightNum, int rows, int sPerRow)
     : flightNumber(flightNum) {
     applyAirplaneLayout(rows, sPerRow, totalRows, seatsPerRow, bookedSeatsCount);
     initializeSeats();
@@ -36,16 +39,17 @@ void Airplane::initializeSeats() {
     constexpr double kEconomyBasePrice = 50.0;
     constexpr double kBusinessBasePrice = 100.0;
 
-    int businessRows = static_cast<int>(totalRows * 0.2);
+    auto businessRows = static_cast<int>(totalRows * 0.2);
     if (businessRows == 0 && totalRows > 0) {
         businessRows = 1;
     }
 
+    using enum SeatClass;
     for (int i = 1; i <= totalRows; ++i) {
         for (int j = 0; j < seatsPerRow; ++j) {
-            const std::string id = buildSeatId(i, j);
-            const SeatClass seatClass = (i <= businessRows) ? SeatClass::BUSINESS : SeatClass::ECONOMY;
-            const double price = (seatClass == SeatClass::BUSINESS) ? kBusinessBasePrice : kEconomyBasePrice;
+            const auto id = buildSeatId(i, j);
+            const auto seatClass = (i <= businessRows) ? BUSINESS : ECONOMY;
+            const auto price = (seatClass == BUSINESS) ? kBusinessBasePrice : kEconomyBasePrice;
             seats.emplace_back(id, seatClass, price);
         }
     }
@@ -71,7 +75,7 @@ const std::vector<Seat>& Airplane::getAllSeats() const {
     return seats;
 }
 
-Seat* Airplane::findSeat(const std::string& seatId) {
+Seat* Airplane::findSeat(std::string_view seatId) {
     for (auto& seat : seats) {
         if (seat.getSeatId() == seatId) {
             return &seat;
@@ -80,7 +84,7 @@ Seat* Airplane::findSeat(const std::string& seatId) {
     return nullptr;
 }
 
-bool Airplane::bookSpecificSeat(const std::string& seatId) {
+bool Airplane::bookSpecificSeat(std::string_view seatId) {
     if (Seat* seatToBook = findSeat(seatId); seatToBook && !seatToBook->getIsBooked() && seatToBook->bookSeat()) {
         ++bookedSeatsCount;
         return true;
@@ -88,7 +92,7 @@ bool Airplane::bookSpecificSeat(const std::string& seatId) {
     return false;
 }
 
-bool Airplane::unbookSpecificSeat(const std::string& seatId) {
+bool Airplane::unbookSpecificSeat(std::string_view seatId) {
     if (Seat* seatToUnbook = findSeat(seatId); seatToUnbook && seatToUnbook->getIsBooked() && seatToUnbook->unbookSeat()) {
         --bookedSeatsCount;
         return true;
@@ -149,16 +153,25 @@ void Airplane::displayAllSeatDetails() const {
 
 std::vector<const Seat*> Airplane::getAvailableSeatsByClass(SeatClass sc) const {
     std::vector<const Seat*> available;
-    for (const auto& seat : seats)
-        if (!seat.getIsBooked() && seat.getSeatClass() == sc)
+    for (const auto& seat : seats) {
+        if (!seat.getIsBooked() && seat.getSeatClass() == sc) {
             available.push_back(&seat);
-    return available; }
+        }
+    }
+    return available;
+}
+
 std::vector<const Seat*> Airplane::suggestLowerPriceSeats(const Customer* customer, double maxPrice) const {
     std::vector<const Seat*> suggestions;
-    if (!customer) return suggestions;
+    if (!customer) {
+        return suggestions;
+    }
 
-    for (const auto& seat : seats)
-        if (!seat.getIsBooked() && seat.getPrice() <= maxPrice && seat.getPrice() <= customer->getMoney())
+    for (const auto& seat : seats) {
+        if (!seat.getIsBooked() && seat.getPrice() <= maxPrice && seat.getPrice() <= customer->getMoney()) {
             suggestions.push_back(&seat);
+        }
+    }
     std::ranges::sort(suggestions, std::ranges::less {}, [](const Seat* seat) { return seat->getPrice(); });
-    return suggestions; }
+    return suggestions;
+}

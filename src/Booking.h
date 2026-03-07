@@ -3,6 +3,7 @@
 #define BOOKING_H
 
 #include <string>
+#include <string_view>
 #include <iostream> // For display
 #include <chrono>   // For bookingDate (optional, could use string)
 
@@ -23,7 +24,7 @@ private:
     std::chrono::system_clock::time_point bookingDate; // Or std::string for simplicity
     BookingStatus status;
 
-    std::string generateBookingId(); // Helper to create a unique ID
+    std::string generateBookingId() const; // Helper to create a unique ID
 
     friend class BookingTestAccess;
 
@@ -45,7 +46,7 @@ public:
 
     // Setters
     void setStatus(BookingStatus newStatus);
-    void setSeatId(const std::string& newSeatId); // Added for seat swap
+    void setSeatId(std::string_view newSeatId); // Added for seat swap
 
     // Display
     void displayBookingDetails() const;

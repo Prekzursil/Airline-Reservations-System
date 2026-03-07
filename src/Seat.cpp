@@ -21,24 +21,22 @@ void assignSeatValues(
 
 // Helper function to convert SeatClass enum to string (can be outside class or static member)
 std::string seatClassToString(SeatClass sc) {
+    using enum SeatClass;
+
     switch (sc) {
-        case SeatClass::ECONOMY: return "Economy";
-        case SeatClass::BUSINESS: return "Business";
+        case ECONOMY: return "Economy";
+        case BUSINESS: return "Business";
         default: return "Unknown";
     }
 }
 
 // Constructor
-Seat::Seat(std::string_view id, SeatClass sc, double basePrice)
-{
+Seat::Seat(std::string_view id, SeatClass sc, double basePrice) {
     assignSeatValues(id, sc, basePrice, seatId, isBooked, price, seatClass);
-    // std::cout << "Seat constructor called for " << this->seatId << std::endl; // Optional
 }
 
 // Destructor
-Seat::~Seat() {
-    // std::cout << "Seat destructor called for " << this->seatId << std::endl; // Optional
-}
+Seat::~Seat() = default;
 
 // Getters
 std::string Seat::getSeatId() const {
@@ -64,9 +62,8 @@ std::string Seat::getSeatClassString() const {
 // Setters
 void Seat::setPrice(double newPrice) {
     if (newPrice >= 0.0) {
-        this->price = newPrice;
+        price = newPrice;
     }
-    // else { std::cerr << "Price cannot be negative." << std::endl; } // Optional error handling
 }
 
 // Booking operations

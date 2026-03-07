@@ -8,6 +8,7 @@
 #include "ReservationSystemHelpers.h"
 #include <vector>
 #include <string>
+#include <string_view>
 #include <limits> // Required for std::numeric_limits
 #include <iostream> // For std::istream, std::ostream
 
@@ -18,6 +19,7 @@ private:
     std::vector<Airplane> airplanes;
     std::vector<Customer> customers;
     std::vector<Booking> bookings;
+    int m_next_customer_id = 1;
 
     // I/O Stream Pointers - for testing
     std::istream* m_cin_ptr;
@@ -25,11 +27,11 @@ private:
 
 public: // Made public for testing - consider refactoring for better testability
     // Helper methods for internal logic
-    Customer* findCustomerById(const std::string& customerId);
-    Airplane* findAirplaneByFlightNumber(const std::string& flightNumber);
-    Booking* findBookingById(const std::string& bookingId);
+    Customer* findCustomerById(std::string_view customerId);
+    Airplane* findAirplaneByFlightNumber(std::string_view flightNumber);
+    Booking* findBookingById(std::string_view bookingId);
     std::string generateUniqueCustomerId(); // Made public for testing
-    static void resetCustomerIdCounterForTest(); // For predictable IDs in tests
+    void resetCustomerIdCounterForTest(); // For predictable IDs in tests
 
 private: // Back to private for other members
     // std::string generateUniqueFlightNumber(); // If airplanes are dynamically added
@@ -55,7 +57,7 @@ private: // Back to private for other members
 
 
 public:
-    ReservationSystem(std::istream& cin_ref = std::cin, std::ostream& cout_ref = std::cout); // Modified constructor
+    explicit ReservationSystem(std::istream& cin_ref = std::cin, std::ostream& cout_ref = std::cout); // Modified constructor
     ~ReservationSystem();
 
     void initializeSystem(); // To add some default airplanes/customers for testing

@@ -3,7 +3,7 @@
 #define CUSTOMER_H
 
 #include "Person.h" // Include the base class header
-#include <string>
+#include <string_view>
 
 class Customer : public Person {
 private:
@@ -11,7 +11,7 @@ private:
 
 public:
     // Constructors
-    Customer(const std::string& name = "Unknown Customer", int age = 0, const std::string& personId = "C0000", double money = 0.0);
+    explicit Customer(std::string_view name = "Unknown Customer", int age = 0, std::string_view personId = "C0000", double initialMoney = 0.0);
 
     // Destructor
     ~Customer() override;
@@ -20,7 +20,7 @@ public:
     double getMoney() const;
 
     // Setter for money
-    void setMoney(double money);
+    void setMoney(double newMoney);
     bool chargeMoney(double amount); // Returns true if successful
     void addMoney(double amount);
 
