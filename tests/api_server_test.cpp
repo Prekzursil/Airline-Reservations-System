@@ -27,9 +27,10 @@ struct DefaultListenOverrideObservation {
     int port = -1;
 };
 
+inline DefaultListenOverrideObservation g_default_listen_override_observation{};
+
 DefaultListenOverrideObservation& default_listen_override_observation() {
-    static DefaultListenOverrideObservation observation;
-    return observation;
+    return g_default_listen_override_observation;
 }
 
 bool fail_default_listen_override(httplib::Server&, const char* host, int port) {
@@ -42,10 +43,9 @@ bool fail_default_listen_override(httplib::Server&, const char* host, int port) 
 
 class ScopedDefaultListenOverride {
 public:
-    template <typename Callback>
-    explicit ScopedDefaultListenOverride(Callback callback) {
-        previous_ = default_listen_callback();
-        default_listen_callback() = static_cast<ListenOnHostCallback>(callback);
+    explicit ScopedDefaultListenOverride(ListenOnHostCallback callback)
+        : previous_(default_listen_callback()) {
+        default_listen_callback() = callback;
     }
 
     ~ScopedDefaultListenOverride() {
@@ -56,12 +56,12 @@ public:
     ScopedDefaultListenOverride& operator=(const ScopedDefaultListenOverride&) = delete;
 
 private:
-    ListenOnHostCallback previous_ = nullptr;
+    ListenOnHostCallback previous_{listen_on_host};
 };
 
 class ScopedInputRedirect {
 public:
-    ScopedInputRedirect(std::istream& stream, std::istream& target)
+    ScopedInputRedirect(std::istream& stream, const std::istream& target)
         : stream_(stream), original_(stream.rdbuf(target.rdbuf())) {}
 
     ~ScopedInputRedirect() {

@@ -2,6 +2,7 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -39,13 +40,13 @@ void to_json(json& j, const Booking& b) {
 
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
-using ListenOnHostCallback = bool (*)(httplib::Server& server, const char* host, int port);
+using ListenOnHostCallback = std::function<bool(httplib::Server& server, const char* host, int port)>;
 
 bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
 
-inline ListenOnHostCallback g_default_listen_callback = listen_on_host;
+inline ListenOnHostCallback g_default_listen_callback{listen_on_host};
 
 ListenOnHostCallback& default_listen_callback() {
     return g_default_listen_callback;
