@@ -1,17 +1,15 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "Customer.h"
-#include <iostream> // For std::cout, std::endl, std::fixed
 #include <iomanip>  // For std::setprecision
+#include <iostream> // For std::cout, std::endl, std::fixed
 
 // Constructors
-Customer::Customer(const std::string& name, int age, const std::string& personId, double initialMoney)
+Customer::Customer(std::string_view name, int age, std::string_view personId, double initialMoney)
     // cppcheck-suppress misra-c2012-12.3
     : Person(name, age, personId), money(initialMoney) {}
 
 // Destructor
-Customer::~Customer() {
-    // std::cout << "Customer destructor called for " << this->name << std::endl; // Optional: for debugging
-}
+Customer::~Customer() = default;
 
 // Getter for money
 double Customer::getMoney() const {
@@ -19,26 +17,25 @@ double Customer::getMoney() const {
 }
 
 // Setter for money
-void Customer::setMoney(double money) {
-    if (money >= 0.0) {
-        this->money = money;
+void Customer::setMoney(double newMoney) {
+    if (newMoney >= 0.0) {
+        money = newMoney;
     } else {
-        // std::cerr << "Error: Money cannot be negative." << std::endl;
-        this->money = 0.0; // Or handle error appropriately
+        money = 0.0;
     }
 }
 
 bool Customer::chargeMoney(double amount) {
-    if (amount > 0 && this->money >= amount) {
-        this->money -= amount;
+    if (amount > 0 && money >= amount) {
+        money -= amount;
         return true;
     }
-    return false; // Insufficient funds or invalid amount
+    return false;
 }
 
 void Customer::addMoney(double amount) {
     if (amount > 0) {
-        this->money += amount;
+        money += amount;
     }
 }
 

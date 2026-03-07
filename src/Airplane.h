@@ -4,9 +4,9 @@
 
 #include "Seat.h"
 #include "Customer.h" // For suggesting seats based on customer money
-#include <vector>
 #include <string>
-#include <iostream> // For display methods
+#include <string_view>
+#include <vector>
 
 class AirplaneTestAccess;
 
@@ -24,7 +24,7 @@ private:
 
 public:
     // Constructor
-    Airplane(const std::string& flightNum = "FL000", int rows = 10, int sPerRow = 6);
+    explicit Airplane(std::string_view flightNum = "FL000", int rows = 10, int sPerRow = 6);
 
     // Destructor
     ~Airplane();
@@ -37,9 +37,9 @@ public:
     const std::vector<Seat>& getAllSeats() const; // To view all seats
 
     // Seat operations
-    Seat* findSeat(const std::string& seatId); // Returns pointer to seat, or nullptr if not found
-    bool bookSpecificSeat(const std::string& seatId); // Attempts to book a seat by ID
-    bool unbookSpecificSeat(const std::string& seatId); // Attempts to unbook a seat by ID
+    Seat* findSeat(std::string_view seatId); // Returns pointer to seat, or nullptr if not found
+    bool bookSpecificSeat(std::string_view seatId); // Attempts to book a seat by ID
+    bool unbookSpecificSeat(std::string_view seatId); // Attempts to unbook a seat by ID
 
     // Display
     void displaySeatingMap() const; // Visual representation of seats

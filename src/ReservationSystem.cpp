@@ -2,11 +2,17 @@
 #include "ReservationSystem.h"
 #include "ReservationSystemHelpers.h"
 #include <array>
+#include <format>
 #include <iostream>
 
-static int g_customerIdCounter = 1; // Global static for resettable ID generation
-
 namespace rsh = reservation_system_helpers;
+
+namespace {
+int& customerIdCounter() {
+    static int counter = 1;
+    return counter;
+}
+} // namespace
 
 ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
     // cppcheck-suppress misra-c2012-12.3
@@ -32,7 +38,7 @@ void ReservationSystem::resetSystemForTest() {
 }
 
 void ReservationSystem::resetCustomerIdCounterForTest() {
-    g_customerIdCounter = 1;
+    customerIdCounter() = 1;
 }
 
 void ReservationSystem::initializeSystem() {
@@ -45,13 +51,13 @@ void ReservationSystem::initializeSystem() {
     (*m_cout_ptr) << "System initialized with default airplanes and customers." << std::endl;
 }
 
-std::string ReservationSystem::generateUniqueCustomerId() {
-    const int nextCounter = g_customerIdCounter;
-    ++g_customerIdCounter;
+std::string ReservationSystem::generateUniqueCustomerId() const {
+    const int nextCounter = customerIdCounter();
+    ++customerIdCounter();
     return rsh::formatCustomerId(nextCounter);
 }
 
-Customer* ReservationSystem::findCustomerById(const std::string& customerId) {
+Customer* ReservationSystem::findCustomerById(std::string_view customerId) {
     for (auto& customer : customers) {
         if (customer.getPersonId() == customerId) {
             return &customer;
@@ -60,7 +66,7 @@ Customer* ReservationSystem::findCustomerById(const std::string& customerId) {
     return nullptr;
 }
 
-Airplane* ReservationSystem::findAirplaneByFlightNumber(const std::string& flightNumber) {
+Airplane* ReservationSystem::findAirplaneByFlightNumber(std::string_view flightNumber) {
     for (auto& airplane : airplanes) {
         if (airplane.getFlightNumber() == flightNumber) {
             return &airplane;
@@ -69,7 +75,7 @@ Airplane* ReservationSystem::findAirplaneByFlightNumber(const std::string& fligh
     return nullptr;
 }
 
-Booking* ReservationSystem::findBookingById(const std::string& bookingId) {
+Booking* ReservationSystem::findBookingById(std::string_view bookingId) {
     for (auto& booking : bookings) {
         if (booking.getBookingId() == bookingId) {
             return &booking;
@@ -248,7 +254,7 @@ void ReservationSystem::handleSearchCustomer() {
         return;
     }
     std::string id = getValidatedInput<std::string>("Enter Customer ID to search: ");
-    Customer* customer = findCustomerById(id);
+    const Customer* customer = findCustomerById(id);
     if (customer) {
         (*m_cout_ptr) << "Bookings for " << customer->getName() << ":" << std::endl;
         bool foundBookings = false;
@@ -282,7 +288,6 @@ void ReservationSystem::handleCancelBooking() {
         (*m_cout_ptr) << "Booking " << bookingIdToCancel << " is already cancelled." << std::endl;
         return;
     }
-    // booking->displayBookingDetails(); 
     if (const auto confirm = getValidatedInput<char>("Confirm cancellation? (y/n): "); !rsh::isAffirmative(confirm)) {
         (*m_cout_ptr) << "Cancellation aborted by user." << std::endl;
         return;
@@ -331,8 +336,7 @@ void ReservationSystem::handleSwapSeats() {
     const Customer* customer2 = findCustomerById(booking2->getCustomerId());
     (void)customer2;
 
-    const char confirm = getValidatedInput<char>("\nConfirm swap of these two seats? (y/n): ");
-    if (!rsh::isAffirmative(confirm)) {
+    if (const auto confirm = getValidatedInput<char>("\nConfirm swap of these two seats? (y/n): "); !rsh::isAffirmative(confirm)) {
         (*m_cout_ptr) << "Seat swap cancelled by user." << std::endl;
         return;
     }
@@ -386,15 +390,14 @@ void ReservationSystem::handleAdminMenu() {
         case 2:
             (*m_cout_ptr) << "\n--- All Customers ---" << std::endl;
             if (customers.empty()) (*m_cout_ptr) << "No customers in system." << std::endl;
-            // for(const auto& cust : customers) cust.displayDetails(); 
             break;
         case 3:
             (*m_cout_ptr) << "\n--- All Bookings ---" << std::endl;
             if (bookings.empty()) (*m_cout_ptr) << "No bookings in system." << std::endl;
-            // for(const auto& book : bookings) book.displayBookingDetails(); 
             break;
         case 0:
             return;
+        default: return; // LCOV_EXCL_LINE
     }
 }
 
@@ -446,7 +449,7 @@ Booking* ReservationSystem::createBookingInternal(const std::string& customerId,
         return nullptr;
     }
 
-    Seat* seat = airplane->findSeat(seatId);
+    const Seat* seat = airplane->findSeat(seatId);
     if (!seat) {
         errorMessage = "Seat not found on this flight.";
         return nullptr;
@@ -484,17 +487,16 @@ bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std:
         return false; // Or true, as it's already in the desired state for cancellation
     }
 
-    // Logic from handleCancelBooking
     Customer* customer = findCustomerById(booking->getCustomerId());
     Airplane* airplane = findAirplaneByFlightNumber(booking->getFlightNumber());
-    Seat* seat = airplane ? airplane->findSeat(booking->getSeatId()) : nullptr;
+    const Seat* seat = airplane ? airplane->findSeat(booking->getSeatId()) : nullptr;
 
     if (customer && airplane && seat) {
         double refundAmount = seat->getPrice(); 
         customer->addMoney(refundAmount);
         airplane->unbookSpecificSeat(seat->getSeatId()); // This updates bookedSeatsCount in Airplane
         booking->setStatus(BookingStatus::CANCELLED);
-        errorMessage = "Booking " + bookingId + " cancelled successfully. $" + std::to_string(refundAmount) + " refunded.";
+        errorMessage = std::format("Booking {} cancelled successfully. ${} refunded.", bookingId, refundAmount);
         return true;
     } else {
         errorMessage = "Error: Could not find customer, airplane, or seat associated with this booking. Cancellation failed.";
