@@ -75,15 +75,14 @@ def evaluate_env_counts(required_secrets: List[str], required_vars: List[str]) -
     }
 
 
-def _render_md(*, status: str, timestamp_utc: str) -> str:
+def _render_md(*, timestamp_utc: str) -> str:
     lines = [
         "# Quality Secrets Preflight",
         "",
-        f"- Status: `{status}`",
         f"- Timestamp (UTC): `{timestamp_utc}`",
         "",
-        "Machine-readable summary is available in `secrets.json`.",
-        "Markdown output intentionally omits secret-derived details.",
+        "Artifacts intentionally omit secret-derived details.",
+        "Use the process exit code and GitHub check result for pass/fail state.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -95,16 +94,16 @@ def main() -> int:
 
     result = evaluate_env_counts(required_secrets, required_vars)
     status = str(result["status"])
+    timestamp_utc = datetime.now(timezone.utc).isoformat()
     payload = {
-        "status": status,
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "missing_secret_count": int(result["missing_secret_count"]),
-        "missing_var_count": int(result["missing_var_count"]),
+        "artifact": "quality-secrets-preflight",
+        "timestamp_utc": timestamp_utc,
+        "details_omitted": True,
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
     out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    out_md.write_text(_render_md(status=status, timestamp_utc=payload["timestamp_utc"]), encoding="utf-8")
+    out_md.write_text(_render_md(timestamp_utc=timestamp_utc), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 
     return 0 if status == "pass" else 1

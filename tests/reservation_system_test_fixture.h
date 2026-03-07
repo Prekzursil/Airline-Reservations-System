@@ -10,7 +10,7 @@
 #include <string>
 
 class ReservationSystemTest : public ::testing::Test {
-protected:
+public:
     std::stringstream test_in;
     std::stringstream test_out;
     ReservationSystem rs;
@@ -77,4 +77,3 @@ public:
         return reservation_system.validateSwapPair(first_booking, second_booking);
     }
 };
-

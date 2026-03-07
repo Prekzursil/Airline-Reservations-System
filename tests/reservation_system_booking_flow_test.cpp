@@ -40,7 +40,7 @@ TEST_F(ReservationSystemTest, CancelBookingInternal_NotFound) {
 }
 
 TEST_F(ReservationSystemTest, CancelBookingInternal_AlreadyCancelled) {
-    Customer* cust = rs.addCustomerInternal("Test User", 25, 1000.0, false);
+    const Customer* cust = rs.addCustomerInternal("Test User", 25, 1000.0, false);
     std::string flightNum = "FL101";
     std::string seatId = "5B";
     std::string bookingError;
@@ -190,7 +190,7 @@ TEST_F(ReservationSystemTest, SwapSeatsInternal_BookingNotFound) {
 }
 
 TEST_F(ReservationSystemTest, SwapSeatsInternal_SameBookingId) {
-    Customer* cust1 = rs.addCustomerInternal("Test User", 25, 1000.0, false);
+    const Customer* cust1 = rs.addCustomerInternal("Test User", 25, 1000.0, false);
     std::string flightNum = "FL101";
     std::string seatId1 = "6C";
     std::string bookingError;
@@ -204,8 +204,8 @@ TEST_F(ReservationSystemTest, SwapSeatsInternal_SameBookingId) {
 }
 
 TEST_F(ReservationSystemTest, SwapSeatsInternal_DifferentFlights) {
-    Customer* cust1 = rs.addCustomerInternal("UserA", 30, 500.0, false);
-    Customer* cust2 = rs.addCustomerInternal("UserB", 35, 600.0, false);
+    const Customer* cust1 = rs.addCustomerInternal("UserA", 30, 500.0, false);
+    const Customer* cust2 = rs.addCustomerInternal("UserB", 35, 600.0, false);
     std::string bookingError;
 
     Booking* booking1 = rs.createBookingInternal(cust1->getPersonId(), "FL101", "7A", bookingError);
