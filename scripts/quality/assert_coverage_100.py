@@ -31,6 +31,20 @@ class CoverageStats:
         return (self.covered / self.total) * 100.0
 
 
+@dataclass
+class LcovState:
+    total: int = 0
+    covered: int = 0
+    record_lines: Dict[int, int] | None = None
+    fallback_total: int = 0
+    fallback_covered: int = 0
+    source_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        if self.record_lines is None:
+            self.record_lines = {}
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Assert 100% coverage for known project components.")
     parser.add_argument("--require-cpp", action="store_true", help="Fail if C++ lcov report is missing.")
@@ -38,72 +52,52 @@ def _parse_args() -> argparse.Namespace:
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
-    total = 0
-    covered = 0
-    record_lines: Dict[int, int] = {}
-    fallback_total = 0
-    fallback_covered = 0
-    source_path: Path | None = None
+    state = LcovState()
 
     for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if line.startswith("SF:"):
-            total, covered, record_lines, fallback_total, fallback_covered = _flush_lcov_record(
-                total,
-                covered,
-                record_lines,
-                fallback_total,
-                fallback_covered,
-            )
-            source_path = Path(line.split(":", 1)[1])
-            continue
-        if line.startswith("DA:"):
-            _record_lcov_line(record_lines, source_path, line)
-            continue
-        if line.startswith("LF:"):
-            fallback_total = int(line.split(":", 1)[1])
-            continue
-        if line.startswith("LH:"):
-            fallback_covered = int(line.split(":", 1)[1])
-            continue
-        if line == "end_of_record":
-            total, covered, record_lines, fallback_total, fallback_covered = _flush_lcov_record(
-                total,
-                covered,
-                record_lines,
-                fallback_total,
-                fallback_covered,
-            )
+        _process_lcov_line(state, raw.strip())
 
-    total, covered, record_lines, fallback_total, fallback_covered = _flush_lcov_record(
-        total,
-        covered,
-        record_lines,
-        fallback_total,
-        fallback_covered,
-    )
+    _flush_lcov_record(state)
 
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+    return CoverageStats(name=name, path=str(path), covered=state.covered, total=state.total)
 
 
-def _flush_lcov_record(
-    total: int,
-    covered: int,
-    record_lines: Dict[int, int],
-    fallback_total: int,
-    fallback_covered: int,
-) -> Tuple[int, int, Dict[int, int], int, int]:
-    if not (record_lines or fallback_total or fallback_covered):
-        return total, covered, record_lines, fallback_total, fallback_covered
+def _process_lcov_line(state: LcovState, line: str) -> None:
+    if line.startswith("SF:"):
+        _flush_lcov_record(state)
+        state.source_path = Path(line.split(":", 1)[1])
+        return
 
-    if record_lines:
-        total += len(record_lines)
-        covered += sum(1 for count in record_lines.values() if count > 0)
+    if line.startswith("DA:"):
+        _record_lcov_line(state.record_lines, state.source_path, line)
+        return
+
+    if line.startswith("LF:"):
+        state.fallback_total = int(line.split(":", 1)[1])
+        return
+
+    if line.startswith("LH:"):
+        state.fallback_covered = int(line.split(":", 1)[1])
+        return
+
+    if line == "end_of_record":
+        _flush_lcov_record(state)
+
+
+def _flush_lcov_record(state: LcovState) -> None:
+    if not ((state.record_lines or {}) or state.fallback_total or state.fallback_covered):
+        return
+
+    if state.record_lines:
+        state.total += len(state.record_lines)
+        state.covered += sum(1 for count in state.record_lines.values() if count > 0)
     else:
-        total += fallback_total
-        covered += fallback_covered
+        state.total += state.fallback_total
+        state.covered += state.fallback_covered
 
-    return total, covered, {}, 0, 0
+    state.record_lines = {}
+    state.fallback_total = 0
+    state.fallback_covered = 0
 
 
 def _record_lcov_line(record_lines: Dict[int, int], source_path: Path | None, line: str) -> None:
