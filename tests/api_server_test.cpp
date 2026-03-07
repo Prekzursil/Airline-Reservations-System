@@ -19,6 +19,39 @@
 
 using namespace api_server_test_support;
 
+namespace {
+
+bool g_default_listen_override_invoked = false;
+std::string g_default_listen_override_host;
+int g_default_listen_override_port = -1;
+
+bool fail_default_listen_override(httplib::Server&, const char* host, int port) {
+    g_default_listen_override_invoked = true;
+    g_default_listen_override_host = host == nullptr ? "" : host;
+    g_default_listen_override_port = port;
+    return false;
+}
+
+class ScopedDefaultListenOverride {
+public:
+    explicit ScopedDefaultListenOverride(ListenOnHostCallback callback)
+        : previous_(default_listen_callback()) {
+        default_listen_callback() = callback;
+    }
+
+    ~ScopedDefaultListenOverride() {
+        default_listen_callback() = previous_;
+    }
+
+    ScopedDefaultListenOverride(const ScopedDefaultListenOverride&) = delete;
+    ScopedDefaultListenOverride& operator=(const ScopedDefaultListenOverride&) = delete;
+
+private:
+    ListenOnHostCallback previous_;
+};
+
+}  // namespace
+
 TEST(ApiServerHelpersTest, ErrorStatusHelpersReturnExpectedCodes) {
     EXPECT_TRUE(contains_fragment("already booked", "booked"));
     EXPECT_FALSE(contains_fragment("abc", "abcd"));
@@ -250,14 +283,10 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
 }
 
 TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse) {
-    httplib::Server blocker;
-    blocker.Get("/blocker-health", [](const httplib::Request&, httplib::Response& res) {
-        res.status = 200;
-    });
-    std::jthread blocker_thread([&blocker]() {
-        blocker.listen("0.0.0.0", kServerPort);
-    });
-    ASSERT_TRUE(wait_for_status(kServerPort, "/blocker-health", 200));
+    g_default_listen_override_invoked = false;
+    g_default_listen_override_host.clear();
+    g_default_listen_override_port = -1;
+    ScopedDefaultListenOverride override_default_listen(fail_default_listen_override);
 
     std::stringstream input;
     std::ostringstream output_stream;
@@ -268,13 +297,11 @@ TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse
     const int exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
 
     EXPECT_EQ(exit_code, 1);
+    EXPECT_TRUE(g_default_listen_override_invoked);
+    EXPECT_EQ(g_default_listen_override_host, "0.0.0.0");
+    EXPECT_EQ(g_default_listen_override_port, kServerPort);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
-
-    blocker.stop();
-    if (blocker_thread.joinable()) {
-        blocker_thread.join();
-    }
 }
 
 TEST_F(ApiServerRoutesTest, ListsDefaultAirplanesAndCustomers) {

@@ -39,8 +39,15 @@ void to_json(json& j, const Booking& b) {
 
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
+using ListenOnHostCallback = bool (*)(httplib::Server& server, const char* host, int port);
+
 bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
+}
+
+ListenOnHostCallback& default_listen_callback() {
+    static ListenOnHostCallback callback = listen_on_host;
+    return callback;
 }
 
 void set_common_headers(httplib::Response& res) {
@@ -318,7 +325,7 @@ int run_api_server(
     httplib::Server& server,
     std::ostream& out,
     std::ostream& err) {
-    return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
+    return run_api_server_with_listener(airline_system, server, out, err, default_listen_callback());
 }
 
 int main() { ReservationSystem airline_system(std::cin, std::cout); httplib::Server server; return run_api_server(airline_system, server, std::cout, std::cerr); }
