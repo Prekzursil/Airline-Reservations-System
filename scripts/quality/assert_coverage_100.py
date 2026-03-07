@@ -45,41 +45,73 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
     fallback_covered = 0
     source_path: Path | None = None
 
-    def flush_record() -> None:
-        nonlocal total, covered, record_lines, fallback_total, fallback_covered
-        if not (record_lines or fallback_total or fallback_covered):
-            return
-        if record_lines:
-            total += len(record_lines)
-            covered += sum(1 for count in record_lines.values() if count > 0)
-        else:
-            total += fallback_total
-            covered += fallback_covered
-        record_lines = {}
-        fallback_total = 0
-        fallback_covered = 0
-
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line.startswith("SF:"):
-            flush_record()
+            total, covered, record_lines, fallback_total, fallback_covered = _flush_lcov_record(
+                total,
+                covered,
+                record_lines,
+                fallback_total,
+                fallback_covered,
+            )
             source_path = Path(line.split(":", 1)[1])
-        elif line.startswith("DA:"):
-            line_number_text, hit_count_text, *_ = line[3:].split(",")
-            line_number = _safe_int(line_number_text)
-            hit_count = _safe_int(hit_count_text)
-            if _include_lcov_line(source_path, line_number):
-                record_lines[line_number] = max(record_lines.get(line_number, 0), hit_count)
-        elif line.startswith("LF:"):
+            continue
+        if line.startswith("DA:"):
+            _record_lcov_line(record_lines, source_path, line)
+            continue
+        if line.startswith("LF:"):
             fallback_total = int(line.split(":", 1)[1])
-        elif line.startswith("LH:"):
+            continue
+        if line.startswith("LH:"):
             fallback_covered = int(line.split(":", 1)[1])
-        elif line == "end_of_record":
-            flush_record()
+            continue
+        if line == "end_of_record":
+            total, covered, record_lines, fallback_total, fallback_covered = _flush_lcov_record(
+                total,
+                covered,
+                record_lines,
+                fallback_total,
+                fallback_covered,
+            )
 
-    flush_record()
+    total, covered, record_lines, fallback_total, fallback_covered = _flush_lcov_record(
+        total,
+        covered,
+        record_lines,
+        fallback_total,
+        fallback_covered,
+    )
 
     return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+
+
+def _flush_lcov_record(
+    total: int,
+    covered: int,
+    record_lines: Dict[int, int],
+    fallback_total: int,
+    fallback_covered: int,
+) -> Tuple[int, int, Dict[int, int], int, int]:
+    if not (record_lines or fallback_total or fallback_covered):
+        return total, covered, record_lines, fallback_total, fallback_covered
+
+    if record_lines:
+        total += len(record_lines)
+        covered += sum(1 for count in record_lines.values() if count > 0)
+    else:
+        total += fallback_total
+        covered += fallback_covered
+
+    return total, covered, {}, 0, 0
+
+
+def _record_lcov_line(record_lines: Dict[int, int], source_path: Path | None, line: str) -> None:
+    line_number_text, hit_count_text, *_ = line[3:].split(",")
+    line_number = _safe_int(line_number_text)
+    hit_count = _safe_int(hit_count_text)
+    if _include_lcov_line(source_path, line_number):
+        record_lines[line_number] = max(record_lines.get(line_number, 0), hit_count)
 
 
 def _include_lcov_line(source_path: Path | None, line_number: int) -> bool:
