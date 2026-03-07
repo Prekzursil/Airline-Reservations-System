@@ -57,7 +57,7 @@ jobs:
             --print-summary
 
       - name: Upload node coverage to Codecov
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('airline-gui/coverage/lcov.info') != '' }}
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
           files: ${{ github.workspace }}/airline-gui/coverage/lcov.info
@@ -67,7 +67,7 @@ jobs:
           verbose: true
 
       - name: Upload cpp coverage to Codecov
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('coverage/cpp/lcov.info') != '' }}
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
           files: ${{ github.workspace }}/coverage/cpp/lcov.info
