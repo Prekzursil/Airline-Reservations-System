@@ -16,11 +16,10 @@ class ReservationSystem {
 private:
     friend class ReservationSystemTestAccess;
 
-    static int s_customerIdCounter;
-
     std::vector<Airplane> airplanes;
     std::vector<Customer> customers;
     std::vector<Booking> bookings;
+    int m_next_customer_id = 1;
 
     // I/O Stream Pointers - for testing
     std::istream* m_cin_ptr;
@@ -31,8 +30,8 @@ public: // Made public for testing - consider refactoring for better testability
     Customer* findCustomerById(std::string_view customerId);
     Airplane* findAirplaneByFlightNumber(std::string_view flightNumber);
     Booking* findBookingById(std::string_view bookingId);
-    std::string generateUniqueCustomerId() const; // Made public for testing
-    static void resetCustomerIdCounterForTest(); // For predictable IDs in tests
+    std::string generateUniqueCustomerId(); // Made public for testing
+    void resetCustomerIdCounterForTest(); // For predictable IDs in tests
 
 private: // Back to private for other members
     // std::string generateUniqueFlightNumber(); // If airplanes are dynamically added
