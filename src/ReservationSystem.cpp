@@ -8,10 +8,7 @@
 namespace rsh = reservation_system_helpers;
 
 namespace {
-int& customerIdCounter() {
-    static int counter = 1;
-    return counter;
-}
+inline int g_customerIdCounter = 1;
 } // namespace
 
 ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
@@ -38,7 +35,7 @@ void ReservationSystem::resetSystemForTest() {
 }
 
 void ReservationSystem::resetCustomerIdCounterForTest() {
-    customerIdCounter() = 1;
+    g_customerIdCounter = 1;
 }
 
 void ReservationSystem::initializeSystem() {
@@ -52,8 +49,8 @@ void ReservationSystem::initializeSystem() {
 }
 
 std::string ReservationSystem::generateUniqueCustomerId() const {
-    const int nextCounter = customerIdCounter();
-    ++customerIdCounter();
+    const int nextCounter = g_customerIdCounter;
+    ++g_customerIdCounter;
     return rsh::formatCustomerId(nextCounter);
 }
 
