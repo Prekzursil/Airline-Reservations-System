@@ -4,7 +4,7 @@ BUILD_DIR ?= build
 CONFIG ?= Debug
 JOBS ?= 2
 CMAKE_FLAGS ?=
-TEST_EXCLUDE ?= ReservationSystemTest\\.SwapSeatsInternal_DifferentFlights
+TEST_EXCLUDE ?=
 
 ifeq ($(COVERAGE),1)
 CMAKE_FLAGS += -DENABLE_COVERAGE=ON
@@ -28,10 +28,18 @@ run_tests_executable: configure
 	$(CMAKE) --build $(BUILD_DIR) --target run_tests_executable -j$(JOBS)
 
 test: run_tests_executable
-	$(CTEST) --test-dir $(BUILD_DIR) -C $(CONFIG) --output-on-failure -E "$(TEST_EXCLUDE)"
+	if [ -n "$(TEST_EXCLUDE)" ]; then \
+		$(CTEST) --test-dir $(BUILD_DIR) -C $(CONFIG) --output-on-failure -E "$(TEST_EXCLUDE)"; \
+	else \
+		$(CTEST) --test-dir $(BUILD_DIR) -C $(CONFIG) --output-on-failure; \
+	fi
 
 verify: build
-	$(CTEST) --test-dir $(BUILD_DIR) -C $(CONFIG) --output-on-failure -E "$(TEST_EXCLUDE)"
+	if [ -n "$(TEST_EXCLUDE)" ]; then \
+		$(CTEST) --test-dir $(BUILD_DIR) -C $(CONFIG) --output-on-failure -E "$(TEST_EXCLUDE)"; \
+	else \
+		$(CTEST) --test-dir $(BUILD_DIR) -C $(CONFIG) --output-on-failure; \
+	fi
 
 coverage: COVERAGE=1
 coverage: verify
