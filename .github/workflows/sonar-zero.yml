@@ -28,6 +28,7 @@ jobs:
           python3 -m scripts.quality.check_sonar_zero \
             --project-key "Prekzursil_Airline-Reservations-System" \
             --pull-request "${{ github.event.pull_request.number }}" \
+            --expected-pr-sha "${{ github.event.pull_request.head.sha }}" \
             --token "${SC_TOKEN}"
       - name: Assert Sonar zero-open gate for repository scope
         if: ${{ github.event_name != 'pull_request' }}

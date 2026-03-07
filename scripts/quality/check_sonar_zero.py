@@ -5,6 +5,7 @@ import argparse
 import base64
 import json
 import os
+import time
 import urllib.parse
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,6 +26,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--token", default="", help="Sonar token (falls back to SONAR_TOKEN env)")
     parser.add_argument("--branch", default="", help="Optional branch scope")
     parser.add_argument("--pull-request", default="", help="Optional PR scope")
+    parser.add_argument("--expected-pr-sha", default="", help="Expected analyzed PR head SHA")
+    parser.add_argument("--max-wait-seconds", type=int, default=180, help="Maximum seconds to wait for Sonar PR analysis to catch up")
+    parser.add_argument("--poll-interval-seconds", type=int, default=10, help="Seconds between Sonar PR analysis polls")
     return parser.parse_args()
 
 
@@ -107,6 +111,26 @@ def _fetch_quality_gate(auth: str, gate_query: Dict[str, str]) -> str:
     return str(project_status.get("status") or "UNKNOWN")
 
 
+def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> str:
+    target = build_https_request_target(
+        host=HTTPSHost.SONARCLOUD,
+        path="/api/project_pull_requests/list?" + urllib.parse.urlencode({"project": project_key}),
+    )
+    payload = request_json_https_target(
+        target=target,
+        method="GET",
+        headers={
+            "Authorization": auth,
+            "User-Agent": "airline-sonar-zero-gate",
+        },
+    )
+    for item in payload.get("pullRequests") or []:
+        if str(item.get("key") or "") == pull_request:
+            commit = item.get("commit") or {}
+            return str(commit.get("sha") or "")
+    return ""
+
+
 def _evaluate_findings(open_issues: int, quality_gate: str) -> List[str]:
     findings: List[str] = []
     if open_issues != 0:
@@ -122,6 +146,27 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optiona
 
     auth = _auth_header(token)
     project_key = require_slug(args.project_key, label="Sonar project key")
+    expected_pr_sha = args.expected_pr_sha.strip()
+    if args.pull_request and expected_pr_sha:
+        deadline = time.time() + max(args.max_wait_seconds, 0)
+        observed_sha = ""
+        while True:
+            observed_sha = _fetch_pr_analysis_sha(auth, project_key, args.pull_request)
+            if observed_sha == expected_pr_sha:
+                break
+            if time.time() >= deadline:
+                return (
+                    "fail",
+                    None,
+                    None,
+                    [
+                        "Sonar PR analysis did not reach the expected head SHA before timeout.",
+                        f"Expected SHA: {expected_pr_sha}",
+                        f"Observed SHA: {observed_sha or 'missing'}",
+                    ],
+                )
+            time.sleep(max(args.poll_interval_seconds, 1))
+
     issues_query, gate_query = _build_queries(args, project_key)
 
     open_issues = _fetch_open_issues(auth, issues_query)
