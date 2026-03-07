@@ -8,6 +8,8 @@
 #include <string>
 #include <iostream> // For display methods
 
+class AirplaneTestAccess;
+
 class Airplane {
 private:
     std::string flightNumber;
@@ -17,6 +19,8 @@ private:
     int bookedSeatsCount;
 
     void initializeSeats(); // Helper to create seats based on rows/seatsPerRow
+
+    friend class AirplaneTestAccess;
 
 public:
     // Constructor

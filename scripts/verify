@@ -3,13 +3,24 @@ set -euo pipefail
 
 BUILD_DIR="${BUILD_DIR:-build}"
 BUILD_TYPE="${BUILD_TYPE:-Debug}"
-JOBS="${JOBS:-2}"
-TEST_EXCLUDE="${TEST_EXCLUDE:-ReservationSystemTest\\.SwapSeatsInternal_DifferentFlights}"
+JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 2)}"
+CTEST_TIMEOUT="${CTEST_TIMEOUT:-120}"
+TEST_EXCLUDE="${TEST_EXCLUDE:-}"
+
+cleanup_coverage_artifacts() {
+  rm -rf "${BUILD_DIR}" obj coverage/cpp coverage-100
+}
+
+cleanup_coverage_artifacts
 
 cmake -S . -B "${BUILD_DIR}" \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DENABLE_COVERAGE=ON \
-  -DCMAKE_CXX_STANDARD=17 \
+  -DCMAKE_CXX_STANDARD=20 \
   -DCMAKE_CXX_STANDARD_REQUIRED=ON
 cmake --build "${BUILD_DIR}" -j"${JOBS}"
-ctest --test-dir "${BUILD_DIR}" -C "${BUILD_TYPE}" --output-on-failure -E "${TEST_EXCLUDE}"
+if [[ -n "${TEST_EXCLUDE}" ]]; then
+  ctest --test-dir "${BUILD_DIR}" -C "${BUILD_TYPE}" --output-on-failure --timeout "${CTEST_TIMEOUT}" -E "${TEST_EXCLUDE}"
+else
+  ctest --test-dir "${BUILD_DIR}" -C "${BUILD_TYPE}" --output-on-failure --timeout "${CTEST_TIMEOUT}"
+fi

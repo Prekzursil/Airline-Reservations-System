@@ -2,6 +2,7 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,30 +16,15 @@
 using json = nlohmann::json;
 
 void to_json(json& j, const Seat& s) {
-    j = json{
-        {"seatId", s.getSeatId()},
-        {"isBooked", s.getIsBooked()},
-        {"price", s.getPrice()},
-        {"seatClass", s.getSeatClassString()},
-    };
+    j = json{{"seatId", s.getSeatId()}, {"isBooked", s.getIsBooked()}, {"price", s.getPrice()}, {"seatClass", s.getSeatClassString()}};
 }
 
 void to_json(json& j, const Airplane& p) {
-    j = json{
-        {"flightNumber", p.getFlightNumber()},
-        {"capacity", p.getCapacity()},
-        {"bookedSeatsCount", p.getBookedSeatsCount()},
-        {"isFull", p.isFull()},
-    };
+    j = json{{"flightNumber", p.getFlightNumber()}, {"capacity", p.getCapacity()}, {"bookedSeatsCount", p.getBookedSeatsCount()}, {"isFull", p.isFull()}};
 }
 
 void to_json(json& j, const Customer& c) {
-    j = json{
-        {"personId", c.getPersonId()},
-        {"name", c.getName()},
-        {"age", c.getAge()},
-        {"money", c.getMoney()},
-    };
+    j = json{{"personId", c.getPersonId()}, {"name", c.getName()}, {"age", c.getAge()}, {"money", c.getMoney()}};
 }
 
 void to_json(json& j, const Booking& b) {
@@ -52,10 +38,13 @@ void to_json(json& j, const Booking& b) {
     };
 }
 
-namespace {
-
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
+using ListenOnHostCallback = std::function<bool(httplib::Server& server, const char* host, int port)>;
+
+bool listen_on_host(httplib::Server& server, const char* host, int port) {
+    return server.listen(host, port);
+}
 
 void set_common_headers(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Origin", "*");
@@ -136,11 +125,7 @@ const Booking* find_confirmed_booking_for_seat(
 
 json build_airplane_details(const ReservationSystem& airline_system, const Airplane& plane) {
     json details = {
-        {"flightNumber", plane.getFlightNumber()},
-        {"capacity", plane.getCapacity()},
-        {"bookedSeatsCount", plane.getBookedSeatsCount()},
-        {"isFull", plane.isFull()},
-        {"seats", json::array()},
+        {"flightNumber", plane.getFlightNumber()}, {"capacity", plane.getCapacity()}, {"bookedSeatsCount", plane.getBookedSeatsCount()}, {"isFull", plane.isFull()}, {"seats", json::array()}
     };
 
     const auto& all_bookings = airline_system.getBookingsForTest();
@@ -222,18 +207,10 @@ void handle_create_customer(ReservationSystem& airline_system, const httplib::Re
         const double money = body.value("money", 0.0);
         const bool auto_generate = body.value("autoGenerate", false);
 
-        if (Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
-            new_customer != nullptr) {
-            respond_json(res, json(*new_customer), 201);
-            return;
-        }
-
-        respond_json(res, json{{"error", "Failed to add customer internally"}}, 500);
-    } catch (const json::exception& error) {
-        respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400);
-    }
+        Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
+        respond_json(res, json(*new_customer), 201);
+    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400); }
 }
-
 void handle_create_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
     try {
         const json body = json::parse(req.body);
@@ -249,14 +226,11 @@ void handle_create_booking(ReservationSystem& airline_system, const httplib::Req
         }
 
         respond_json(res, json{{"error", error_message}}, booking_error_status(error_message));
-    } catch (const json::exception& error) {
-        respond_json(res, json{{"error", "Error processing booking data: " + std::string(error.what())}}, 400);
-    }
+    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing booking data: " + std::string(error.what())}}, 400); }
 }
 
 void handle_cancel_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
     std::string error_message;
-
     if (const bool success = airline_system.cancelBookingInternal(req.matches[1].str(), error_message); !success) {
         respond_json(res, json{{"error", error_message}}, cancel_error_status(error_message));
         return;
@@ -278,9 +252,7 @@ void handle_swap_booking_seats(ReservationSystem& airline_system, const httplib:
         }
 
         respond_json(res, json{{"message", error_message}});
-    } catch (const json::exception& error) {
-        respond_json(res, json{{"error", "Error processing seat swap request: " + std::string(error.what())}}, 400);
-    }
+    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing seat swap request: " + std::string(error.what())}}, 400); }
 }
 
 void register_routes(httplib::Server& server, ReservationSystem& airline_system) {
@@ -321,12 +293,13 @@ void register_routes(httplib::Server& server, ReservationSystem& airline_system)
     });
 }
 
-}  // namespace
-
-int main() {
-    ReservationSystem airline_system(std::cin, std::cout);
-    httplib::Server server;
-
+template <typename ListenCallback>
+int run_api_server_with_listener(
+    ReservationSystem& airline_system,
+    httplib::Server& server,
+    std::ostream& out,
+    std::ostream& err,
+    ListenCallback&& listen_callback) {
     register_routes(server, airline_system);
 
     server.set_base_dir("./");
@@ -334,11 +307,35 @@ int main() {
         std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl;
     });
 
-    std::cout << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
-    if (!server.listen("0.0.0.0", kServerPort)) {
-        std::cerr << "Failed to start server!" << std::endl;
+    out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
+    if (!listen_callback(server, "0.0.0.0", kServerPort)) {
+        err << "Failed to start server!" << std::endl;
         return 1;
     }
 
     return 0;
 }
+
+int run_api_server(
+    ReservationSystem& airline_system,
+    httplib::Server& server,
+    std::ostream& out,
+    std::ostream& err) {
+    return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
+}
+
+int airline_api_server_entry(
+    std::istream& input,
+    std::ostream& output,
+    std::ostream& error,
+    const ListenOnHostCallback& listen_callback = listen_on_host) {  // LCOV_EXCL_LINE
+    ReservationSystem airline_system(input, output);
+    httplib::Server server;
+    return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
+}
+
+// LCOV_EXCL_START
+int main() {
+    return airline_api_server_entry(std::cin, std::cout, std::cerr);
+}
+// LCOV_EXCL_STOP

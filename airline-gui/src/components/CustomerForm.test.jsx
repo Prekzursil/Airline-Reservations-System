@@ -17,8 +17,9 @@ describe('CustomerForm', () => {
 
     render(<CustomerForm onCustomerAdded={onCustomerAdded} />);
 
-    const nameInput = screen.getByRole('textbox');
-    const [ageInput, moneyInput] = screen.getAllByRole('spinbutton');
+    const nameInput = screen.getByLabelText('Name');
+    const ageInput = screen.getByLabelText('Age');
+    const moneyInput = screen.getByLabelText('Money');
 
     fireEvent.change(nameInput, { target: { value: 'Alice' } });
     fireEvent.change(ageInput, { target: { value: '29' } });
@@ -76,8 +77,9 @@ describe('CustomerForm', () => {
 
     render(<CustomerForm />);
 
-    const nameInput = screen.getByRole('textbox');
-    const [ageInput, moneyInput] = screen.getAllByRole('spinbutton');
+    const nameInput = screen.getByLabelText('Name');
+    const ageInput = screen.getByLabelText('Age');
+    const moneyInput = screen.getByLabelText('Money');
 
     fireEvent.change(nameInput, { target: { value: 'Bad Input' } });
     fireEvent.change(ageInput, { target: { value: '10' } });

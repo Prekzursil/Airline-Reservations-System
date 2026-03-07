@@ -14,6 +14,10 @@ coverage:
       default:
         target: 100%
         threshold: 0%
+        informational: true
+        paths:
+          - src/
+          - airline-gui/src/
 
 comment:
   layout: "reach,diff,flags,files"

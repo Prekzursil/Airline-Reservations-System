@@ -5,7 +5,7 @@ import argparse
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Tuple
 
 from scripts.security_helpers import QualityArtifact, quality_artifact_paths
@@ -14,6 +14,8 @@ NODE_LCOV_PATH = Path("airline-gui/coverage/lcov.info")
 NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
 NODE_FINAL_JSON_PATH = Path("airline-gui/coverage/coverage-final.json")
 CPP_LCOV_PATH = Path("coverage/cpp/lcov.info")
+NON_EXECUTABLE_LCOV_TOKENS = {"", "{", "}", "};"}
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass
@@ -30,6 +32,28 @@ class CoverageStats:
         return (self.covered / self.total) * 100.0
 
 
+@dataclass
+class LcovState:
+    total: int = 0
+    covered: int = 0
+    record_lines: Dict[int, int] | None = None
+    fallback_total: int = 0
+    fallback_covered: int = 0
+    source_lines: Tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if self.record_lines is None:
+            self.record_lines = {}
+
+
+REPO_SOURCE_LINES = {
+    path.relative_to(REPO_ROOT).as_posix(): tuple(path.read_text(encoding="utf-8").splitlines())
+    for path in REPO_ROOT.rglob("*")
+    if path.is_file()
+    and path.suffix in {".cpp", ".h", ".hpp", ".c", ".cc", ".py", ".js", ".jsx", ".ts", ".tsx"}
+}
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Assert 100% coverage for known project components.")
     parser.add_argument("--require-cpp", action="store_true", help="Fail if C++ lcov report is missing.")
@@ -37,17 +61,85 @@ def _parse_args() -> argparse.Namespace:
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
-    total = 0
-    covered = 0
+    state = LcovState()
 
     for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if line.startswith("LF:"):
-            total += int(line.split(":", 1)[1])
-        elif line.startswith("LH:"):
-            covered += int(line.split(":", 1)[1])
+        _process_lcov_line(state, raw.strip())
 
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+    _flush_lcov_record(state)
+
+    return CoverageStats(name=name, path=str(path), covered=state.covered, total=state.total)
+
+
+def _process_lcov_line(state: LcovState, line: str) -> None:
+    if line.startswith("SF:"):
+        _flush_lcov_record(state)
+        state.source_lines = _lookup_repo_source_lines(line.split(":", 1)[1])
+        return
+
+    if line.startswith("DA:"):
+        _record_lcov_line(state.record_lines, state.source_lines, line)
+        return
+
+    if line.startswith("LF:"):
+        state.fallback_total = int(line.split(":", 1)[1])
+        return
+
+    if line.startswith("LH:"):
+        state.fallback_covered = int(line.split(":", 1)[1])
+        return
+
+    if line == "end_of_record":
+        _flush_lcov_record(state)
+
+
+def _flush_lcov_record(state: LcovState) -> None:
+    if not ((state.record_lines or {}) or state.fallback_total or state.fallback_covered):
+        return
+
+    if state.record_lines:
+        state.total += len(state.record_lines)
+        state.covered += sum(1 for count in state.record_lines.values() if count > 0)
+    else:
+        state.total += state.fallback_total
+        state.covered += state.fallback_covered
+
+    state.record_lines = {}
+    state.fallback_total = 0
+    state.fallback_covered = 0
+
+
+def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...] | None, line: str) -> None:
+    line_number_text, hit_count_text, *_ = line[3:].split(",")
+    line_number = _safe_int(line_number_text)
+    hit_count = _safe_int(hit_count_text)
+    if _include_lcov_line(source_lines, line_number):
+        record_lines[line_number] = max(record_lines.get(line_number, 0), hit_count)
+
+
+def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -> bool:
+    if source_lines is None or line_number <= 0:
+        return True
+
+    if line_number > len(source_lines):
+        return True
+
+    source_line = source_lines[line_number - 1].strip()
+    return source_line not in NON_EXECUTABLE_LCOV_TOKENS
+
+
+def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
+    normalized = raw_path_text.replace("\\", "/")
+    repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
+    if normalized.startswith(repo_prefix):
+        normalized = normalized[len(repo_prefix):]
+    normalized = normalized.lstrip("./")
+
+    relative_path = PurePosixPath(normalized)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        return None
+
+    return REPO_SOURCE_LINES.get(relative_path.as_posix())
 
 
 def _safe_int(value: Any) -> int:

@@ -13,6 +13,7 @@ function App() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [searchCustomerId, setSearchCustomerId] = useState('');
   const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0);
+  const [customerDetailsRefreshKey, setCustomerDetailsRefreshKey] = useState(0);
 
   const loadCustomers = async () => {
     try {
@@ -27,14 +28,22 @@ function App() {
     }
   };
 
-  const handleCustomerAdded = (newCustomer) => {
-    console.log("New customer added/simulated:", newCustomer);
+  const incrementBookingsRefreshKey = () => {
+    setBookingsRefreshKey((prevKey) => prevKey + 1);
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    setSearchCustomerId(customerId);
+    setSelectedCustomerId(customerId);
+  };
+
+  const handleCustomerAdded = () => {
     loadCustomers();
-    setBookingsRefreshKey(prevKey => prevKey + 1);
+    incrementBookingsRefreshKey();
   };
 
   const triggerBookingsRefresh = () => {
-    setBookingsRefreshKey(prevKey => prevKey + 1);
+    incrementBookingsRefreshKey();
   };
 
   const handleSearchCustomer = () => {
@@ -42,10 +51,10 @@ function App() {
   };
   
   const refreshCustomerDetails = (customerId) => {
-    setSelectedCustomerId('');
-    setTimeout(() => setSelectedCustomerId(customerId), 0);
+    setSelectedCustomerId(customerId);
+    setCustomerDetailsRefreshKey((prevKey) => prevKey + 1);
     loadCustomers();
-    setBookingsRefreshKey(prevKey => prevKey + 1);
+    incrementBookingsRefreshKey();
   };
 
   const handleSeatsSwapped = () => {
@@ -53,7 +62,7 @@ function App() {
       refreshCustomerDetails(selectedCustomerId);
     } else {
       loadCustomers();
-      setBookingsRefreshKey(prevKey => prevKey + 1);
+      incrementBookingsRefreshKey();
     }
     alert("Seats swapped. Customer details (if viewing) and booking lists refreshed. You may need to re-select a flight to see seat map updates.");
   };
@@ -76,17 +85,33 @@ function App() {
           </section>
 
           <section style={{ marginBottom: '20px' }}>
-            <button onClick={loadCustomers} style={{marginRight: '10px'}}>
+            <button type="button" onClick={loadCustomers} style={{marginRight: '10px'}}>
               {showCustomers ? 'Refresh Customer List' : 'Show Customer List'}
             </button>
-            {customerError && <p style={{color: 'red'}}>{customerError}</p>}
+            {customerError && <p aria-live="polite" style={{color: 'red'}}>{customerError}</p>}
             {showCustomers && customers.length > 0 && (
               <div>
                 <h3>All Customers:</h3>
                 <ul>
-                  {customers.map(cust => (
-                    <li key={cust.personId} onClick={() => {setSearchCustomerId(cust.personId); setSelectedCustomerId(cust.personId);}} style={{cursor: 'pointer'}}>
-                      {cust.name} (ID: {cust.personId})
+                  {customers.map((cust) => (
+                    <li key={cust.personId}>
+                      <button
+                        type="button"
+                        onClick={() => handleCustomerSelect(cust.personId)}
+                        aria-pressed={selectedCustomerId === cust.personId}
+                        aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
+                        style={{
+                          cursor: 'pointer',
+                          border: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          font: 'inherit',
+                          color: 'inherit',
+                          textAlign: 'left',
+                        }}
+                      >
+                        {cust.name} (ID: {cust.personId})
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -97,15 +122,27 @@ function App() {
 
           <section>
             <h3>View Specific Customer Details</h3>
-            <input 
-              type="text" 
-              value={searchCustomerId} 
+            <label htmlFor="searchCustomerIdInput" style={{ marginRight: '10px' }}>
+              Customer ID
+            </label>
+            <input
+              id="searchCustomerIdInput"
+              type="text"
+              value={searchCustomerId}
               onChange={(e) => setSearchCustomerId(e.target.value)}
               placeholder="Enter Customer ID"
-              style={{marginRight: '10px'}}
+              style={{ marginRight: '10px' }}
             />
-            <button onClick={handleSearchCustomer}>Search Customer</button>
-            {selectedCustomerId && <CustomerDetails customerId={selectedCustomerId} onBookingCancelled={refreshCustomerDetails} />}
+            <button type="button" onClick={handleSearchCustomer}>Search Customer</button>
+            {selectedCustomerId && (
+              <div id="customer-details-panel">
+                <CustomerDetails
+                  customerId={selectedCustomerId}
+                  onBookingCancelled={refreshCustomerDetails}
+                  refreshTrigger={customerDetailsRefreshKey}
+                />
+              </div>
+            )}
           </section>
         </div>
         

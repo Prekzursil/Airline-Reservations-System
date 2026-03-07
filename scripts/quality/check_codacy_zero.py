@@ -28,6 +28,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--provider", default="gh", help="Organization provider (gh/github).")
     parser.add_argument("--owner", required=True, help="Repository owner")
     parser.add_argument("--repo", required=True, help="Repository name")
+    parser.add_argument("--branch", default="", help="Optional branch name to scope issue totals.")
     parser.add_argument("--token", default="", help="Codacy API token (falls back to CODACY_API_TOKEN env)")
     return parser.parse_args()
 
@@ -53,6 +54,7 @@ def _render_md(payload: Dict[str, Any]) -> str:
         "",
         f"- Status: `{payload['status']}`",
         f"- Owner/repo: `{payload['owner']}/{payload['repo']}`",
+        f"- Branch: `{payload.get('branch') or 'default'}`",
         f"- Open issues: `{payload.get('open_issues')}`",
         f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
         "",
@@ -100,6 +102,10 @@ def _resolve_token(token_arg: str) -> str:
 
 def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
     target = _build_issue_search_target(args.provider, args.owner, args.repo)
+    body: Dict[str, str] = {}
+    branch_name = str(getattr(args, "branch", "") or "").strip()
+    if branch_name:
+        body["branchName"] = branch_name
     payload = request_json_https_target(
         target=target,
         method="POST",
@@ -107,7 +113,7 @@ def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
             "api-token": token,
             "User-Agent": "airline-codacy-zero-gate",
         },
-        body={},
+        body=body,
     )
     return extract_total_open(payload)
 
@@ -148,6 +154,7 @@ def main() -> int:
         "owner": args.owner,
         "repo": args.repo,
         "provider": args.provider,
+        "branch": args.branch,
         "open_issues": open_issues,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "findings": findings,

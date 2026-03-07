@@ -14,25 +14,28 @@ vi.mock('../services/apiService', () => ({
 }));
 
 vi.mock('react-select', () => ({
-  default: ({ id, options = [], value, onChange, placeholder, isDisabled }) => (
-    <select
-      aria-label={id || 'react-select'}
-      data-testid={id || 'react-select'}
-      disabled={isDisabled}
-      value={value?.value ?? ''}
-      onChange={(event) => {
-        const next = options.find((opt) => String(opt.value) === event.target.value) || null;
-        onChange(next);
-      }}
-    >
-      <option value="">{placeholder || 'Select'}</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  )
+  default: ({ id, inputId, options = [], value, onChange, placeholder, isDisabled }) => {
+    const controlId = inputId || id || 'react-select';
+    return (
+      <select
+        aria-label={controlId}
+        data-testid={controlId}
+        disabled={isDisabled}
+        value={value?.value ?? ''}
+        onChange={(event) => {
+          const next = options.find((opt) => String(opt.value) === event.target.value) || null;
+          onChange(next);
+        }}
+      >
+        <option value="">{placeholder || 'Select'}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
 }));
 
 const baseSeats = [
@@ -105,26 +108,26 @@ describe('SeatMap', () => {
     expect(screen.getByText('Seat 1A: Booked by Customer ID C-BOOKED.')).toBeInTheDocument();
 
     globalThis.confirm.mockReturnValueOnce(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
     expect(cancelBooking).not.toHaveBeenCalled();
 
     globalThis.confirm.mockReturnValueOnce(true);
     cancelBooking.mockResolvedValueOnce({ message: 'Booking 501 cancelled' });
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
 
     expect(await screen.findByText('Booking 501 cancelled')).toBeInTheDocument();
     expect(cancelBooking).toHaveBeenCalledWith(501);
     expect(onBookingSuccess).toHaveBeenCalledWith('FL-200');
 
     cancelBooking.mockResolvedValueOnce({});
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
 
     expect(
       await screen.findByText('Booking 501 cancellation processed.')
     ).toBeInTheDocument();
 
     cancelBooking.mockRejectedValueOnce(new Error('cancel failed'));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
 
     expect(await screen.findByText('Failed to cancel booking 501: cancel failed')).toBeInTheDocument();
   });
@@ -167,14 +170,17 @@ describe('SeatMap', () => {
     render(<SeatMap seats={baseSeats} flightNumber="FL-310" />);
 
     const seatButton = await screen.findByRole('button', { name: 'Seat 1B' });
+    expect(seatButton).toHaveAttribute('aria-pressed', 'false');
     seatButton.focus();
     expect(seatButton).toHaveFocus();
 
     await userEvent.keyboard('{Enter}');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
 
     await userEvent.keyboard(' ');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
   });
 
 });

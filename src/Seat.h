@@ -3,6 +3,7 @@
 #define SEAT_H
 
 #include <string>
+#include <string_view>
 #include <iostream> // For display
 
 // Enum for seat class
@@ -23,7 +24,7 @@ private:
 
 public:
     // Constructor
-    Seat(const std::string& id = "N/A", SeatClass sc = SeatClass::ECONOMY, double basePrice = 50.0);
+    explicit Seat(std::string_view id = "N/A", SeatClass sc = SeatClass::ECONOMY, double basePrice = 50.0);
 
     // Destructor
     ~Seat();

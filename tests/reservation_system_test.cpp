@@ -1,33 +1,5 @@
 // cppcheck-suppress-file missingIncludeSystem
-#include "gtest/gtest.h"
-#include "../src/ReservationSystem.h" 
-#include "../src/Customer.h"
-#include "../src/Airplane.h"
-#include "../src/Booking.h"
-#include <sstream> // For std::stringstream
-#include <string>
-
-class ReservationSystemTest : public ::testing::Test {
-protected:
-    std::stringstream test_in;
-    std::stringstream test_out;
-    ReservationSystem rs;
-
-    ReservationSystemTest() : rs(test_in, test_out) {} // Constructor to pass streams
-
-    void SetUp() override {
-        // Reset system state and streams before each test
-        rs.resetSystemForTest(); // Clears vectors and resets ID counter
-        rs.initializeSystem();   // Re-initialize with default data for a consistent start
-        test_in.clear();
-        test_in.str("");
-        test_out.clear();
-        test_out.str("");
-        // Set the streams for the rs object for each test
-        rs.setInputStreamForTest(test_in);
-        rs.setOutputStreamForTest(test_out);
-    }
-};
+#include "reservation_system_test_fixture.h"
 
 TEST_F(ReservationSystemTest, InitialSystemStateAndFinders) {
     Airplane* plane1 = rs.findAirplaneByFlightNumber("FL101");
@@ -102,6 +74,83 @@ TEST_F(ReservationSystemTest, HandleAddCustomerInvalidChoice) {
     EXPECT_EQ(rs.getCustomersForTest().size(), 2); // Should still be 2 default customers
 }
 
+TEST_F(ReservationSystemTest, RunRejectsInvalidMenuInputBeforeExit) {
+    test_in.str("abc\n0\n");
+    rs.run();
+
+    EXPECT_NE(
+        test_out.str().find("Invalid choice. Please enter a number between 0 and 7."),
+        std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetValidatedInputRetriesAfterInvalidNumericInput) {
+    test_in.str("oops\n42\n");
+
+    const int value = ReservationSystemTestAccess::getValidatedInt(rs, "Enter number: ");
+
+    EXPECT_EQ(value, 42);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetValidatedInputThrowsWhenNumericInputEndsAfterRetry) {
+    test_in.str("oops");
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedInt(rs, "Enter number: ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetValidatedStringReturnsFirstTokenWithoutRetry) {
+    test_in.str("FL101\n");
+
+    const std::string value = ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ");
+
+    EXPECT_EQ(value, "FL101");
+    EXPECT_EQ(test_out.str(), "Enter flight: ");
+}
+
+TEST_F(ReservationSystemTest, GetValidatedStringThrowsOnImmediateEof) {
+    test_in.str("");
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_EQ(test_out.str(), "Enter flight: ");
+}
+
+TEST_F(ReservationSystemTest, ExecuteMenuChoiceReportsOutOfRangeChoice) {
+    ReservationSystemTestAccess::executeMenuChoice(rs, 99);
+
+    EXPECT_NE(test_out.str().find("Invalid choice. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, ValidateSwapPairReportsDifferentFlights) {
+    Customer* first_customer = addCustomer("HelperUserA", 30, 500.0, false);
+    ASSERT_NE(first_customer, nullptr);
+    const std::string first_customer_id = first_customer->getPersonId();
+
+    Customer* second_customer = addCustomer("HelperUserB", 31, 500.0, false);
+    ASSERT_NE(second_customer, nullptr);
+    const std::string second_customer_id = second_customer->getPersonId();
+
+    Booking* first_booking = createConfirmedBooking(first_customer_id, "FL101", "8A");
+    ASSERT_NE(first_booking, nullptr);
+    const std::string first_booking_id = first_booking->getBookingId();
+    Booking* second_booking = createConfirmedBooking(second_customer_id, "FL202", "1A");
+    ASSERT_NE(second_booking, nullptr);
+    const std::string second_booking_id = second_booking->getBookingId();
+    first_booking = findBooking(first_booking_id);
+    second_booking = findBooking(second_booking_id);
+    ASSERT_NE(first_booking, nullptr);
+    ASSERT_NE(second_booking, nullptr);
+
+    EXPECT_FALSE(ReservationSystemTestAccess::validateSwapPair(rs, *first_booking, *second_booking));
+    EXPECT_NE(
+        test_out.str().find("Booking 1 is for flight FL101, Booking 2 is for flight FL202"),
+        std::string::npos);
+}
+
 
 TEST_F(ReservationSystemTest, HandleBookSeatNoFlights) {
     rs.resetSystemForTest(); // Clear default airplanes
@@ -119,7 +168,7 @@ TEST_F(ReservationSystemTest, HandleBookSeatNoCustomers) {
     // Let's re-initialize and then clear customers
     rs.resetSystemForTest();
     rs.initializeSystem(); // Adds planes and customers
-    const_cast<std::vector<Customer>*>(&rs.getCustomersForTest())->clear(); // Hacky way to clear private member for test
+    rs.clearCustomersForTest();
 
     test_in.str("2\n0\n"); 
     rs.run();
@@ -203,6 +252,66 @@ TEST_F(ReservationSystemTest, HandleBookSeatCancelledByUser) {
     EXPECT_EQ(rs.getBookingsForTest().size(), 0); // No booking should be made
 }
 
+TEST_F(ReservationSystemTest, HandleViewFlightDetailsNoFlights) {
+    rs.resetSystemForTest();
+
+    test_in.str("3\n0\n");
+    rs.run();
+
+    EXPECT_NE(test_out.str().find("No flights available to view."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleViewFlightDetailsDisplaysSelectedFlight) {
+    std::ostringstream captured_stdout;
+    std::streambuf* original_cout = std::cout.rdbuf(captured_stdout.rdbuf());
+
+    test_in.str("3\n1\n0\n");
+    rs.run();
+
+    std::cout.rdbuf(original_cout);
+
+    EXPECT_NE(test_out.str().find("Available Flights:"), std::string::npos);
+    EXPECT_NE(captured_stdout.str().find("Seating Map for Flight FL101"), std::string::npos);
+    EXPECT_NE(captured_stdout.str().find("Available Seats for Flight FL101"), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleSearchCustomerNoCustomers) {
+    rs.resetSystemForTest();
+
+    test_in.str("4\n0\n");
+    rs.run();
+
+    EXPECT_NE(test_out.str().find("No customers in the system."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleSearchCustomerNotFound) {
+    test_in.str("4\nCUST9999\n0\n");
+    rs.run();
+
+    EXPECT_NE(test_out.str().find("Customer with ID CUST9999 not found."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleSearchCustomerReportsWhenNoActiveBookingsExist) {
+    test_in.str("4\nCUST0001\n0\n");
+    rs.run();
+
+    const std::string output = test_out.str();
+    EXPECT_NE(output.find("Bookings for Alice Wonderland:"), std::string::npos);
+    EXPECT_NE(output.find("No active bookings found for this customer."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleSearchCustomerSuppressesNoBookingsMessageWhenBookingExists) {
+    Booking* booking = createConfirmedBooking("CUST0001", "FL101", "4C");
+    ASSERT_NE(booking, nullptr);
+
+    test_in.str("4\nCUST0001\n0\n");
+    rs.run();
+
+    const std::string output = test_out.str();
+    EXPECT_NE(output.find("Bookings for Alice Wonderland:"), std::string::npos);
+    EXPECT_EQ(output.find("No active bookings found for this customer."), std::string::npos);
+}
+
 
 // More tests for other handlers (handleViewFlightDetails, handleSearchCustomer, handleCancelBooking, handleSwapSeats, handleAdminMenu)
 // would follow a similar pattern: prepare input stream, call rs.run() with menu choices, check output stream and internal state.
@@ -211,131 +320,3 @@ TEST_F(ReservationSystemTest, HandleBookSeatCancelledByUser) {
 // Note: The hacky way to clear customers in HandleBookSeatNoCustomers is not ideal.
 // A better test setup would allow constructing ReservationSystem without default data,
 // then adding specific data for each test. resetSystemForTest() helps with this.
-
-TEST_F(ReservationSystemTest, CancelBookingInternal_Success) {
-    // Setup: Create a customer and a booking
-    Customer* cust = rs.addCustomerInternal("Cancel User", 25, 1000.0, false);
-    ASSERT_NE(cust, nullptr);
-    std::string flightNum = "FL101";
-    std::string seatId = "5A"; // Economy seat on FL101
-
-    std::string bookingError;
-    Booking* booking = rs.createBookingInternal(cust->getPersonId(), flightNum, seatId, bookingError);
-    ASSERT_NE(booking, nullptr) << "Booking creation failed: " << bookingError;
-    ASSERT_EQ(booking->getStatus(), BookingStatus::CONFIRMED);
-    std::string bookingId = booking->getBookingId();
-
-    Airplane* plane = rs.findAirplaneByFlightNumber(flightNum);
-    ASSERT_NE(plane, nullptr);
-    Seat* seatObj = plane->findSeat(seatId);
-    ASSERT_NE(seatObj, nullptr);
-    EXPECT_TRUE(seatObj->getIsBooked());
-    double originalMoney = cust->getMoney();
-
-    // Action: Cancel the booking
-    std::string cancelError;
-    bool cancelSuccess = rs.cancelBookingInternal(bookingId, cancelError);
-
-    // Assertions
-    EXPECT_TRUE(cancelSuccess) << "Cancellation failed: " << cancelError;
-    EXPECT_EQ(booking->getStatus(), BookingStatus::CANCELLED);
-    EXPECT_FALSE(seatObj->getIsBooked()); // Seat should be available again
-    EXPECT_DOUBLE_EQ(cust->getMoney(), originalMoney + seatObj->getPrice()); // Money refunded
-    EXPECT_NE(cancelError.find("cancelled successfully"), std::string::npos);
-}
-
-TEST_F(ReservationSystemTest, CancelBookingInternal_NotFound) {
-    std::string errorMsg;
-    EXPECT_FALSE(rs.cancelBookingInternal("BK_NONEXISTENT", errorMsg));
-    EXPECT_NE(errorMsg.find("not found"), std::string::npos);
-}
-
-TEST_F(ReservationSystemTest, CancelBookingInternal_AlreadyCancelled) {
-    Customer* cust = rs.addCustomerInternal("Test User", 25, 1000.0, false);
-    std::string flightNum = "FL101";
-    std::string seatId = "5B";
-    std::string bookingError;
-    Booking* booking = rs.createBookingInternal(cust->getPersonId(), flightNum, seatId, bookingError);
-    ASSERT_NE(booking, nullptr);
-    std::string bookingId = booking->getBookingId();
-
-    std::string cancelError1;
-    ASSERT_TRUE(rs.cancelBookingInternal(bookingId, cancelError1)); // First cancellation
-
-    std::string cancelError2;
-    EXPECT_FALSE(rs.cancelBookingInternal(bookingId, cancelError2)); // Try to cancel again
-    EXPECT_NE(cancelError2.find("already cancelled"), std::string::npos);
-}
-
-TEST_F(ReservationSystemTest, SwapSeatsInternal_Success) {
-    // Setup: Create two customers and two bookings on the same flight
-    Customer* cust1 = rs.addCustomerInternal("Swapper One", 30, 500.0, false);
-    Customer* cust2 = rs.addCustomerInternal("Swapper Two", 35, 600.0, false);
-    ASSERT_NE(cust1, nullptr);
-    ASSERT_NE(cust2, nullptr);
-
-    std::string flightNum = "FL101";
-    std::string seatId1 = "6A";
-    std::string seatId2 = "6B";
-    std::string bookingError;
-
-    Booking* booking1 = rs.createBookingInternal(cust1->getPersonId(), flightNum, seatId1, bookingError);
-    ASSERT_NE(booking1, nullptr) << bookingError;
-    std::string bookingId1 = booking1->getBookingId();
-
-    Booking* booking2 = rs.createBookingInternal(cust2->getPersonId(), flightNum, seatId2, bookingError);
-    ASSERT_NE(booking2, nullptr) << bookingError;
-    std::string bookingId2 = booking2->getBookingId();
-    
-    // Action
-    std::string swapError;
-    bool swapSuccess = rs.swapSeatsInternal(bookingId1, bookingId2, swapError);
-
-    // Assertions
-    EXPECT_TRUE(swapSuccess) << "Swap failed: " << swapError;
-    
-    // Re-fetch pointers to ensure we are checking the objects in the vector
-    Booking* b1_after_swap = rs.findBookingById(bookingId1);
-    Booking* b2_after_swap = rs.findBookingById(bookingId2);
-    ASSERT_NE(b1_after_swap, nullptr);
-    ASSERT_NE(b2_after_swap, nullptr);
-
-    EXPECT_EQ(b1_after_swap->getSeatId(), seatId2); // Booking1 should now have seatId2
-    EXPECT_EQ(b2_after_swap->getSeatId(), seatId1); // Booking2 should now have seatId1
-    EXPECT_NE(swapError.find("Seat swap successful"), std::string::npos);
-}
-
-TEST_F(ReservationSystemTest, SwapSeatsInternal_BookingNotFound) {
-    std::string errorMsg;
-    EXPECT_FALSE(rs.swapSeatsInternal("BK_FAKE1", "BK_FAKE2", errorMsg));
-    EXPECT_NE(errorMsg.find("not found"), std::string::npos);
-}
-
-TEST_F(ReservationSystemTest, SwapSeatsInternal_SameBookingId) {
-    Customer* cust1 = rs.addCustomerInternal("Test User", 25, 1000.0, false);
-    std::string flightNum = "FL101";
-    std::string seatId1 = "6C";
-    std::string bookingError;
-    Booking* booking1 = rs.createBookingInternal(cust1->getPersonId(), flightNum, seatId1, bookingError);
-    ASSERT_NE(booking1, nullptr);
-    std::string bookingId1 = booking1->getBookingId();
-
-    std::string errorMsg;
-    EXPECT_FALSE(rs.swapSeatsInternal(bookingId1, bookingId1, errorMsg));
-    EXPECT_NE(errorMsg.find("Cannot swap a booking with itself"), std::string::npos);
-}
-
-TEST_F(ReservationSystemTest, SwapSeatsInternal_DifferentFlights) {
-    Customer* cust1 = rs.addCustomerInternal("UserA", 30, 500.0, false);
-    Customer* cust2 = rs.addCustomerInternal("UserB", 35, 600.0, false);
-    std::string bookingError;
-
-    Booking* booking1 = rs.createBookingInternal(cust1->getPersonId(), "FL101", "7A", bookingError);
-    ASSERT_NE(booking1, nullptr);
-    Booking* booking2 = rs.createBookingInternal(cust2->getPersonId(), "FL202", "1A", bookingError);
-    ASSERT_NE(booking2, nullptr);
-
-    std::string errorMsg;
-    EXPECT_FALSE(rs.swapSeatsInternal(booking1->getBookingId(), booking2->getBookingId(), errorMsg));
-    EXPECT_NE(errorMsg.find("only supported for bookings on the same flight"), std::string::npos);
-}

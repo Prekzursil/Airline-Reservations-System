@@ -5,8 +5,8 @@
 #include <string>
 #include <iostream> // For display
 #include <chrono>   // For bookingDate (optional, could use string)
-#include <sstream>  // For formatting date
-#include <iomanip>  // For formatting date
+
+class BookingTestAccess;
 
 enum class BookingStatus {
     CONFIRMED,
@@ -24,6 +24,8 @@ private:
     BookingStatus status;
 
     std::string generateBookingId(); // Helper to create a unique ID
+
+    friend class BookingTestAccess;
 
 public:
     // Constructor

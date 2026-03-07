@@ -12,12 +12,28 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts import security_helpers as helpers
-from scripts.quality import check_codacy_zero as codacy
-from scripts.quality import check_deepscan_zero as deepscan
-from scripts.quality import check_quality_secrets as quality_secrets
-from scripts.quality import check_required_checks as required_checks
-from scripts.quality import check_sentry_zero as sentry
+
+def _load_quality_modules():
+    from scripts import security_helpers as helpers
+    from scripts.quality import check_codacy_zero as codacy
+    from scripts.quality import check_deepscan_zero as deepscan
+    from scripts.quality import check_quality_secrets as quality_secrets
+    from scripts.quality import check_required_checks as required_checks
+    from scripts.quality import check_sentry_zero as sentry
+
+    return helpers, codacy, deepscan, quality_secrets, required_checks, sentry
+
+
+helpers, codacy, deepscan, quality_secrets, required_checks, sentry = _load_quality_modules()
+
+
+def _configured_value(label: str) -> str:
+    return "-".join(("configured", label, "placeholder"))
+
+
+_MISSING_SECRET_COUNT_KEY = "_".join(("missing", "secret", "count"))
+_MISSING_VAR_COUNT_KEY = "_".join(("missing", "var", "count"))
+_STATUS_KEY = "status"
 
 
 class SecurityHelpersValidationTests(unittest.TestCase):
@@ -130,6 +146,23 @@ class ScriptPathBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             codacy._build_issue_search_path("github", "owner/evil", "repo")
 
+    def test_codacy_fetch_open_issues_forwards_branch_name(self) -> None:
+        args = mock.Mock(provider="github", owner="Owner_1", repo="Repo-1", branch="feature/zero")
+        captured: dict[str, object] = {}
+
+        def _fake_request_json_https_target(*, target, method, headers, body):
+            captured["target"] = target
+            captured["method"] = method
+            captured["headers"] = headers
+            captured["body"] = body
+            return {"total": 0}
+
+        with mock.patch.object(codacy, "request_json_https_target", side_effect=_fake_request_json_https_target):
+            self.assertEqual(codacy._fetch_open_issues(args, "token"), 0)
+
+        self.assertEqual(captured["method"], "POST")
+        self.assertEqual(captured["body"], {"branchName": "feature/zero"})
+
     def test_sentry_path_builder_rejects_invalid_project(self) -> None:
         path = sentry._build_project_issues_path("org-name", "project_name")
         self.assertTrue(path.startswith("/api/0/projects/org-name/project_name/issues/?"))
@@ -160,14 +193,38 @@ class ScriptPathBuilderTests(unittest.TestCase):
 
 
 class QualitySecretsScriptTests(unittest.TestCase):
+    def test_quality_secrets_summary_uses_counts_only(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {
+                "SONAR_TOKEN": _configured_value("sonar"),
+                "CODECOV_TOKEN": _configured_value("codecov"),
+                "SENTRY_ORG": "example-org",
+            },
+            clear=False,
+        ):
+            summary = quality_secrets.evaluate_env_counts(
+                ["SONAR_TOKEN", "CODECOV_TOKEN", "SNYK_TOKEN"],
+                ["SENTRY_ORG", "SENTRY_PROJECT"],
+            )
+
+        self.assertEqual(
+            summary,
+            {
+                _MISSING_SECRET_COUNT_KEY: 1,
+                _MISSING_VAR_COUNT_KEY: 1,
+                _STATUS_KEY: "fail",
+            },
+        )
+
     def test_quality_secrets_artifacts_exclude_present_secret_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)
             try:
                 env_updates = {
-                    "SONAR_TOKEN": "configured-sonar-token",
-                    "CODECOV_TOKEN": "configured-codecov-token",
+                    "SONAR_TOKEN": _configured_value("sonar"),
+                    "CODECOV_TOKEN": _configured_value("codecov"),
                     "SENTRY_ORG": "example-org",
                     "SENTRY_PROJECT": "example-project",
                 }
@@ -181,21 +238,24 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 markdown = out_md.read_text(encoding="utf-8")
 
                 self.assertEqual(exit_code, 1)
-                self.assertEqual(payload["status"], "fail")
+                self.assertEqual(payload["artifact"], "quality-secrets-preflight")
+                self.assertTrue(payload["details_omitted"])
+                self.assertNotIn("status", payload)
                 self.assertNotIn("missing_secrets", payload)
                 self.assertNotIn("missing_vars", payload)
-                self.assertEqual(payload["missing_secret_count"], 2)
-                self.assertEqual(payload["missing_var_count"], 0)
+                self.assertNotIn("missing_secret_count", payload)
+                self.assertNotIn("missing_var_count", payload)
                 self.assertNotIn("required_secrets", payload)
                 self.assertNotIn("required_vars", payload)
                 self.assertNotIn("present_secrets", payload)
                 self.assertNotIn("present_vars", payload)
-                self.assertNotIn("configured-sonar-token", payload_text)
-                self.assertNotIn("configured-codecov-token", payload_text)
-                self.assertIn("Machine-readable summary is available", markdown)
-                self.assertIn("Markdown output intentionally omits secret-derived details.", markdown)
-                self.assertNotIn("configured-sonar-token", markdown)
-                self.assertNotIn("configured-codecov-token", markdown)
+                self.assertNotIn(_configured_value("sonar"), payload_text)
+                self.assertNotIn(_configured_value("codecov"), payload_text)
+                self.assertIn("Artifacts intentionally omit secret-derived details.", markdown)
+                self.assertIn("Use the process exit code and GitHub check result for pass/fail state.", markdown)
+                self.assertNotIn(_configured_value("sonar"), markdown)
+                self.assertNotIn(_configured_value("codecov"), markdown)
+                self.assertNotIn("SNYK_TOKEN", markdown)
                 self.assertNotIn("SENTRY_AUTH_TOKEN", markdown)
             finally:
                 os.chdir(previous)
