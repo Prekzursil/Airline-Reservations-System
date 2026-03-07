@@ -247,13 +247,13 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
 
 TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultPortIsAlreadyInUse) {
     httplib::Server blocker;
-    if (!blocker.bind_to_port("127.0.0.1", kServerPort)) {
-        GTEST_SKIP() << "Port 8080 is not available for the blocker setup";
+    const bool blocker_started = blocker.bind_to_port("127.0.0.1", kServerPort);
+    std::optional<std::jthread> blocker_thread;
+    if (blocker_started) {
+        blocker_thread.emplace([&blocker]() {
+            blocker.listen_after_bind();
+        });
     }
-    std::jthread blocker_thread([&blocker]() {
-        blocker.listen_after_bind();
-    });
-    ScopedServerShutdown blocker_shutdown(blocker, blocker_thread);
 
     std::ostringstream output_stream;
     std::ostringstream error_stream;
@@ -265,6 +265,11 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultPortIsAlreadyInUse) {
     EXPECT_EQ(exit_code, 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
+
+    blocker.stop();
+    if (blocker_thread.has_value() && blocker_thread->joinable()) {
+        blocker_thread->join();
+    }
 }
 
 TEST_F(ApiServerRoutesTest, ListsDefaultAirplanesAndCustomers) {
@@ -461,4 +466,3 @@ TEST_F(ApiServerRoutesTest, ReturnsBadRequestForMalformedPayloads) {
     ASSERT_TRUE(swap_response);
     EXPECT_EQ(swap_response->status, 400);
 }
-

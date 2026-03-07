@@ -18,6 +18,7 @@ jobs:
   codecov-analytics:
     name: Codecov Analytics
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:

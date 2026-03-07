@@ -123,6 +123,15 @@ TEST_F(AirplaneTest, GetAvailableSeatsByClass) {
     EXPECT_EQ(economySeats.size(), 23);
 }
 
+TEST_F(AirplaneTest, GetAvailableSeatsByClassReturnsEmptyWhenAllSeatsInClassAreBooked) {
+    ASSERT_TRUE(plane_small.bookSpecificSeat("2A"));
+    ASSERT_TRUE(plane_small.bookSpecificSeat("2B"));
+
+    const std::vector<const Seat*> economySeats = plane_small.getAvailableSeatsByClass(SeatClass::ECONOMY);
+
+    EXPECT_TRUE(economySeats.empty());
+}
+
 TEST_F(AirplaneTest, SuggestLowerPriceSeats) {
     std::vector<const Seat*> suggestions = plane_mixed.suggestLowerPriceSeats(&testCustomer, 1000.0);
     EXPECT_EQ(suggestions.size(), 24);
@@ -213,6 +222,14 @@ TEST_F(AirplaneTest, DisplaySeatingMapShowsBookedSeatsAsX) {
 
 TEST_F(AirplaneTest, SuggestLowerPriceSeatsNullCustomer) {
     const std::vector<const Seat*> suggestions = plane_mixed.suggestLowerPriceSeats(nullptr, 100.0);
+    EXPECT_TRUE(suggestions.empty());
+}
+
+TEST_F(AirplaneTest, SuggestLowerPriceSeatsReturnsEmptyWhenNoSeatMatchesBudget) {
+    testCustomer.setMoney(10.0);
+
+    const std::vector<const Seat*> suggestions = plane_small.suggestLowerPriceSeats(&testCustomer, 10.0);
+
     EXPECT_TRUE(suggestions.empty());
 }
 

@@ -5,6 +5,7 @@
 #include "Airplane.h"
 #include "Customer.h"
 #include "Booking.h"
+#include "ReservationSystemHelpers.h"
 #include <vector>
 #include <string>
 #include <limits> // Required for std::numeric_limits
@@ -82,15 +83,18 @@ T ReservationSystem::getValidatedInput(const std::string& prompt) {
     T value;
     while (true) {
         *m_cout_ptr << prompt;
-        *m_cin_ptr >> value;
-        if (m_cin_ptr->good()) {
+        if ((*m_cin_ptr) >> value) {
             m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Clear buffer
             return value;
-        } else {
-            *m_cout_ptr << "Invalid input. Please try again." << std::endl;
-            m_cin_ptr->clear();
-            m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
+
+        if (m_cin_ptr->eof()) {
+            throw reservation_system_helpers::InputExhaustedError();
+        }
+
+        *m_cout_ptr << "Invalid input. Please try again." << std::endl;
+        m_cin_ptr->clear();
+        m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 }
 

@@ -39,13 +39,41 @@ def _parse_args() -> argparse.Namespace:
 def parse_lcov(name: str, path: Path) -> CoverageStats:
     total = 0
     covered = 0
+    record_lines: Dict[int, int] = {}
+    fallback_total = 0
+    fallback_covered = 0
+
+    def flush_record() -> None:
+        nonlocal total, covered, record_lines, fallback_total, fallback_covered
+        if record_lines:
+            total += len(record_lines)
+            covered += sum(1 for count in record_lines.values() if count > 0)
+        else:
+            total += fallback_total
+            covered += fallback_covered
+        record_lines = {}
+        fallback_total = 0
+        fallback_covered = 0
 
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
-        if line.startswith("LF:"):
-            total += int(line.split(":", 1)[1])
+        if line.startswith("SF:"):
+            if record_lines or fallback_total or fallback_covered:
+                flush_record()
+        elif line.startswith("DA:"):
+            line_number_text, hit_count_text, *_ = line[3:].split(",")
+            line_number = _safe_int(line_number_text)
+            hit_count = _safe_int(hit_count_text)
+            record_lines[line_number] = max(record_lines.get(line_number, 0), hit_count)
+        elif line.startswith("LF:"):
+            fallback_total = int(line.split(":", 1)[1])
         elif line.startswith("LH:"):
-            covered += int(line.split(":", 1)[1])
+            fallback_covered = int(line.split(":", 1)[1])
+        elif line == "end_of_record":
+            flush_record()
+
+    if record_lines or fallback_total or fallback_covered:
+        flush_record()
 
     return CoverageStats(name=name, path=str(path), covered=covered, total=total)
 

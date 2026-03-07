@@ -6,10 +6,16 @@
 #include "Customer.h"
 #include "Seat.h"
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace reservation_system_helpers {
+
+class InputExhaustedError : public std::runtime_error {
+public:
+    InputExhaustedError() : std::runtime_error("Input stream exhausted") {}
+};
 
 struct AutoCustomerData {
     std::string name;

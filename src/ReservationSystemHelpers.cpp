@@ -1,5 +1,6 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "ReservationSystemHelpers.h"
+#include <iomanip>
 #include <sstream>
 
 namespace reservation_system_helpers {
@@ -48,12 +49,12 @@ bool isAffirmative(char value) {
 std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::string& prompt) {
     std::string value;
     out << prompt;
-    std::getline(in, value);
-    if (!value.empty()) {
-        return value;
+    if (!std::getline(in, value)) {
+        throw InputExhaustedError();
     }
+    if (!value.empty()) { return value; }
     out << "Input cannot be empty. Please try again: ";
-    std::getline(in, value);
+    if (!std::getline(in, value)) { throw InputExhaustedError(); }
     return value;
 }
 
@@ -99,13 +100,8 @@ std::string formatMoneyAmount(double amount) {
     const auto cents = static_cast<long long>(amount * 100.0 + (amount >= 0.0 ? 0.5 : -0.5));
     const long long dollars = cents / 100;
     const long long remainder = cents >= 0 ? cents % 100 : -(cents % 100);
-
     std::ostringstream out;
-    out << dollars << '.';
-    if (remainder < 10) {
-        out << '0';
-    }
-    out << remainder;
+    out << dollars << '.' << std::setw(2) << std::setfill('0') << remainder;
     return out.str();
 }
 
@@ -117,24 +113,14 @@ void printAvailableFlights(std::ostream& out, const std::vector<Airplane>& avail
 }
 
 void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& suggestions) {
-    if (suggestions.empty()) {
-        return;
-    }
+    if (suggestions.empty()) { return; }
     out << "Perhaps one of these seats instead?" << std::endl;
     for (const Seat* suggestedSeat : suggestions) {
-        if (suggestedSeat == nullptr) {
-            continue;
-        }
-        out << "- " << suggestedSeat->getSeatId() << " (" << suggestedSeat->getSeatClassString()
-            << ") costs $" << suggestedSeat->getPrice() << std::endl;
-    }
-}
+        if (suggestedSeat == nullptr) continue;
+        out << "- " << suggestedSeat->getSeatId() << " (" << suggestedSeat->getSeatClassString() << ") costs $" << suggestedSeat->getPrice() << std::endl;
+    } }
 
-bool hasBookSeatPrerequisites(
-    std::ostream& out,
-    const std::vector<Airplane>& availableAirplanes,
-    const std::vector<Customer>& knownCustomers
-) {
+bool hasBookSeatPrerequisites(std::ostream& out, const std::vector<Airplane>& availableAirplanes, const std::vector<Customer>& knownCustomers) {
     if (availableAirplanes.empty()) {
         out << "No flights available to book." << std::endl;
         return false;

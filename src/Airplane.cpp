@@ -149,26 +149,16 @@ void Airplane::displayAllSeatDetails() const {
 
 std::vector<const Seat*> Airplane::getAvailableSeatsByClass(SeatClass sc) const {
     std::vector<const Seat*> available;
-    for (const auto& seat : seats) {
-        if (!seat.getIsBooked() && seat.getSeatClass() == sc) {
+    for (const auto& seat : seats)
+        if (!seat.getIsBooked() && seat.getSeatClass() == sc)
             available.push_back(&seat);
-        }
-    }
-    return available;
-}
-
+    return available; }
 std::vector<const Seat*> Airplane::suggestLowerPriceSeats(const Customer* customer, double maxPrice) const {
     std::vector<const Seat*> suggestions;
-    if (!customer) {
-        return suggestions;
-    }
+    if (!customer) return suggestions;
 
-    for (const auto& seat : seats) {
-        if (!seat.getIsBooked() && seat.getPrice() <= maxPrice && seat.getPrice() <= customer->getMoney()) {
+    for (const auto& seat : seats)
+        if (!seat.getIsBooked() && seat.getPrice() <= maxPrice && seat.getPrice() <= customer->getMoney())
             suggestions.push_back(&seat);
-        }
-    }
-
     std::ranges::sort(suggestions, std::ranges::less {}, [](const Seat* seat) { return seat->getPrice(); });
-    return suggestions;
-}
+    return suggestions; }

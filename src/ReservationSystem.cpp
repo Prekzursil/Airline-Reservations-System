@@ -95,24 +95,32 @@ int ReservationSystem::getMenuChoice(int minChoice, int maxChoice) {
     int choice;
     while (true) {
         (*m_cout_ptr) << "Enter your choice: ";
-        (*m_cin_ptr) >> choice;
-        if (m_cin_ptr->good() && choice >= minChoice && choice <= maxChoice) {
+        if ((*m_cin_ptr) >> choice && choice >= minChoice && choice <= maxChoice) {
             m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n'); 
             return choice;
-        } else {
-            (*m_cout_ptr) << "Invalid choice. Please enter a number between " << minChoice << " and " << maxChoice << "." << std::endl;
-            m_cin_ptr->clear();
-            m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
+
+        if (m_cin_ptr->eof()) {
+            throw rsh::InputExhaustedError();
+        }
+
+        (*m_cout_ptr) << "Invalid choice. Please enter a number between " << minChoice << " and " << maxChoice << "." << std::endl;
+        m_cin_ptr->clear();
+        m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 }
 
 void ReservationSystem::run() {
     while (true) {
-        displayMainMenu();
-        const int choice = getMenuChoice(0, 7);
-        executeMenuChoice(choice);
-        if (choice == 0) {
+        try {
+            displayMainMenu();
+            const int choice = getMenuChoice(0, 7);
+            executeMenuChoice(choice);
+            if (choice == 0) {
+                break;
+            }
+        } catch (const rsh::InputExhaustedError&) {
+            (*m_cout_ptr) << "Input stream exhausted. Exiting system." << std::endl;
             break;
         }
     }

@@ -24,3 +24,38 @@ TEST(ProgramEntryTest, MainExitsCleanlyWhenExitIsSelected) {
     EXPECT_NE(output.str().find("Exiting system. Goodbye!"), std::string::npos);
     EXPECT_NE(output.str().find("Thank you for using the Airline Reservation System."), std::string::npos);
 }
+
+TEST(ProgramEntryTest, MainExitsCleanlyWhenMenuInputEndsAtEof) {
+    std::istringstream input;
+    std::ostringstream output;
+
+    std::streambuf* original_in = std::cin.rdbuf(input.rdbuf());
+    std::streambuf* original_out = std::cout.rdbuf(output.rdbuf());
+
+    const int exit_code = airline_cli_entry_main();
+
+    std::cin.rdbuf(original_in);
+    std::cout.rdbuf(original_out);
+
+    EXPECT_EQ(exit_code, 0);
+    EXPECT_NE(output.str().find("Input stream exhausted. Exiting system."), std::string::npos);
+    EXPECT_NE(output.str().find("Thank you for using the Airline Reservation System."), std::string::npos);
+}
+
+TEST(ProgramEntryTest, MainExitsCleanlyWhenInputEndsMidOperation) {
+    std::istringstream input("1\nm\n");
+    std::ostringstream output;
+
+    std::streambuf* original_in = std::cin.rdbuf(input.rdbuf());
+    std::streambuf* original_out = std::cout.rdbuf(output.rdbuf());
+
+    const int exit_code = airline_cli_entry_main();
+
+    std::cin.rdbuf(original_in);
+    std::cout.rdbuf(original_out);
+
+    EXPECT_EQ(exit_code, 0);
+    EXPECT_NE(output.str().find("--- Add New Customer ---"), std::string::npos);
+    EXPECT_NE(output.str().find("Input stream exhausted. Exiting system."), std::string::npos);
+    EXPECT_NE(output.str().find("Thank you for using the Airline Reservation System."), std::string::npos);
+}

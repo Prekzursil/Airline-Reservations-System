@@ -92,6 +92,33 @@ TEST_F(ReservationSystemTest, GetValidatedInputRetriesAfterInvalidNumericInput) 
     EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, GetValidatedInputThrowsWhenNumericInputEndsAfterRetry) {
+    test_in.str("oops");
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedInt(rs, "Enter number: ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetValidatedStringReturnsFirstTokenWithoutRetry) {
+    test_in.str("FL101\n");
+
+    const std::string value = ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ");
+
+    EXPECT_EQ(value, "FL101");
+    EXPECT_EQ(test_out.str(), "Enter flight: ");
+}
+
+TEST_F(ReservationSystemTest, GetValidatedStringThrowsOnImmediateEof) {
+    test_in.str("");
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_EQ(test_out.str(), "Enter flight: ");
+}
+
 TEST_F(ReservationSystemTest, ExecuteMenuChoiceReportsOutOfRangeChoice) {
     ReservationSystemTestAccess::executeMenuChoice(rs, 99);
 
@@ -293,4 +320,3 @@ TEST_F(ReservationSystemTest, HandleSearchCustomerSuppressesNoBookingsMessageWhe
 // Note: The hacky way to clear customers in HandleBookSeatNoCustomers is not ideal.
 // A better test setup would allow constructing ReservationSystem without default data,
 // then adding specific data for each test. resetSystemForTest() helps with this.
-

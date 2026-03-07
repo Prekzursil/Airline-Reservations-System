@@ -121,9 +121,9 @@ const Booking* find_confirmed_booking_for_seat(
 }
 
 json build_airplane_details(const ReservationSystem& airline_system, const Airplane& plane) {
-    json details = {{"flightNumber", plane.getFlightNumber()}, {"capacity", plane.getCapacity()},
-                    {"bookedSeatsCount", plane.getBookedSeatsCount()}, {"isFull", plane.isFull()},
-                    {"seats", json::array()}};
+    json details = {
+        {"flightNumber", plane.getFlightNumber()}, {"capacity", plane.getCapacity()}, {"bookedSeatsCount", plane.getBookedSeatsCount()}, {"isFull", plane.isFull()}, {"seats", json::array()}
+    };
 
     const auto& all_bookings = airline_system.getBookingsForTest();
     const std::string flight_number = plane.getFlightNumber();
@@ -206,11 +206,8 @@ void handle_create_customer(ReservationSystem& airline_system, const httplib::Re
 
         Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
         respond_json(res, json(*new_customer), 201);
-    } catch (const json::exception& error) {
-        respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400);
-    }
+    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400); }
 }
-
 void handle_create_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
     try {
         const json body = json::parse(req.body);
@@ -226,15 +223,13 @@ void handle_create_booking(ReservationSystem& airline_system, const httplib::Req
         }
 
         respond_json(res, json{{"error", error_message}}, booking_error_status(error_message));
-    } catch (const json::exception& error) {
-        respond_json(res, json{{"error", "Error processing booking data: " + std::string(error.what())}}, 400);
-    }
+    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing booking data: " + std::string(error.what())}}, 400); }
 }
 
 void handle_cancel_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
     std::string error_message;
-
-    if (const bool success = airline_system.cancelBookingInternal(req.matches[1].str(), error_message); !success) {
+    const bool success = airline_system.cancelBookingInternal(req.matches[1].str(), error_message);
+    if (!success) {
         respond_json(res, json{{"error", error_message}}, cancel_error_status(error_message));
         return;
     }
@@ -255,9 +250,7 @@ void handle_swap_booking_seats(ReservationSystem& airline_system, const httplib:
         }
 
         respond_json(res, json{{"message", error_message}});
-    } catch (const json::exception& error) {
-        respond_json(res, json{{"error", "Error processing seat swap request: " + std::string(error.what())}}, 400);
-    }
+    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing seat swap request: " + std::string(error.what())}}, 400); }
 }
 
 void register_routes(httplib::Server& server, ReservationSystem& airline_system) {
@@ -329,8 +322,4 @@ int run_api_server(
     return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
 }
 
-int main() {
-    ReservationSystem airline_system(std::cin, std::cout);
-    httplib::Server server;
-    return run_api_server(airline_system, server, std::cout, std::cerr);
-}
+int main() { ReservationSystem airline_system(std::cin, std::cout); httplib::Server server; return run_api_server(airline_system, server, std::cout, std::cerr); }

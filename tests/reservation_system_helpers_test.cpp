@@ -19,6 +19,16 @@ TEST(ReservationSystemHelpersTest, ReadNonEmptyLineRetriesOnceAfterEmptyInput) {
         "Enter customer name: Input cannot be empty. Please try again: ");
 }
 
+TEST(ReservationSystemHelpersTest, ReadNonEmptyLineReturnsImmediateNonEmptyInput) {
+    std::istringstream input("Direct Value\n");
+    std::ostringstream output;
+
+    const std::string value = rsh::readNonEmptyLine(input, output, "Enter customer name: ");
+
+    EXPECT_EQ(value, "Direct Value");
+    EXPECT_EQ(output.str(), "Enter customer name: ");
+}
+
 TEST(ReservationSystemHelpersTest, ReadNonEmptyLineReturnsSecondAttemptEvenIfStillEmpty) {
     std::istringstream input("\n\n");
     std::ostringstream output;
@@ -31,8 +41,34 @@ TEST(ReservationSystemHelpersTest, ReadNonEmptyLineReturnsSecondAttemptEvenIfSti
         "Enter customer name: Input cannot be empty. Please try again: ");
 }
 
+TEST(ReservationSystemHelpersTest, ReadNonEmptyLineThrowsWhenInputIsAlreadyExhausted) {
+    std::istringstream input;
+    std::ostringstream output;
+
+    EXPECT_THROW(
+        static_cast<void>(rsh::readNonEmptyLine(input, output, "Enter customer name: ")),
+        rsh::InputExhaustedError);
+    EXPECT_EQ(output.str(), "Enter customer name: ");
+}
+
+TEST(ReservationSystemHelpersTest, ReadNonEmptyLineThrowsWhenRetryHitsEof) {
+    std::istringstream input("\n");
+    std::ostringstream output;
+
+    EXPECT_THROW(
+        static_cast<void>(rsh::readNonEmptyLine(input, output, "Enter customer name: ")),
+        rsh::InputExhaustedError);
+    EXPECT_EQ(
+        output.str(),
+        "Enter customer name: Input cannot be empty. Please try again: ");
+}
+
 TEST(ReservationSystemHelpersTest, FormatMoneyAmountPadsSingleDigitCents) {
     EXPECT_EQ(rsh::formatMoneyAmount(12.04), "12.04");
+}
+
+TEST(ReservationSystemHelpersTest, FormatMoneyAmountRoundsNegativeValues) {
+    EXPECT_EQ(rsh::formatMoneyAmount(-12.04), "-12.04");
 }
 
 TEST(ReservationSystemHelpersTest, PrintSeatSuggestionsSkipsNullPointersAndPrintsValidSeats) {
@@ -46,4 +82,34 @@ TEST(ReservationSystemHelpersTest, PrintSeatSuggestionsSkipsNullPointersAndPrint
         output.str(),
         "Perhaps one of these seats instead?\n"
         "- 4A (Economy) costs $50\n");
+}
+
+TEST(ReservationSystemHelpersTest, PrintSeatSuggestionsReturnsSilentlyWhenThereAreNoSuggestions) {
+    std::ostringstream output;
+
+    rsh::printSeatSuggestions(output, {});
+
+    EXPECT_TRUE(output.str().empty());
+}
+
+TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesRejectsEmptyAirplaneList) {
+    std::ostringstream output;
+    const std::vector<Airplane> airplanes;
+    const std::vector<Customer> customers = {Customer{"Ready Customer", 34, "CUST001", 120.0}};
+
+    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers);
+
+    EXPECT_FALSE(ready);
+    EXPECT_EQ(output.str(), "No flights available to book.\n");
+}
+
+TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesRejectsEmptyCustomerList) {
+    std::ostringstream output;
+    const std::vector<Airplane> airplanes = {Airplane{"FL101", 2, 2}};
+    const std::vector<Customer> customers;
+
+    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers);
+
+    EXPECT_FALSE(ready);
+    EXPECT_EQ(output.str(), "No customers in the system. Please add a customer first.\n");
 }
