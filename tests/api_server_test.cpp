@@ -204,6 +204,44 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
 
+TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlreadyInUse) {
+    httplib::Server blocker;
+    blocker.Get("/health", [](const httplib::Request&, httplib::Response& response) {
+        response.status = 200;
+        response.set_content("ok", "text/plain");
+    });
+
+    std::promise<bool> listen_started_promise;
+    std::future<bool> listen_started_future = listen_started_promise.get_future();
+    std::jthread blocker_thread([&blocker, started = std::move(listen_started_promise)]() mutable {
+        started.set_value(blocker.listen("0.0.0.0", kServerPort));
+    });
+
+    ASSERT_EQ(listen_started_future.wait_for(kStartupTimeout), std::future_status::ready);
+    if (!listen_started_future.get()) {
+        blocker.stop();
+        if (blocker_thread.joinable()) {
+            blocker_thread.join();
+        }
+        GTEST_SKIP() << "Port 8080 is already in use on this machine.";
+    }
+    ASSERT_TRUE(wait_for_status(kServerPort, "/health", 200));
+
+    std::istringstream input_stream;
+    std::ostringstream output_stream;
+    std::ostringstream error_stream;
+    const int exit_code = airline_api_server_entry(input_stream, output_stream, error_stream);
+
+    EXPECT_EQ(exit_code, 1);
+    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
+
+    blocker.stop();
+    if (blocker_thread.joinable()) {
+        blocker_thread.join();
+    }
+}
+
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     std::atomic selected_port{-1};
     auto listen_on_first_available_port = [&selected_port](httplib::Server& server, const char* host, int) {
@@ -280,31 +318,6 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     }
 
     EXPECT_EQ(exit_code, 1);
-    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
-    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
-}
-
-TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse) {
-    DefaultListenOverrideObservation observation;
-    std::istringstream input_stream;
-    std::ostringstream output_stream;
-    std::ostringstream error_stream;
-
-    const int exit_code = airline_api_server_entry(
-        input_stream,
-        output_stream,
-        error_stream,
-        [&observation](httplib::Server&, const char* host, int port) {
-            observation.invoked = true;
-            observation.host = host == nullptr ? "" : host;
-            observation.port = port;
-            return false;
-        });
-
-    EXPECT_EQ(exit_code, 1);
-    EXPECT_TRUE(observation.invoked);
-    EXPECT_EQ(observation.host, "0.0.0.0");
-    EXPECT_EQ(observation.port, kServerPort);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }

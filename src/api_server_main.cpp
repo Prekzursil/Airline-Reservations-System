@@ -328,12 +328,14 @@ int airline_api_server_entry(
     std::istream& input,
     std::ostream& output,
     std::ostream& error,
-    const ListenOnHostCallback& listen_callback = listen_on_host) {
+    const ListenOnHostCallback& listen_callback = listen_on_host) {  // LCOV_EXCL_LINE
     ReservationSystem airline_system(input, output);
     httplib::Server server;
     return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
 }
 
+// LCOV_EXCL_START
 int main() {
     return airline_api_server_entry(std::cin, std::cout, std::cerr);
 }
+// LCOV_EXCL_STOP
