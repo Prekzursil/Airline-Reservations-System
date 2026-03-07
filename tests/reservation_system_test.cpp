@@ -49,6 +49,14 @@ protected:
         }
         return booking;
     }
+
+    Booking* findBooking(const std::string& booking_id) {
+        Booking* booking = rs.findBookingById(booking_id);
+        if (booking == nullptr) {
+            ADD_FAILURE() << "Booking not found: " << booking_id;
+        }
+        return booking;
+    }
 };
 
 class ReservationSystemTestAccess {
@@ -168,14 +176,21 @@ TEST_F(ReservationSystemTest, ExecuteMenuChoiceReportsOutOfRangeChoice) {
 
 TEST_F(ReservationSystemTest, ValidateSwapPairReportsDifferentFlights) {
     Customer* first_customer = addCustomer("HelperUserA", 30, 500.0, false);
-    Customer* second_customer = addCustomer("HelperUserB", 31, 500.0, false);
     ASSERT_NE(first_customer, nullptr);
-    ASSERT_NE(second_customer, nullptr);
     const std::string first_customer_id = first_customer->getPersonId();
+
+    Customer* second_customer = addCustomer("HelperUserB", 31, 500.0, false);
+    ASSERT_NE(second_customer, nullptr);
     const std::string second_customer_id = second_customer->getPersonId();
 
     Booking* first_booking = createConfirmedBooking(first_customer_id, "FL101", "8A");
+    ASSERT_NE(first_booking, nullptr);
+    const std::string first_booking_id = first_booking->getBookingId();
     Booking* second_booking = createConfirmedBooking(second_customer_id, "FL202", "1A");
+    ASSERT_NE(second_booking, nullptr);
+    const std::string second_booking_id = second_booking->getBookingId();
+    first_booking = findBooking(first_booking_id);
+    second_booking = findBooking(second_booking_id);
     ASSERT_NE(first_booking, nullptr);
     ASSERT_NE(second_booking, nullptr);
 

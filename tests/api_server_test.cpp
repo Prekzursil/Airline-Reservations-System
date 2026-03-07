@@ -38,6 +38,26 @@ private:
     std::streambuf* original_;
 };
 
+class ScopedServerShutdown {
+public:
+    ScopedServerShutdown(httplib::Server& server, std::jthread& server_thread)
+        : server_(server), server_thread_(server_thread) {}
+
+    ~ScopedServerShutdown() {
+        server_.stop();
+        if (server_thread_.joinable()) {
+            server_thread_.join();
+        }
+    }
+
+    ScopedServerShutdown(const ScopedServerShutdown&) = delete;
+    ScopedServerShutdown& operator=(const ScopedServerShutdown&) = delete;
+
+private:
+    httplib::Server& server_;
+    std::jthread& server_thread_;
+};
+
 bool wait_for_status(const int port, const std::string& path, const int expected_status) {
     const auto deadline = std::chrono::steady_clock::now() + kStartupTimeout;
     httplib::Client client("127.0.0.1", port);
@@ -84,6 +104,26 @@ httplib::Result create_booking_via_route(
         client,
         "/api/bookings",
         json{{"customerId", customer_id}, {"flightNumber", flight_number}, {"seatId", seat_id}});
+}
+
+void expect_response_status(const httplib::Result& response, const int expected_status) {
+    ASSERT_TRUE(response);
+    ASSERT_EQ(response->status, expected_status);
+}
+
+json parse_json_response(const httplib::Result& response, const int expected_status) {
+    expect_response_status(response, expected_status);
+    return json::parse(response->body);
+}
+
+httplib::Result swap_bookings_via_route(
+    httplib::Client& client,
+    const std::string& first_booking_id,
+    const std::string& second_booking_id) {
+    return post_json_request(
+        client,
+        "/api/bookings/swap",
+        json{{"bookingId1", first_booking_id}, {"bookingId2", second_booking_id}});
 }
 
 class ApiServerRoutesTest : public ::testing::Test {
@@ -328,12 +368,15 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
             error_stream,
             listen_on_first_available_port);
     });
+    ScopedServerShutdown shutdown(server, server_thread);
 
     ASSERT_TRUE(wait_for_selected_port(selected_port));
     const int port = selected_port.load(std::memory_order_acquire);
     ASSERT_TRUE(wait_for_status(port, "/api/airplanes", 200));
     server.stop();
-    server_thread.join();
+    if (server_thread.joinable()) {
+        server_thread.join();
+    }
 
     ASSERT_TRUE(exit_code.has_value());
     EXPECT_EQ(*exit_code, 0);
@@ -354,12 +397,9 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     std::jthread server_thread([&error_stream, &exit_code, &output_stream, &reservation_system, &server]() {
         exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
     });
+    ScopedServerShutdown shutdown(server, server_thread);
 
     const bool observed_healthy = wait_for_status(kServerPort, "/api/airplanes", 200);
-    if (observed_healthy) {
-        server.stop();
-    }
-    server_thread.join();
 
     ASSERT_TRUE(exit_code.has_value());
     if (*exit_code == 0) {
@@ -371,7 +411,7 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     }
 
     EXPECT_EQ(*exit_code, 1);
-    EXPECT_TRUE(output_stream.str().empty());
+    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
 
@@ -383,6 +423,7 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultPortIsAlreadyInUse) {
     std::jthread blocker_thread([&blocker]() {
         blocker.listen_after_bind();
     });
+    ScopedServerShutdown blocker_shutdown(blocker, blocker_thread);
 
     std::ostringstream output_stream;
     std::ostringstream error_stream;
@@ -390,9 +431,6 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultPortIsAlreadyInUse) {
     ScopedStreamRedirect err_redirect(std::cerr, error_stream);
 
     const int exit_code = airline_api_server_entry_main();
-
-    blocker.stop();
-    blocker_thread.join();
 
     EXPECT_EQ(exit_code, 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
@@ -446,27 +484,21 @@ TEST_F(ApiServerRoutesTest, SupportsCustomerBookingLifecycleRoutes) {
     const std::string customer_id = new_customer.at("personId").get<std::string>();
 
     const auto customer_details = client.Get("/api/customers/" + customer_id);
-    ASSERT_TRUE(customer_details);
-    EXPECT_EQ(customer_details->status, 200);
+    expect_response_status(customer_details, 200);
 
     const auto booking_response = create_booking_via_route(client, customer_id, "FL101", "4A");
-    ASSERT_TRUE(booking_response);
-    ASSERT_EQ(booking_response->status, 201);
-    const json booking = json::parse(booking_response->body);
+    const json booking = parse_json_response(booking_response, 201);
     const std::string booking_id = booking.at("bookingId").get<std::string>();
 
     const auto airplane_details = client.Get("/api/airplanes/FL101");
-    ASSERT_TRUE(airplane_details);
-    EXPECT_EQ(airplane_details->status, 200);
+    expect_response_status(airplane_details, 200);
     EXPECT_NE(airplane_details->body.find(booking_id), std::string::npos);
 
     const auto cancel_response = client.Delete("/api/bookings/" + booking_id);
-    ASSERT_TRUE(cancel_response);
-    EXPECT_EQ(cancel_response->status, 200);
+    expect_response_status(cancel_response, 200);
 
     const auto options_response = client.Options("/api/bookings");
-    ASSERT_TRUE(options_response);
-    EXPECT_EQ(options_response->status, 204);
+    expect_response_status(options_response, 204);
 }
 
 json create_auto_generated_customer(httplib::Client& client) {
@@ -494,16 +526,13 @@ TEST_F(ApiServerRoutesTest, MapsBookingErrorStatusesForRoutes) {
     const std::string customer_id = auto_customer.at("personId").get<std::string>();
 
     const auto missing_customer_response = create_booking_via_route(client, "CUST9999", "FL101", "4A");
-    ASSERT_TRUE(missing_customer_response);
-    EXPECT_EQ(missing_customer_response->status, 404);
+    expect_response_status(missing_customer_response, 404);
 
     const auto missing_airplane_response = create_booking_via_route(client, customer_id, "FL999", "4A");
-    ASSERT_TRUE(missing_airplane_response);
-    EXPECT_EQ(missing_airplane_response->status, 404);
+    expect_response_status(missing_airplane_response, 404);
 
     const auto missing_seat_response = create_booking_via_route(client, customer_id, "FL101", "99Z");
-    ASSERT_TRUE(missing_seat_response);
-    EXPECT_EQ(missing_seat_response->status, 404);
+    expect_response_status(missing_seat_response, 404);
 }
 
 TEST_F(ApiServerRoutesTest, ReturnsConflictAndPaymentErrorsForRoutes) {
@@ -514,12 +543,10 @@ TEST_F(ApiServerRoutesTest, ReturnsConflictAndPaymentErrorsForRoutes) {
     const std::string customer_id = auto_customer.at("personId").get<std::string>();
 
     const auto first_booking_response = create_booking_via_route(client, customer_id, "FL101", "4A");
-    ASSERT_TRUE(first_booking_response);
-    ASSERT_EQ(first_booking_response->status, 201);
+    expect_response_status(first_booking_response, 201);
 
     const auto second_booking_response = create_booking_via_route(client, customer_id, "FL101", "4A");
-    ASSERT_TRUE(second_booking_response);
-    EXPECT_EQ(second_booking_response->status, 409);
+    expect_response_status(second_booking_response, 409);
 
     const json poor_customer = create_customer_via_route(
         client,
@@ -527,8 +554,7 @@ TEST_F(ApiServerRoutesTest, ReturnsConflictAndPaymentErrorsForRoutes) {
     const std::string poor_customer_id = poor_customer.at("personId").get<std::string>();
 
     const auto insufficient_funds_response = create_booking_via_route(client, poor_customer_id, "FL101", "4B");
-    ASSERT_TRUE(insufficient_funds_response);
-    EXPECT_EQ(insufficient_funds_response->status, 402);
+    expect_response_status(insufficient_funds_response, 402);
 }
 
 TEST_F(ApiServerRoutesTest, CancelRoutesMapErrorsAndSuccess) {
@@ -545,16 +571,13 @@ TEST_F(ApiServerRoutesTest, CancelRoutesMapErrorsAndSuccess) {
     httplib::Client client("127.0.0.1", bound_port());
 
     const auto missing_cancel_response = client.Delete("/api/bookings/BK_FAKE");
-    ASSERT_TRUE(missing_cancel_response);
-    EXPECT_EQ(missing_cancel_response->status, 404);
+    expect_response_status(missing_cancel_response, 404);
 
     const auto cancel_response = client.Delete("/api/bookings/" + first_booking_id);
-    ASSERT_TRUE(cancel_response);
-    ASSERT_EQ(cancel_response->status, 200);
+    expect_response_status(cancel_response, 200);
 
     const auto already_cancelled_response = client.Delete("/api/bookings/" + first_booking_id);
-    ASSERT_TRUE(already_cancelled_response);
-    EXPECT_EQ(already_cancelled_response->status, 409);
+    expect_response_status(already_cancelled_response, 409);
 }
 
 TEST_F(ApiServerRoutesTest, SwapRoutesMapErrorsAndSuccess) {
@@ -577,33 +600,18 @@ TEST_F(ApiServerRoutesTest, SwapRoutesMapErrorsAndSuccess) {
     start_server();
     httplib::Client client("127.0.0.1", bound_port());
 
-    const auto same_booking_swap = client.Post(
-        "/api/bookings/swap",
-        json{{"bookingId1", second_booking_id}, {"bookingId2", second_booking_id}}.dump(),
-        kJsonMimeType
-    );
-    ASSERT_TRUE(same_booking_swap);
-    EXPECT_EQ(same_booking_swap->status, 400);
+    const auto same_booking_swap = swap_bookings_via_route(client, second_booking_id, second_booking_id);
+    expect_response_status(same_booking_swap, 400);
 
-    const auto different_flights_swap = client.Post(
-        "/api/bookings/swap",
-        json{{"bookingId1", second_booking_id}, {"bookingId2", third_booking_id}}.dump(),
-        kJsonMimeType
-    );
-    ASSERT_TRUE(different_flights_swap);
-    EXPECT_EQ(different_flights_swap->status, 400);
+    const auto different_flights_swap = swap_bookings_via_route(client, second_booking_id, third_booking_id);
+    expect_response_status(different_flights_swap, 400);
 
     Booking* refreshed_first_booking = createBooking(first_customer->getPersonId(), "FL101", "5C");
     ASSERT_NE(refreshed_first_booking, nullptr);
     const std::string refreshed_first_booking_id = refreshed_first_booking->getBookingId();
 
-    const auto successful_swap = client.Post(
-        "/api/bookings/swap",
-        json{{"bookingId1", refreshed_first_booking_id}, {"bookingId2", second_booking_id}}.dump(),
-        kJsonMimeType
-    );
-    ASSERT_TRUE(successful_swap);
-    ASSERT_EQ(successful_swap->status, 200);
+    const auto successful_swap = swap_bookings_via_route(client, refreshed_first_booking_id, second_booking_id);
+    expect_response_status(successful_swap, 200);
     EXPECT_NE(json::parse(successful_swap->body).at("message").get<std::string>().find("Seat swap successful"), std::string::npos);
 }
 

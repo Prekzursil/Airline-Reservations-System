@@ -120,7 +120,10 @@ if(WIN32)
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(run_tests_executable DISCOVERY_TIMEOUT 120)
+gtest_discover_tests(run_tests_executable DISCOVERY_TIMEOUT 120 TEST_LIST AIRLINE_DISCOVERED_TESTS)
+if(AIRLINE_DISCOVERED_TESTS)
+  set_tests_properties(${AIRLINE_DISCOVERED_TESTS} PROPERTIES TIMEOUT 120)
+endif()
 
 add_test(
   NAME airline_cli_smoke_exit
@@ -145,3 +148,4 @@ add_test(
     "Booking successful! Booking ID:"
     "Airplane FL303 added successfully."
 )
+set_tests_properties(airline_cli_smoke_exit airline_cli_smoke_menu_flow PROPERTIES TIMEOUT 120)
