@@ -366,8 +366,7 @@ bool ReservationSystem::validateSwapPair(const Booking& firstBooking, const Book
 
     if (firstBooking.getFlightNumber() != secondBooking.getFlightNumber()) {
         (*m_cout_ptr) << "Seat swaps are currently only supported for bookings on the same flight." << std::endl;
-        (*m_cout_ptr) << "Booking 1 is for flight " << firstBooking.getFlightNumber()
-                      << ", Booking 2 is for flight " << secondBooking.getFlightNumber() << std::endl;
+        (*m_cout_ptr) << "Booking 1 is for flight " << firstBooking.getFlightNumber() << ", Booking 2 is for flight " << secondBooking.getFlightNumber() << std::endl;
         return false;
     }
 
