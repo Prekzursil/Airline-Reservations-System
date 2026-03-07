@@ -50,6 +50,23 @@ private:
     ListenOnHostCallback previous_;
 };
 
+class ScopedInputRedirect {
+public:
+    ScopedInputRedirect(std::istream& stream, std::istream& target)
+        : stream_(stream), original_(stream.rdbuf(target.rdbuf())) {}
+
+    ~ScopedInputRedirect() {
+        stream_.rdbuf(original_);
+    }
+
+    ScopedInputRedirect(const ScopedInputRedirect&) = delete;
+    ScopedInputRedirect& operator=(const ScopedInputRedirect&) = delete;
+
+private:
+    std::istream& stream_;
+    std::streambuf* original_;
+};
+
 }  // namespace
 
 TEST(ApiServerHelpersTest, ErrorStatusHelpersReturnExpectedCodes) {
@@ -200,6 +217,29 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
     EXPECT_EQ(exit_code, 0);
     EXPECT_NE(output_stream.str().find("Starting API server"), std::string::npos);
     EXPECT_TRUE(error_stream.str().empty());
+}
+
+TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
+    g_default_listen_override_invoked = false;
+    g_default_listen_override_host.clear();
+    g_default_listen_override_port = -1;
+    ScopedDefaultListenOverride override_default_listen(fail_default_listen_override);
+
+    std::istringstream input_stream;
+    std::ostringstream output_stream;
+    std::ostringstream error_stream;
+    ScopedInputRedirect redirect_input(std::cin, input_stream);
+    ScopedStreamRedirect redirect_output(std::cout, output_stream);
+    ScopedStreamRedirect redirect_error(std::cerr, error_stream);
+
+    const int exit_code = airline_api_server_entry_main();
+
+    EXPECT_EQ(exit_code, 1);
+    EXPECT_TRUE(g_default_listen_override_invoked);
+    EXPECT_EQ(g_default_listen_override_host, "0.0.0.0");
+    EXPECT_EQ(g_default_listen_override_port, kServerPort);
+    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
 
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
