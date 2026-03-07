@@ -15,6 +15,7 @@ NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
 NODE_FINAL_JSON_PATH = Path("airline-gui/coverage/coverage-final.json")
 CPP_LCOV_PATH = Path("coverage/cpp/lcov.info")
 NON_EXECUTABLE_LCOV_TOKENS = {"", "{", "}", "};"}
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass
@@ -112,12 +113,27 @@ def _include_lcov_line(source_path: Path | None, line_number: int) -> bool:
     if source_path is None or line_number <= 0:
         return True
 
+    safe_source_path = _resolve_repo_source_path(source_path)
+    if safe_source_path is None:
+        return True
+
     try:
-        source_line = source_path.read_text(encoding="utf-8").splitlines()[line_number - 1].strip()
+        source_line = safe_source_path.read_text(encoding="utf-8").splitlines()[line_number - 1].strip()
     except (OSError, IndexError):
         return True
 
     return source_line not in NON_EXECUTABLE_LCOV_TOKENS
+
+
+def _resolve_repo_source_path(source_path: Path) -> Path | None:
+    candidate = source_path if source_path.is_absolute() else REPO_ROOT / source_path
+    try:
+        resolved = candidate.resolve()
+        resolved.relative_to(REPO_ROOT)
+    except (OSError, ValueError):
+        return None
+
+    return resolved
 
 
 def _safe_int(value: Any) -> int:
