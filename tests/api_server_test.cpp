@@ -211,20 +211,12 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
         response.set_content("ok", "text/plain");
     });
 
-    std::promise<bool> listen_started_promise;
-    std::future<bool> listen_started_future = listen_started_promise.get_future();
-    std::jthread blocker_thread([&blocker, started = std::move(listen_started_promise)]() mutable {
-        started.set_value(blocker.listen("0.0.0.0", kServerPort));
-    });
-
-    ASSERT_EQ(listen_started_future.wait_for(kStartupTimeout), std::future_status::ready);
-    if (!listen_started_future.get()) {
-        blocker.stop();
-        if (blocker_thread.joinable()) {
-            blocker_thread.join();
-        }
+    if (blocker.bind_to_port("127.0.0.1", kServerPort) != kServerPort) {
         GTEST_SKIP() << "Port 8080 is already in use on this machine.";
     }
+    std::jthread blocker_thread([&blocker]() {
+        blocker.listen_after_bind();
+    });
     ASSERT_TRUE(wait_for_status(kServerPort, "/health", 200));
 
     std::istringstream input_stream;
