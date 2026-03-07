@@ -16,6 +16,8 @@ class ReservationSystem {
 private:
     friend class ReservationSystemTestAccess;
 
+    static int s_customerIdCounter;
+
     std::vector<Airplane> airplanes;
     std::vector<Customer> customers;
     std::vector<Booking> bookings;

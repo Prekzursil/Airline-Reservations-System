@@ -7,9 +7,7 @@
 
 namespace rsh = reservation_system_helpers;
 
-namespace {
-inline int g_customerIdCounter = 1;
-} // namespace
+int ReservationSystem::s_customerIdCounter = 1;
 
 ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_ref)
     // cppcheck-suppress misra-c2012-12.3
@@ -35,7 +33,7 @@ void ReservationSystem::resetSystemForTest() {
 }
 
 void ReservationSystem::resetCustomerIdCounterForTest() {
-    g_customerIdCounter = 1;
+    s_customerIdCounter = 1;
 }
 
 void ReservationSystem::initializeSystem() {
@@ -49,8 +47,8 @@ void ReservationSystem::initializeSystem() {
 }
 
 std::string ReservationSystem::generateUniqueCustomerId() const {
-    const int nextCounter = g_customerIdCounter;
-    ++g_customerIdCounter;
+    const int nextCounter = s_customerIdCounter;
+    ++s_customerIdCounter;
     return rsh::formatCustomerId(nextCounter);
 }
 
