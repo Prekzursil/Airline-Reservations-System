@@ -3,7 +3,7 @@
 
 class ConcretePerson : public Person {
 public:
-    ConcretePerson(const std::string& name = "Unknown", int age = 0, const std::string& personId = "00000")
+    explicit ConcretePerson(const std::string& name = "Unknown", int age = 0, const std::string& personId = "00000")
         : Person(name, age, personId) {}
 
     void displayDetails() const override {

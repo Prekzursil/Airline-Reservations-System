@@ -98,6 +98,7 @@ add_executable(
   tests/person_test.cpp
   tests/reservation_system_helpers_test.cpp
   tests/reservation_system_test.cpp
+  tests/reservation_system_booking_flow_test.cpp
   tests/seat_test.cpp
 )
 target_include_directories(
