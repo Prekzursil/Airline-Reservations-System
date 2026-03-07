@@ -116,9 +116,12 @@ describe('SwapSeatsForm', () => {
       expect(fetchBookings).toHaveBeenCalledTimes(1);
     });
 
+    const submitButton = screen.getByRole('button', { name: 'Swap Selected Seats' });
+
     fireEvent.change(screen.getByTestId('booking1SelectSwap'), { target: { value: '1' } });
     fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    fireEvent.click(submitButton);
 
     expect(await screen.findByText('Seat swap processed.')).toBeInTheDocument();
     expect(swapSeats).toHaveBeenCalledWith(1, 2);
@@ -129,7 +132,8 @@ describe('SwapSeatsForm', () => {
 
     fireEvent.change(screen.getByTestId('booking1SelectSwap'), { target: { value: '1' } });
     fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(screen.getByText('Failed to swap seats: swap blocked')).toBeInTheDocument();

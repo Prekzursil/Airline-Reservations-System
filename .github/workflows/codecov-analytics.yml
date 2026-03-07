@@ -33,7 +33,7 @@ jobs:
       - name: Run node coverage (subdir)
         run: |
           npm --prefix airline-gui ci
-          npm --prefix airline-gui test -- --coverage --watch=false
+          npm --prefix airline-gui test -- --coverage --watch=false --coverage.reporter=lcov --coverage.reporter=json-summary --coverage.reporter=json
 
       - name: Build and test C++ with coverage
         run: |
@@ -60,8 +60,9 @@ jobs:
         if: ${{ always() }}
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
-          files: airline-gui/coverage/lcov.info
+          files: ${{ github.workspace }}/airline-gui/coverage/lcov.info
           flags: node
+          disable_search: true
           fail_ci_if_error: true
           verbose: true
 
@@ -69,7 +70,8 @@ jobs:
         if: ${{ always() }}
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
-          files: coverage/cpp/lcov.info
+          files: ${{ github.workspace }}/coverage/cpp/lcov.info
           flags: cpp
+          disable_search: true
           fail_ci_if_error: true
           verbose: true
