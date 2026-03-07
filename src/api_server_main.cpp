@@ -46,11 +46,6 @@ bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
 
-ListenOnHostCallback& default_listen_callback() {
-    static ListenOnHostCallback callback{listen_on_host};
-    return callback;
-}
-
 void set_common_headers(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Origin", "*");
     res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -326,7 +321,19 @@ int run_api_server(
     httplib::Server& server,
     std::ostream& out,
     std::ostream& err) {
-    return run_api_server_with_listener(airline_system, server, out, err, default_listen_callback());
+    return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
 }
 
-int main() { ReservationSystem airline_system(std::cin, std::cout); httplib::Server server; return run_api_server(airline_system, server, std::cout, std::cerr); }
+int airline_api_server_entry(
+    std::istream& input,
+    std::ostream& output,
+    std::ostream& error,
+    const ListenOnHostCallback& listen_callback = listen_on_host) {
+    ReservationSystem airline_system(input, output);
+    httplib::Server server;
+    return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
+}
+
+int main() {
+    return airline_api_server_entry(std::cin, std::cout, std::cerr);
+}

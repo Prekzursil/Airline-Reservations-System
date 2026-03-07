@@ -27,41 +27,6 @@ struct DefaultListenOverrideObservation {
     int port = -1;
 };
 
-class ScopedDefaultListenOverride {
-public:
-    explicit ScopedDefaultListenOverride(const ListenOnHostCallback& callback)
-        : previous_(default_listen_callback()) {
-        default_listen_callback() = callback;
-    }
-
-    ~ScopedDefaultListenOverride() {
-        default_listen_callback() = previous_;
-    }
-
-    ScopedDefaultListenOverride(const ScopedDefaultListenOverride&) = delete;
-    ScopedDefaultListenOverride& operator=(const ScopedDefaultListenOverride&) = delete;
-
-private:
-    ListenOnHostCallback previous_{listen_on_host};
-};
-
-class ScopedInputRedirect {
-public:
-    ScopedInputRedirect(std::istream& stream, const std::istream& target)
-        : stream_(stream), original_(stream.rdbuf(target.rdbuf())) {}
-
-    ~ScopedInputRedirect() {
-        stream_.rdbuf(original_);
-    }
-
-    ScopedInputRedirect(const ScopedInputRedirect&) = delete;
-    ScopedInputRedirect& operator=(const ScopedInputRedirect&) = delete;
-
-private:
-    std::istream& stream_;
-    std::streambuf* original_;
-};
-
 }  // namespace
 
 TEST(ApiServerHelpersTest, ErrorStatusHelpersReturnExpectedCodes) {
@@ -216,21 +181,20 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
 
 TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
     DefaultListenOverrideObservation observation;
-    ScopedDefaultListenOverride override_default_listen([&observation](httplib::Server&, const char* host, int port) {
-        observation.invoked = true;
-        observation.host = host == nullptr ? "" : host;
-        observation.port = port;
-        return false;
-    });
-
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
-    ScopedInputRedirect redirect_input(std::cin, input_stream);
-    ScopedStreamRedirect redirect_output(std::cout, output_stream);
-    ScopedStreamRedirect redirect_error(std::cerr, error_stream);
 
-    const int exit_code = airline_api_server_entry_main();
+    const int exit_code = airline_api_server_entry(
+        input_stream,
+        output_stream,
+        error_stream,
+        [&observation](httplib::Server&, const char* host, int port) {
+            observation.invoked = true;
+            observation.host = host == nullptr ? "" : host;
+            observation.port = port;
+            return false;
+        });
 
     EXPECT_EQ(exit_code, 1);
     EXPECT_TRUE(observation.invoked);
@@ -322,20 +286,20 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
 
 TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse) {
     DefaultListenOverrideObservation observation;
-    ScopedDefaultListenOverride override_default_listen([&observation](httplib::Server&, const char* host, int port) {
-        observation.invoked = true;
-        observation.host = host == nullptr ? "" : host;
-        observation.port = port;
-        return false;
-    });
-
-    std::stringstream input;
+    std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
-    ReservationSystem reservation_system(input, output_stream);
-    httplib::Server server;
 
-    const int exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
+    const int exit_code = airline_api_server_entry(
+        input_stream,
+        output_stream,
+        error_stream,
+        [&observation](httplib::Server&, const char* host, int port) {
+            observation.invoked = true;
+            observation.host = host == nullptr ? "" : host;
+            observation.port = port;
+            return false;
+        });
 
     EXPECT_EQ(exit_code, 1);
     EXPECT_TRUE(observation.invoked);
