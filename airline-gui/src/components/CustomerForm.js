@@ -42,7 +42,7 @@ const CustomerForm = ({ onCustomerAdded = null }) => {
                             checked={autoGenerate}
                             onChange={(event) => setAutoGenerate(event.target.checked)}
                         />
-                        Auto-generate customer data
+                        <span style={{ marginLeft: '0.25rem' }}>Auto-generate customer data</span>
                     </label>
                 </div>
                 {!autoGenerate && (
