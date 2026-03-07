@@ -21,22 +21,31 @@ using namespace api_server_test_support;
 
 namespace {
 
-bool g_default_listen_override_invoked = false;
-std::string g_default_listen_override_host;
-int g_default_listen_override_port = -1;
+struct DefaultListenOverrideObservation {
+    bool invoked = false;
+    std::string host;
+    int port = -1;
+};
+
+DefaultListenOverrideObservation& default_listen_override_observation() {
+    static DefaultListenOverrideObservation observation;
+    return observation;
+}
 
 bool fail_default_listen_override(httplib::Server&, const char* host, int port) {
-    g_default_listen_override_invoked = true;
-    g_default_listen_override_host = host == nullptr ? "" : host;
-    g_default_listen_override_port = port;
+    DefaultListenOverrideObservation& observation = default_listen_override_observation();
+    observation.invoked = true;
+    observation.host = host == nullptr ? "" : host;
+    observation.port = port;
     return false;
 }
 
 class ScopedDefaultListenOverride {
 public:
-    explicit ScopedDefaultListenOverride(ListenOnHostCallback callback)
-        : previous_(default_listen_callback()) {
-        default_listen_callback() = callback;
+    template <typename Callback>
+    explicit ScopedDefaultListenOverride(Callback callback) {
+        previous_ = default_listen_callback();
+        default_listen_callback() = static_cast<ListenOnHostCallback>(callback);
     }
 
     ~ScopedDefaultListenOverride() {
@@ -47,7 +56,7 @@ public:
     ScopedDefaultListenOverride& operator=(const ScopedDefaultListenOverride&) = delete;
 
 private:
-    ListenOnHostCallback previous_;
+    ListenOnHostCallback previous_ = nullptr;
 };
 
 class ScopedInputRedirect {
@@ -220,9 +229,8 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
 }
 
 TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
-    g_default_listen_override_invoked = false;
-    g_default_listen_override_host.clear();
-    g_default_listen_override_port = -1;
+    DefaultListenOverrideObservation& observation = default_listen_override_observation();
+    observation = {};
     ScopedDefaultListenOverride override_default_listen(fail_default_listen_override);
 
     std::istringstream input_stream;
@@ -235,9 +243,9 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
     const int exit_code = airline_api_server_entry_main();
 
     EXPECT_EQ(exit_code, 1);
-    EXPECT_TRUE(g_default_listen_override_invoked);
-    EXPECT_EQ(g_default_listen_override_host, "0.0.0.0");
-    EXPECT_EQ(g_default_listen_override_port, kServerPort);
+    EXPECT_TRUE(observation.invoked);
+    EXPECT_EQ(observation.host, "0.0.0.0");
+    EXPECT_EQ(observation.port, kServerPort);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
@@ -323,9 +331,8 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
 }
 
 TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse) {
-    g_default_listen_override_invoked = false;
-    g_default_listen_override_host.clear();
-    g_default_listen_override_port = -1;
+    DefaultListenOverrideObservation& observation = default_listen_override_observation();
+    observation = {};
     ScopedDefaultListenOverride override_default_listen(fail_default_listen_override);
 
     std::stringstream input;
@@ -337,9 +344,9 @@ TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse
     const int exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
 
     EXPECT_EQ(exit_code, 1);
-    EXPECT_TRUE(g_default_listen_override_invoked);
-    EXPECT_EQ(g_default_listen_override_host, "0.0.0.0");
-    EXPECT_EQ(g_default_listen_override_port, kServerPort);
+    EXPECT_TRUE(observation.invoked);
+    EXPECT_EQ(observation.host, "0.0.0.0");
+    EXPECT_EQ(observation.port, kServerPort);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }

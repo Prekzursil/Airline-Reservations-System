@@ -45,9 +45,10 @@ bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
 
+inline ListenOnHostCallback g_default_listen_callback = listen_on_host;
+
 ListenOnHostCallback& default_listen_callback() {
-    static ListenOnHostCallback callback = listen_on_host;
-    return callback;
+    return g_default_listen_callback;
 }
 
 void set_common_headers(httplib::Response& res) {
