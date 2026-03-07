@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <optional>
 #include <sstream>
 #include <thread>
@@ -223,16 +224,19 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     ScopedStreamRedirect redirect(std::cout, log_stream);
     ReservationSystem reservation_system(input, output_stream);
     httplib::Server server;
-    std::optional<int> exit_code;
-    std::jthread server_thread([&error_stream, &exit_code, &output_stream, &reservation_system, &server]() {
-        exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
+    std::promise<int> exit_code_promise;
+    std::future<int> exit_code_future = exit_code_promise.get_future();
+    std::jthread server_thread([&error_stream, &output_stream, &reservation_system, &server, exit_code = std::move(exit_code_promise)]() mutable {
+        exit_code.set_value(run_api_server(reservation_system, server, output_stream, error_stream));
     });
     ScopedServerShutdown shutdown(server, server_thread);
 
     const bool observed_healthy = wait_for_status(kServerPort, "/api/airplanes", 200);
+    server.stop();
 
-    ASSERT_TRUE(exit_code.has_value());
-    if (*exit_code == 0) {
+    ASSERT_EQ(exit_code_future.wait_for(kStartupTimeout), std::future_status::ready);
+    const int exit_code = exit_code_future.get();
+    if (exit_code == 0) {
         EXPECT_TRUE(observed_healthy);
         EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
         EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
@@ -240,35 +244,36 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
         return;
     }
 
-    EXPECT_EQ(*exit_code, 1);
+    EXPECT_EQ(exit_code, 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
 
-TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultPortIsAlreadyInUse) {
+TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse) {
     httplib::Server blocker;
-    const bool blocker_started = blocker.bind_to_port("127.0.0.1", kServerPort);
-    std::optional<std::jthread> blocker_thread;
-    if (blocker_started) {
-        blocker_thread.emplace([&blocker]() {
-            blocker.listen_after_bind();
-        });
-    }
+    blocker.Get("/blocker-health", [](const httplib::Request&, httplib::Response& res) {
+        res.status = 200;
+    });
+    std::jthread blocker_thread([&blocker]() {
+        blocker.listen("0.0.0.0", kServerPort);
+    });
+    ASSERT_TRUE(wait_for_status(kServerPort, "/blocker-health", 200));
 
+    std::stringstream input;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
-    ScopedStreamRedirect out_redirect(std::cout, output_stream);
-    ScopedStreamRedirect err_redirect(std::cerr, error_stream);
+    ReservationSystem reservation_system(input, output_stream);
+    httplib::Server server;
 
-    const int exit_code = airline_api_server_entry_main();
+    const int exit_code = run_api_server(reservation_system, server, output_stream, error_stream);
 
     EXPECT_EQ(exit_code, 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 
     blocker.stop();
-    if (blocker_thread.has_value() && blocker_thread->joinable()) {
-        blocker_thread->join();
+    if (blocker_thread.joinable()) {
+        blocker_thread.join();
     }
 }
 
