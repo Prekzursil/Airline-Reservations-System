@@ -27,23 +27,9 @@ struct DefaultListenOverrideObservation {
     int port = -1;
 };
 
-inline DefaultListenOverrideObservation g_default_listen_override_observation{};
-
-DefaultListenOverrideObservation& default_listen_override_observation() {
-    return g_default_listen_override_observation;
-}
-
-bool fail_default_listen_override(httplib::Server&, const char* host, int port) {
-    DefaultListenOverrideObservation& observation = default_listen_override_observation();
-    observation.invoked = true;
-    observation.host = host == nullptr ? "" : host;
-    observation.port = port;
-    return false;
-}
-
 class ScopedDefaultListenOverride {
 public:
-    explicit ScopedDefaultListenOverride(ListenOnHostCallback callback)
+    explicit ScopedDefaultListenOverride(const ListenOnHostCallback& callback)
         : previous_(default_listen_callback()) {
         default_listen_callback() = callback;
     }
@@ -229,9 +215,13 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
 }
 
 TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
-    DefaultListenOverrideObservation& observation = default_listen_override_observation();
-    observation = {};
-    ScopedDefaultListenOverride override_default_listen(fail_default_listen_override);
+    DefaultListenOverrideObservation observation;
+    ScopedDefaultListenOverride override_default_listen([&observation](httplib::Server&, const char* host, int port) {
+        observation.invoked = true;
+        observation.host = host == nullptr ? "" : host;
+        observation.port = port;
+        return false;
+    });
 
     std::istringstream input_stream;
     std::ostringstream output_stream;
@@ -331,9 +321,13 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
 }
 
 TEST(ApiServerEntryTest, RunApiServerReturnsFailureWhenDefaultPortIsAlreadyInUse) {
-    DefaultListenOverrideObservation& observation = default_listen_override_observation();
-    observation = {};
-    ScopedDefaultListenOverride override_default_listen(fail_default_listen_override);
+    DefaultListenOverrideObservation observation;
+    ScopedDefaultListenOverride override_default_listen([&observation](httplib::Server&, const char* host, int port) {
+        observation.invoked = true;
+        observation.host = host == nullptr ? "" : host;
+        observation.port = port;
+        return false;
+    });
 
     std::stringstream input;
     std::ostringstream output_stream;
