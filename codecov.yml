@@ -1,3 +1,4 @@
+# Keep Codecov aligned with the repo's line-coverage gate after default-branch changes.
 codecov:
   require_ci_to_pass: true
 

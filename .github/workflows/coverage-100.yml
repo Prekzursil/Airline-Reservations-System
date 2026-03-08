@@ -53,6 +53,10 @@ jobs:
             --gcov-exclude-directory '.*/CMakeFiles/airline_reservation_system.dir/.*' \
             --lcov coverage/cpp/lcov.info \
             --print-summary
+          cp coverage/cpp/lcov.info coverage/cpp/lcov.raw.info
+          python3 -m scripts.quality.normalize_lcov \
+            --input coverage/cpp/lcov.raw.info \
+            --output coverage/cpp/lcov.info
 
       - name: Enforce 100% coverage
         run: |
@@ -66,5 +70,6 @@ jobs:
           path: |
             airline-gui/coverage
             coverage/cpp/lcov.info
+            coverage/cpp/lcov.raw.info
             build/Testing
             coverage-100

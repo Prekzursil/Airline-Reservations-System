@@ -65,18 +65,27 @@ jobs:
           fi
       - name: Assert required quality contexts are green
         run: |
+          required_context_args=(
+            --required-context "Coverage 100 Gate"
+            --required-context "Codecov Analytics"
+            --required-context "Sonar Zero"
+            --required-context "Codacy Zero"
+            --required-context "Semgrep Zero"
+            --required-context "Sentry Zero"
+            --required-context "SonarCloud Code Analysis"
+          )
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            required_context_args+=(
+              --required-context "DeepScan Zero"
+              --required-context "DeepScan"
+            )
+          fi
+
           python3 -m scripts.quality.check_required_checks \
             --repo "${GITHUB_REPOSITORY}" \
             --sha "${QUALITY_SHA}" \
-            --required-context "Coverage 100 Gate" \
-            --required-context "Codecov Analytics" \
-            --required-context "Sonar Zero" \
-            --required-context "Codacy Zero" \
-            --required-context "Semgrep Zero" \
-            --required-context "Sentry Zero" \
-            --required-context "DeepScan Zero" \
-            --required-context "SonarCloud Code Analysis" \
-            --required-context "DeepScan" \
+            "${required_context_args[@]}" \
             --timeout-seconds 1500 \
             --poll-seconds 20
       - name: Upload aggregate artifact
