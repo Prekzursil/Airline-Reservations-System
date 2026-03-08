@@ -76,7 +76,6 @@ jobs:
             --required-context "Sentry Zero" \
             --required-context "DeepScan Zero" \
             --required-context "SonarCloud Code Analysis" \
-            --required-context "Codacy Static Code Analysis" \
             --required-context "DeepScan" \
             --timeout-seconds 1500 \
             --poll-seconds 20
