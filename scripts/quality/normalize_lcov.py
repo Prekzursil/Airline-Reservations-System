@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import absolute_import, annotations, division
 
-from pathlib import Path
-from typing import Iterable, Tuple
+import sys
+from typing import Iterable, TextIO, Tuple
 
 _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
-_RAW_LCOV_PATH = Path("coverage/cpp/lcov.raw.info")
-_NORMALIZED_LCOV_PATH = Path("coverage/cpp/lcov.info")
-
-def _coverage_paths() -> Tuple[Path, Path]:
-    return _RAW_LCOV_PATH, _NORMALIZED_LCOV_PATH
-
 
 def normalize_lcov_lines(lines: Iterable[str]) -> Tuple[str, int]:
     kept_lines = []
@@ -28,15 +22,19 @@ def normalize_lcov_lines(lines: Iterable[str]) -> Tuple[str, int]:
     return normalized, stripped_count
 
 
-def main() -> int:
-    input_path, output_path = _coverage_paths()
-    if not input_path.is_file():
-        raise SystemExit(f"Input LCOV path does not exist: {input_path}")
+def main(
+    *,
+    stdin: TextIO | None = None,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
+) -> int:
+    input_stream = stdin or sys.stdin
+    output_stream = stdout or sys.stdout
+    error_stream = stderr or sys.stderr
 
-    normalized, stripped_count = normalize_lcov_lines(input_path.read_text(encoding="utf-8").splitlines())
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(normalized, encoding="utf-8")
-    print(f"Normalized LCOV: stripped {stripped_count} branch records from {input_path} -> {output_path}")
+    normalized, stripped_count = normalize_lcov_lines(input_stream.read().splitlines())
+    output_stream.write(normalized)
+    error_stream.write(f"Normalized LCOV: stripped {stripped_count} branch records\n")
     return 0
 
 
