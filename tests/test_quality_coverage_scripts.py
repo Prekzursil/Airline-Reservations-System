@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -39,6 +40,18 @@ class NormalizeLcovTests(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_resolve_repo_path_rejects_absolute_and_traversal_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = normalize_lcov._REPO_ROOT
+            normalize_lcov._REPO_ROOT = Path(temp_dir).resolve()
+            try:
+                with self.assertRaises(SystemExit):
+                    normalize_lcov._resolve_repo_path("../outside.info", label="input", must_exist=False)
+                with self.assertRaises(SystemExit):
+                    normalize_lcov._resolve_repo_path(str(Path(temp_dir).resolve() / "absolute.info"), label="output", must_exist=False)
+            finally:
+                normalize_lcov._REPO_ROOT = previous
 
 
 if __name__ == "__main__":
