@@ -5,12 +5,11 @@ from pathlib import Path
 from typing import Iterable, Tuple
 
 _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
+_RAW_LCOV_PATH = Path("coverage/cpp/lcov.raw.info")
+_NORMALIZED_LCOV_PATH = Path("coverage/cpp/lcov.info")
 
-
-def _coverage_paths(repo_root: Path | None = None) -> Tuple[Path, Path]:
-    resolved_root = (repo_root or Path.cwd()).resolve()
-    coverage_dir = resolved_root / "coverage" / "cpp"
-    return coverage_dir / "lcov.raw.info", coverage_dir / "lcov.info"
+def _coverage_paths() -> Tuple[Path, Path]:
+    return _RAW_LCOV_PATH, _NORMALIZED_LCOV_PATH
 
 
 def normalize_lcov_lines(lines: Iterable[str]) -> Tuple[str, int]:
