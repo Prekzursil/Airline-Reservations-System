@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -41,17 +42,46 @@ class NormalizeLcovTests(unittest.TestCase):
             ),
         )
 
-    def test_resolve_repo_path_rejects_absolute_and_traversal_paths(self) -> None:
+    def test_main_normalizes_repo_default_lcov_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            previous = normalize_lcov._REPO_ROOT
-            normalize_lcov._REPO_ROOT = Path(temp_dir).resolve()
+            previous_cwd = Path.cwd()
             try:
-                with self.assertRaises(SystemExit):
-                    normalize_lcov._resolve_repo_path("../outside.info", label="input", must_exist=False)
-                with self.assertRaises(SystemExit):
-                    normalize_lcov._resolve_repo_path(str(Path(temp_dir).resolve() / "absolute.info"), label="output", must_exist=False)
+                os.chdir(temp_dir)
+                raw_path = Path("coverage/cpp/lcov.raw.info")
+                raw_path.parent.mkdir(parents=True, exist_ok=True)
+                raw_path.write_text(
+                    "\n".join(
+                        [
+                            "TN:",
+                            "SF:src/example.cpp",
+                            "DA:10,1",
+                            "BRDA:10,0,0,1",
+                            "BRF:1",
+                            "BRH:1",
+                            "end_of_record",
+                            "",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+
+                exit_code = normalize_lcov.main()
+
+                self.assertEqual(exit_code, 0)
+                self.assertEqual(
+                    Path("coverage/cpp/lcov.info").read_text(encoding="utf-8"),
+                    "\n".join(
+                        [
+                            "TN:",
+                            "SF:src/example.cpp",
+                            "DA:10,1",
+                            "end_of_record",
+                            "",
+                        ]
+                    ),
+                )
             finally:
-                normalize_lcov._REPO_ROOT = previous
+                os.chdir(previous_cwd)
 
 
 if __name__ == "__main__":

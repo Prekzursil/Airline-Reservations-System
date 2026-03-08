@@ -54,9 +54,7 @@ jobs:
             --lcov coverage/cpp/lcov.info \
             --print-summary
           cp coverage/cpp/lcov.info coverage/cpp/lcov.raw.info
-          python3 -m scripts.quality.normalize_lcov \
-            --input coverage/cpp/lcov.raw.info \
-            --output coverage/cpp/lcov.info
+          python3 -m scripts.quality.normalize_lcov
 
       - name: Enforce 100% coverage
         run: |
