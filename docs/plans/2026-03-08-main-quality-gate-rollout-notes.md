@@ -51,3 +51,24 @@
 - Required approving review count: `1`
 - Required conversation resolution: `true`
 - Strict status checks: `true`
+
+## PR Validation Status
+
+- PR: `#20`
+- PR URL: `https://github.com/Prekzursil/Airline-Reservations-System/pull/20`
+- Branch: `codex/quality-zero-gate-codacy-context`
+- Commit: `89db3f5ae6ff65ecffec2b2df46561b491661cdb`
+
+## Residual Blocker
+
+- PR-triggered GitHub Actions jobs did not start on GitHub-hosted runners.
+- Representative runs:
+  - `Quality Zero Gate`: `22828854169`
+  - `Verify`: `22828854171`
+- Check-run annotation on failed jobs:
+
+```text
+The job was not started because your account is locked due to a billing issue.
+```
+
+- Result: the workflow change is in place, but branch validation cannot complete until the GitHub Actions billing lock is cleared on the repository owner account.
