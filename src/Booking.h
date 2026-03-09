@@ -6,6 +6,7 @@
 #include <string_view>
 #include <iostream> // For display
 #include <chrono>   // For bookingDate (optional, could use string)
+#include <cstdint>
 
 class BookingTestAccess;
 
@@ -24,6 +25,7 @@ private:
     std::chrono::system_clock::time_point bookingDate; // Or std::string for simplicity
     BookingStatus status;
 
+    static std::uint64_t nextBookingSequence();
     std::string generateBookingId() const; // Helper to create a unique ID
 
     friend class BookingTestAccess;
