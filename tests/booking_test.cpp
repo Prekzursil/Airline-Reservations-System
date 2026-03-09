@@ -2,6 +2,7 @@
 #include "gtest/gtest.h"
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <regex>
 #include <string>
 #include <thread>
@@ -102,9 +103,9 @@ TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndMonotonicNumericSuffix) {
 
     for (int index = 0; index < booking_count; ++index) {
         Booking booking(
-            "C" + std::to_string(1000 + index),
-            "FL" + std::to_string(500 + index),
-            std::to_string(index + 1) + "A"
+            std::format("C{}", 1000 + index),
+            std::format("FL{}", 500 + index),
+            std::format("{}A", index + 1)
         );
         generated_ids.push_back(booking.getBookingId());
     }
