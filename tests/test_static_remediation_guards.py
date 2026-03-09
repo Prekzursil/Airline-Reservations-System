@@ -30,6 +30,27 @@ class StaticRemediationGuardsTest(unittest.TestCase):
             "Booking.cpp should not keep the booking sequence as a function-local static atomic",
         )
 
+    def test_booking_source_avoids_namespace_scope_mutable_sequence_global(self) -> None:
+        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
+        forbidden_globals = (
+            "std::atomic_uint64_t g_bookingSequence",
+            "std::atomic_uint64_t g_booking_id_sequence",
+        )
+
+        for token in forbidden_globals:
+            self.assertNotIn(
+                token,
+                booking_source,
+                "Booking.cpp should not keep the booking sequence as a namespace-scope mutable global",
+            )
+
+    def test_booking_sequence_storage_is_a_private_class_static_member(self) -> None:
+        booking_header = (REPO_ROOT / "src" / "Booking.h").read_text(encoding="utf-8")
+        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
+
+        self.assertIn("static std::atomic_uint64_t bookingSequence_;", booking_header)
+        self.assertIn("std::atomic_uint64_t Booking::bookingSequence_{100};", booking_source)
+
     def test_coverage_workflow_requires_cpp_artifacts(self) -> None:
         workflow_text = (REPO_ROOT / ".github" / "workflows" / "coverage-100.yml").read_text(encoding="utf-8")
         codecov_text = (REPO_ROOT / ".github" / "workflows" / "codecov-analytics.yml").read_text(encoding="utf-8")
