@@ -21,6 +21,10 @@ jobs:
     timeout-minutes: 15
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
+      CODACY_ORGANIZATION_PROVIDER: gh
+      CODACY_USERNAME: Prekzursil
+      CODACY_PROJECT_NAME: ${{ github.event.repository.name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -55,10 +59,35 @@ jobs:
             --gcov-exclude-directory '.*/CMakeFiles/airline_reservation_system.dir/.*' \
             --lcov coverage/cpp/lcov.info \
             --print-summary
-          cp coverage/cpp/lcov.info coverage/cpp/lcov.raw.info
-          python3 -m scripts.quality.normalize_lcov \
-            < coverage/cpp/lcov.raw.info \
-            > coverage/cpp/lcov.info
+
+      - name: Upload coverage reports to Codacy
+        if: ${{ always() && env.CODACY_API_TOKEN != '' }}
+        run: |
+          report_args=()
+          if [[ -f airline-gui/coverage/lcov.info ]]; then
+            report_args+=(-r airline-gui/coverage/lcov.info)
+          fi
+          if [[ -f coverage/cpp/lcov.info ]]; then
+            report_args+=(-r coverage/cpp/lcov.info)
+          fi
+
+          if [[ ${#report_args[@]} -eq 0 ]]; then
+            echo "No Codacy coverage reports were generated." >&2
+            exit 1
+          fi
+
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
+            --api-token "${CODACY_API_TOKEN}" \
+            --organization-provider "${CODACY_ORGANIZATION_PROVIDER}" \
+            --username "${CODACY_USERNAME}" \
+            --project-name "${CODACY_PROJECT_NAME}" \
+            "${report_args[@]}" \
+            --partial
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) final \
+            --api-token "${CODACY_API_TOKEN}" \
+            --organization-provider "${CODACY_ORGANIZATION_PROVIDER}" \
+            --username "${CODACY_USERNAME}" \
+            --project-name "${CODACY_PROJECT_NAME}"
 
       - name: Upload node coverage to Codecov
         if: ${{ always() && hashFiles('airline-gui/coverage/lcov.info') != '' }}

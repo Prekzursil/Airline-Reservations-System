@@ -1,12 +1,14 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "Booking.h"
+#include <atomic>
 #include <cstdint>
 #include <format>
-#include <random>
+#include <sstream>
 #include <string_view>
 
 namespace {
 constexpr std::int64_t kSecondsPerDay = 24LL * 60LL * 60LL;
+std::atomic_uint64_t g_booking_id_sequence{100};
 
 struct CivilDateTime {
     int year;
@@ -95,15 +97,11 @@ std::string bookingStatusToString(BookingStatus status) {
 
 std::string Booking::generateBookingId() const {
     const auto now = std::chrono::system_clock::now();
-    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution distrib(100, 999);
-    const auto randomNumber = distrib(gen);
+    const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    const auto sequence = g_booking_id_sequence.fetch_add(1, std::memory_order_relaxed);
 
     std::ostringstream stream;
-    stream << "BK" << seconds << '-' << randomNumber;
+    stream << "BK" << microseconds << '-' << sequence;
     return stream.str();
 }
 

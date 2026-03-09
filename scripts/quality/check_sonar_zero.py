@@ -44,6 +44,7 @@ def _render_md(payload: Dict[str, Any]) -> str:
         f"- Status: `{payload['status']}`",
         f"- Project: `{payload['project_key']}`",
         f"- Open issues: `{payload.get('open_issues')}`",
+        f"- Unresolved security hotspots: `{payload.get('unresolved_security_hotspots')}`",
         f"- Quality gate: `{payload.get('quality_gate')}`",
         f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
         "",
@@ -57,24 +58,31 @@ def _render_md(payload: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _build_queries(args: argparse.Namespace, project_key: str) -> Tuple[Dict[str, str], Dict[str, str]]:
+def _build_queries(args: argparse.Namespace, project_key: str) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
     issues_query: Dict[str, str] = {
         "componentKeys": project_key,
         "resolved": "false",
         "ps": "1",
     }
     gate_query: Dict[str, str] = {"projectKey": project_key}
+    hotspots_query: Dict[str, str] = {
+        "projectKey": project_key,
+        "status": "TO_REVIEW",
+        "ps": "1",
+    }
 
     if args.branch:
         branch = require_slug(args.branch, label="Sonar branch")
         issues_query["branch"] = branch
         gate_query["branch"] = branch
+        hotspots_query["branch"] = branch
     if args.pull_request:
         pr = require_slug(args.pull_request, label="Sonar pull request")
         issues_query["pullRequest"] = pr
         gate_query["pullRequest"] = pr
+        hotspots_query["pullRequest"] = pr
 
-    return issues_query, gate_query
+    return issues_query, gate_query, hotspots_query
 
 
 def _fetch_open_issues(auth: str, issues_query: Dict[str, str]) -> int:
@@ -111,6 +119,23 @@ def _fetch_quality_gate(auth: str, gate_query: Dict[str, str]) -> str:
     return str(project_status.get("status") or "UNKNOWN")
 
 
+def _fetch_unresolved_hotspots(auth: str, hotspots_query: Dict[str, str]) -> int:
+    target = build_https_request_target(
+        host=HTTPSHost.SONARCLOUD,
+        path="/api/hotspots/search?" + urllib.parse.urlencode(hotspots_query),
+    )
+    hotspots_payload = request_json_https_target(
+        target=target,
+        method="GET",
+        headers={
+            "Authorization": auth,
+            "User-Agent": "airline-sonar-zero-gate",
+        },
+    )
+    paging = hotspots_payload.get("paging") or {}
+    return int(paging.get("total") or 0)
+
+
 def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> str:
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
@@ -131,18 +156,20 @@ def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> st
     return ""
 
 
-def _evaluate_findings(open_issues: int, quality_gate: str) -> List[str]:
+def _evaluate_findings(open_issues: int, unresolved_hotspots: int, quality_gate: str) -> List[str]:
     findings: List[str] = []
     if open_issues != 0:
         findings.append(f"Sonar reports {open_issues} open issues (expected 0).")
+    if unresolved_hotspots != 0:
+        findings.append(f"Sonar reports {unresolved_hotspots} unresolved security hotspots (expected 0).")
     if quality_gate != "OK":
         findings.append(f"Sonar quality gate status is {quality_gate} (expected OK).")
     return findings
 
 
-def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optional[int], Optional[str], List[str]]:
+def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optional[int], Optional[int], Optional[str], List[str]]:
     if not token:
-        return "fail", None, None, ["SONAR_TOKEN is missing."]
+        return "fail", None, None, None, ["SONAR_TOKEN is missing."]
 
     auth = _auth_header(token)
     project_key = require_slug(args.project_key, label="Sonar project key")
@@ -159,6 +186,7 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optiona
                     "fail",
                     None,
                     None,
+                    None,
                     [
                         "Sonar PR analysis did not reach the expected head SHA before timeout.",
                         f"Expected SHA: {expected_pr_sha}",
@@ -167,23 +195,25 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optiona
                 )
             time.sleep(max(args.poll_interval_seconds, 1))
 
-    issues_query, gate_query = _build_queries(args, project_key)
+    issues_query, gate_query, hotspots_query = _build_queries(args, project_key)
 
     open_issues = _fetch_open_issues(auth, issues_query)
+    unresolved_hotspots = _fetch_unresolved_hotspots(auth, hotspots_query)
     quality_gate = _fetch_quality_gate(auth, gate_query)
-    findings = _evaluate_findings(open_issues, quality_gate)
+    findings = _evaluate_findings(open_issues, unresolved_hotspots, quality_gate)
     status = "pass" if not findings else "fail"
-    return status, open_issues, quality_gate, findings
+    return status, open_issues, unresolved_hotspots, quality_gate, findings
 
 
 def main() -> int:
     args = _parse_args()
     token = (args.token or os.environ.get("SONAR_TOKEN", "")).strip()
     try:
-        status, open_issues, quality_gate, findings = _run_sonar_check(args, token)
+        status, open_issues, unresolved_hotspots, quality_gate, findings = _run_sonar_check(args, token)
     except (RuntimeError, ValueError) as exc:  # pragma: no cover - network/runtime surface
         status = "fail"
         open_issues = None
+        unresolved_hotspots = None
         quality_gate = None
         findings = [f"Sonar API request failed: {exc}"]
 
@@ -191,6 +221,7 @@ def main() -> int:
         "status": status,
         "project_key": args.project_key,
         "open_issues": open_issues,
+        "unresolved_security_hotspots": unresolved_hotspots,
         "quality_gate": quality_gate,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "findings": findings,

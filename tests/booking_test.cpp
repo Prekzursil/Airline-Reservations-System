@@ -1,8 +1,11 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "gtest/gtest.h"
 #include <chrono>
+#include <cstdint>
 #include <regex>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "../src/Booking.h"
 
@@ -90,6 +93,34 @@ TEST_F(BookingTest, GenerateBookingIdUniqueness) {
     Booking tempBooking2("C0004", "FL404", "4D");
     EXPECT_NE(id1, tempBooking2.getBookingId());
     EXPECT_NE(id2, tempBooking2.getBookingId());
+}
+
+TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndMonotonicNumericSuffix) {
+    constexpr int booking_count = 20;
+    std::vector<std::string> generated_ids;
+    generated_ids.reserve(booking_count);
+
+    for (int index = 0; index < booking_count; ++index) {
+        Booking booking(
+            "C" + std::to_string(1000 + index),
+            "FL" + std::to_string(500 + index),
+            std::to_string(index + 1) + "A"
+        );
+        generated_ids.push_back(booking.getBookingId());
+    }
+
+    const std::regex booking_id_pattern(R"(^BK\d+-\d+$)");
+    std::int64_t previous_suffix = -1;
+    for (const std::string& booking_id : generated_ids) {
+        ASSERT_TRUE(std::regex_match(booking_id, booking_id_pattern)) << booking_id;
+
+        const auto dash_position = booking_id.rfind('-');
+        ASSERT_NE(dash_position, std::string::npos) << booking_id;
+
+        const std::int64_t suffix = std::stoll(booking_id.substr(dash_position + 1));
+        EXPECT_GT(suffix, previous_suffix) << booking_id;
+        previous_suffix = suffix;
+    }
 }
 
 TEST_F(BookingTest, GetBookingDateStringHandlesEpochAndNegativeTimes) {

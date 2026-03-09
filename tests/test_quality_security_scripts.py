@@ -19,12 +19,13 @@ def _load_quality_modules():
     from scripts.quality import check_deepscan_zero as deepscan
     from scripts.quality import check_quality_secrets as quality_secrets
     from scripts.quality import check_required_checks as required_checks
+    from scripts.quality import check_sonar_zero as sonar
     from scripts.quality import check_sentry_zero as sentry
 
-    return helpers, codacy, deepscan, quality_secrets, required_checks, sentry
+    return helpers, codacy, deepscan, quality_secrets, required_checks, sonar, sentry
 
 
-helpers, codacy, deepscan, quality_secrets, required_checks, sentry = _load_quality_modules()
+helpers, codacy, deepscan, quality_secrets, required_checks, sonar, sentry = _load_quality_modules()
 
 
 def _configured_value(label: str) -> str:
@@ -257,6 +258,65 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 self.assertNotIn(_configured_value("codecov"), markdown)
                 self.assertNotIn("SNYK_TOKEN", markdown)
                 self.assertNotIn("SENTRY_AUTH_TOKEN", markdown)
+            finally:
+                os.chdir(previous)
+
+
+class SonarZeroScriptTests(unittest.TestCase):
+    def test_sonar_query_builders_include_hotspot_scope(self) -> None:
+        args = mock.Mock(
+            branch="feature-hotspots",
+            expected_pr_sha="",
+            max_wait_seconds=180,
+            poll_interval_seconds=10,
+            project_key="Prekzursil_Airline-Reservations-System",
+            pull_request="",
+        )
+
+        issues_query, gate_query, hotspots_query = sonar._build_queries(args, args.project_key)
+
+        self.assertEqual(issues_query["componentKeys"], args.project_key)
+        self.assertEqual(gate_query["projectKey"], args.project_key)
+        self.assertEqual(hotspots_query["projectKey"], args.project_key)
+        self.assertEqual(hotspots_query["status"], "TO_REVIEW")
+        self.assertEqual(hotspots_query["branch"], "feature-hotspots")
+
+    def test_sonar_findings_include_unresolved_hotspots(self) -> None:
+        findings = sonar._evaluate_findings(open_issues=0, unresolved_hotspots=2, quality_gate="OK")
+
+        self.assertEqual(findings, ["Sonar reports 2 unresolved security hotspots (expected 0)."])
+
+    def test_sonar_main_writes_hotspot_counts_into_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                argv = [
+                    "check_sonar_zero.py",
+                    "--project-key",
+                    "Prekzursil_Airline-Reservations-System",
+                    "--token",
+                    "placeholder-token",
+                ]
+                with mock.patch.object(sys, "argv", argv):
+                    with mock.patch.object(
+                        sonar,
+                        "_run_sonar_check",
+                        return_value=("fail", 0, 3, "OK", ["Sonar reports 3 unresolved security hotspots (expected 0)."]),
+                    ):
+                        exit_code = sonar.main()
+
+                out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.SONAR_ZERO)
+                payload = json.loads(out_json.read_text(encoding="utf-8"))
+                markdown = out_md.read_text(encoding="utf-8")
+
+                self.assertEqual(exit_code, 1)
+                self.assertEqual(payload["status"], "fail")
+                self.assertEqual(payload["open_issues"], 0)
+                self.assertEqual(payload["unresolved_security_hotspots"], 3)
+                self.assertEqual(payload["quality_gate"], "OK")
+                self.assertIn("Unresolved security hotspots: `3`", markdown)
+                self.assertIn("Sonar reports 3 unresolved security hotspots (expected 0).", markdown)
             finally:
                 os.chdir(previous)
 
