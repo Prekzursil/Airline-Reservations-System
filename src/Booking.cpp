@@ -8,11 +8,7 @@
 
 namespace {
 constexpr std::int64_t kSecondsPerDay = 24LL * 60LL * 60LL;
-
-std::atomic_uint64_t& bookingIdSequence() {
-    static std::atomic_uint64_t sequence{100};
-    return sequence;
-}
+inline std::atomic_uint64_t g_bookingIdSequence{100};
 
 struct CivilDateTime {
     int year;
@@ -102,7 +98,7 @@ std::string bookingStatusToString(BookingStatus status) {
 std::string Booking::generateBookingId() const {
     const auto now = std::chrono::system_clock::now();
     const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    const auto sequence = bookingIdSequence().fetch_add(1, std::memory_order_relaxed);
+    const auto sequence = g_bookingIdSequence.fetch_add(1, std::memory_order_relaxed);
 
     std::ostringstream stream;
     stream << "BK" << microseconds << '-' << sequence;
