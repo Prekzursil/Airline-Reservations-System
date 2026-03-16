@@ -101,6 +101,24 @@ TEST_F(ReservationSystemTest, GetValidatedInputThrowsWhenNumericInputEndsAfterRe
     EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, GetValidatedDoubleRetriesAfterInvalidNumericInput) {
+    test_in.str("oops\n123.5\n");
+
+    const double value = ReservationSystemTestAccess::getValidatedDouble(rs, "Enter fare: ");
+
+    EXPECT_DOUBLE_EQ(value, 123.5);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetValidatedDoubleThrowsWhenInputEndsAfterRetry) {
+    test_in.str("oops");
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedDouble(rs, "Enter fare: ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, GetValidatedStringReturnsFirstTokenWithoutRetry) {
     test_in.str("FL101\n");
 

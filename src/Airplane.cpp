@@ -8,7 +8,7 @@
 namespace {
 std::string buildSeatId(const int rowNumber, const int seatOffset) {
     return std::format("{}{}", rowNumber, static_cast<char>('A' + seatOffset));
-}
+}  // GCOVR_EXCL_LINE
 
 char seatDisplayChar(const Seat& seat) {
     using enum SeatClass;
@@ -17,7 +17,7 @@ char seatDisplayChar(const Seat& seat) {
         return 'X';
     }
     return seat.getSeatClass() == BUSINESS ? 'B' : 'E';
-}
+}  // GCOVR_EXCL_LINE
 
 void applyAirplaneLayout(int rows, int seatsPerRow, int& totalRowsOut, int& seatsPerRowOut, int& bookedSeatsOut) {
     totalRowsOut = rows > 0 ? rows : 1;

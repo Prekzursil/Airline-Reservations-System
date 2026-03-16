@@ -66,6 +66,10 @@ public:
         return reservation_system.getValidatedInput<int>(prompt);
     }
 
+    static double getValidatedDouble(ReservationSystem& reservation_system, const std::string& prompt) {
+        return reservation_system.getValidatedInput<double>(prompt);
+    }
+
     static std::string getValidatedString(ReservationSystem& reservation_system, const std::string& prompt) {
         return reservation_system.getValidatedInput<std::string>(prompt);
     }
