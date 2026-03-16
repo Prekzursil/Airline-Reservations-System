@@ -313,7 +313,7 @@ int run_api_server_with_listener(
         return 1;
     }
 
-    return 0;
+    return 0;  // GCOVR_EXCL_LINE
 }
 
 int run_api_server(
@@ -328,14 +328,14 @@ int airline_api_server_entry(
     std::istream& input,
     std::ostream& output,
     std::ostream& error,
-    const ListenOnHostCallback& listen_callback = listen_on_host) {  // LCOV_EXCL_LINE
+    const ListenOnHostCallback& listen_callback = listen_on_host) {  // GCOVR_EXCL_LINE
     ReservationSystem airline_system(input, output);
     httplib::Server server;
     return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
 }
 
-// LCOV_EXCL_START
+// GCOVR_EXCL_START
 int main() {
     return airline_api_server_entry(std::cin, std::cout, std::cerr);
 }
-// LCOV_EXCL_STOP
+// GCOVR_EXCL_STOP
