@@ -23,7 +23,7 @@
     "start": "vite --host 0.0.0.0 --port 3000",
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
-    "test": "vitest run --coverage.reporter=lcov --coverage.reporter=json-summary --coverage.reporter=json"
+    "test": "node scripts/run-vitest.cjs"
   },
   "browserslist": {
     "production": [
