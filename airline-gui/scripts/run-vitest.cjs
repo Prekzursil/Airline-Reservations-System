@@ -1,23 +1,27 @@
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
+const projectRoot = path.resolve(__dirname, "..");
+const vitestEntrypoint = require.resolve("vitest/vitest.mjs", {
+  paths: [projectRoot],
+});
+
 const args = process.argv.slice(2);
 const coverageEnabled =
   args.includes("--coverage") ||
   args.includes("--coverage.enabled") ||
   args.some((arg) => arg.startsWith("--coverage.enabled="));
 
-const vitestArgs = ["vitest", "run", ...args];
+const vitestArgs = [vitestEntrypoint, "run", ...args];
 
 if (coverageEnabled) {
   vitestArgs.push("--coverage.include=src/**/*.{js,jsx}");
   vitestArgs.push("--coverage.exclude=scripts/**");
 }
 
-const vitestResult = spawnSync("npx", vitestArgs, {
-  cwd: path.resolve(__dirname, ".."),
+const vitestResult = spawnSync(process.execPath, vitestArgs, {
+  cwd: projectRoot,
   stdio: "inherit",
-  shell: process.platform === "win32",
 });
 
 if (vitestResult.status !== 0) {
@@ -27,7 +31,7 @@ if (vitestResult.status !== 0) {
 if (coverageEnabled) {
   const writerPath = path.resolve(__dirname, "write-coverage-artifacts.cjs");
   const writerResult = spawnSync(process.execPath, [writerPath], {
-    cwd: path.resolve(__dirname, ".."),
+    cwd: projectRoot,
     stdio: "inherit",
   });
 
