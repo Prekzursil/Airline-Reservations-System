@@ -58,7 +58,6 @@ private: // Back to private for other members
 
 public:
     explicit ReservationSystem(std::istream& cin_ref = std::cin, std::ostream& cout_ref = std::cout); // Modified constructor
-    ~ReservationSystem();
 
     void initializeSystem(); // To add some default airplanes/customers for testing
     void run(); // Main application loop

@@ -13,8 +13,6 @@ ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_r
     initializeSystem();
 }
 
-ReservationSystem::~ReservationSystem() = default;
-
 void ReservationSystem::setInputStreamForTest(std::istream& inputStream) {
     m_cin_ptr = &inputStream;
 }

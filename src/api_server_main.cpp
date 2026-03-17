@@ -2,7 +2,6 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
-#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -40,8 +39,6 @@ void to_json(json& j, const Booking& b) {
 
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
-using ListenOnHostCallback = std::function<bool(httplib::Server& server, const char* host, int port)>;
-
 bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
@@ -293,13 +290,13 @@ void register_routes(httplib::Server& server, ReservationSystem& airline_system)
     });
 }
 
-template <typename ListenCallback>
+template <typename ListenOnHostCallback>
 int run_api_server_with_listener(
     ReservationSystem& airline_system,
     httplib::Server& server,
     std::ostream& out,
     std::ostream& err,
-    ListenCallback&& listen_callback) {
+    ListenOnHostCallback&& listen_callback) {
     register_routes(server, airline_system);
 
     server.set_base_dir("./");
@@ -313,7 +310,7 @@ int run_api_server_with_listener(
         return 1;
     }
 
-    return 0;  // GCOVR_EXCL_LINE
+    return 0;
 }
 
 int run_api_server(
@@ -324,11 +321,12 @@ int run_api_server(
     return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
 }
 
+template <typename ListenOnHostCallback>
 int airline_api_server_entry(
     std::istream& input,
     std::ostream& output,
     std::ostream& error,
-    const ListenOnHostCallback& listen_callback = listen_on_host) {  // GCOVR_EXCL_LINE
+    ListenOnHostCallback&& listen_callback) {
     ReservationSystem airline_system(input, output);
     httplib::Server server;
     return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
@@ -336,6 +334,6 @@ int airline_api_server_entry(
 
 // GCOVR_EXCL_START
 int main() {
-    return airline_api_server_entry(std::cin, std::cout, std::cerr);
+    return airline_api_server_entry(std::cin, std::cout, std::cerr, listen_on_host);
 }
 // GCOVR_EXCL_STOP
