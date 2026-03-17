@@ -43,6 +43,8 @@ bool listen_on_host(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
 }
 
+void log_http_request(const httplib::Request& req, const httplib::Response& res) { std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl; }
+
 void set_common_headers(httplib::Response& res) {
     res.set_header("Access-Control-Allow-Origin", "*");
     res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -107,7 +109,7 @@ int swap_error_status(const std::string& message) {
 }
 
 const Booking* find_confirmed_booking_for_seat(
-    const std::vector<Booking>& bookings,
+    const std::deque<Booking>& bookings,
     std::string_view flight_number,
     std::string_view seat_id) {
     for (const Booking& booking : bookings) {
@@ -296,13 +298,11 @@ int run_api_server_with_listener(
     httplib::Server& server,
     std::ostream& out,
     std::ostream& err,
-    ListenOnHostCallback&& listen_callback) {
+    const ListenOnHostCallback& listen_callback) {
     register_routes(server, airline_system);
 
     server.set_base_dir("./");
-    server.set_logger([](const httplib::Request& req, const httplib::Response& res) {
-        std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl;
-    });
+    server.set_logger(log_http_request);
 
     out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
     if (!listen_callback(server, "0.0.0.0", kServerPort)) {
@@ -326,14 +326,18 @@ int airline_api_server_entry(
     std::istream& input,
     std::ostream& output,
     std::ostream& error,
-    ListenOnHostCallback&& listen_callback) {
+    const ListenOnHostCallback& listen_callback) {
     ReservationSystem airline_system(input, output);
     httplib::Server server;
     return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
 }
 
+int airline_api_server_entry(std::istream& input, std::ostream& output, std::ostream& error) {
+    return airline_api_server_entry(input, output, error, listen_on_host);
+}
+
 // GCOVR_EXCL_START
 int main() {
-    return airline_api_server_entry(std::cin, std::cout, std::cerr, listen_on_host);
+    return airline_api_server_entry(std::cin, std::cout, std::cerr);
 }
 // GCOVR_EXCL_STOP

@@ -35,6 +35,10 @@ struct DefaultListenOverrideObservation {
 };
 
 #ifndef _WIN32
+const sockaddr* to_sockaddr(const sockaddr_in& address) {
+    return static_cast<const sockaddr*>(static_cast<const void*>(&address));
+}
+
 class ScopedPortBlocker {
 public:
     explicit ScopedPortBlocker(const int port) {
@@ -48,7 +52,7 @@ public:
         address.sin_addr.s_addr = htonl(INADDR_ANY);
         address.sin_port = htons(static_cast<uint16_t>(port));
 
-        if (::bind(socket_fd_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0) {
+        if (::bind(socket_fd_, to_sockaddr(address), sizeof(address)) != 0) {
             ::close(socket_fd_);
             socket_fd_ = -1;
             return;
