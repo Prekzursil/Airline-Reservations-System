@@ -78,6 +78,12 @@ TEST(ReservationSystemHelpersTest, ReadNonEmptyLineThrowsWhenRetryHitsEof) {
         "Enter customer name: Input cannot be empty. Please try again: ");
 }
 
+TEST(ReservationSystemHelpersTest, InputExhaustedErrorExposesStableMessage) {
+    const rsh::InputExhaustedError error;
+
+    EXPECT_STREQ(error.what(), "Input stream exhausted");
+}
+
 TEST(ReservationSystemHelpersTest, FormatMoneyAmountPadsSingleDigitCents) {
     EXPECT_EQ(rsh::formatMoneyAmount(12.04), "12.04");
 }

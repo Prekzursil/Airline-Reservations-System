@@ -42,13 +42,16 @@ constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
 using ListenOnHostFunction = std::function<bool(httplib::Server&, const char*, int)>;
 
-inline ListenOnHostFunction default_listen_on_host_callback =
-    [](httplib::Server& server, const char* host, int port) {
-        return server.listen(host, port);
-    };
+ListenOnHostFunction& default_listen_on_host_callback() {
+    static ListenOnHostFunction callback =
+        [](httplib::Server& server, const char* host, int port) {
+            return server.listen(host, port);
+        };
+    return callback;
+}
 
 bool listen_on_host(httplib::Server& server, const char* host, int port) {
-    return default_listen_on_host_callback(server, host, port);
+    return default_listen_on_host_callback()(server, host, port);
 }
 
 void log_http_request(const httplib::Request& req, const httplib::Response& res) { std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl; }
