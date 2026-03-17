@@ -39,8 +39,19 @@ void to_json(json& j, const Booking& b) {
 
 constexpr const char* kJsonMimeType = "application/json";
 constexpr int kServerPort = 8080;
-bool listen_on_host(httplib::Server& server, const char* host, int port) {
+using ListenOnHostFunction = bool (*)(httplib::Server&, const char*, int);
+
+bool listen_on_host_direct(httplib::Server& server, const char* host, int port) {
     return server.listen(host, port);
+}
+
+ListenOnHostFunction& default_listen_on_host_function() {
+    static ListenOnHostFunction callback = listen_on_host_direct;
+    return callback;
+}
+
+bool listen_on_host(httplib::Server& server, const char* host, int port) {
+    return default_listen_on_host_function()(server, host, port);
 }
 
 void log_http_request(const httplib::Request& req, const httplib::Response& res) { std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl; }

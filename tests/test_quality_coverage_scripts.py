@@ -119,7 +119,8 @@ class AssertCoverageParsingTests(unittest.TestCase):
         with patch.dict(assert_coverage_100.REPO_SOURCE_LINES, {"src/example.cpp": source_lines}, clear=True):
             with TemporaryDirectory() as temp_dir:
                 lcov_path = Path(temp_dir) / "sample.lcov"
-                lcov_path.write_text(sample_lcov, encoding="utf-8")
+                with open(lcov_path, "w", encoding="utf-8") as handle:
+                    handle.write(sample_lcov)
 
                 stats = assert_coverage_100.parse_lcov("cpp", lcov_path)
 

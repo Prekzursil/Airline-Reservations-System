@@ -9,13 +9,6 @@
 #include <sstream>
 #include <thread>
 
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
-
 #include "auto_generated_customer_test_helpers.h"
 
 #define main airline_api_server_entry_main
@@ -34,53 +27,27 @@ struct DefaultListenOverrideObservation {
     int port = -1;
 };
 
-#ifndef _WIN32
-const sockaddr* to_sockaddr(const sockaddr_in& address) {
-    return static_cast<const sockaddr*>(static_cast<const void*>(&address));
+bool always_fail_listen(httplib::Server&, const char*, int) {
+    return false;
 }
 
-class ScopedPortBlocker {
+class ScopedListenOnHostOverride {
 public:
-    explicit ScopedPortBlocker(const int port) {
-        socket_fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (socket_fd_ < 0) {
-            return;
-        }
-
-        sockaddr_in address{};
-        address.sin_family = AF_INET;
-        address.sin_addr.s_addr = htonl(INADDR_ANY);
-        address.sin_port = htons(static_cast<uint16_t>(port));
-
-        if (::bind(socket_fd_, to_sockaddr(address), sizeof(address)) != 0) {
-            ::close(socket_fd_);
-            socket_fd_ = -1;
-            return;
-        }
-
-        if (::listen(socket_fd_, 1) != 0) {
-            ::close(socket_fd_);
-            socket_fd_ = -1;
-        }
+    explicit ScopedListenOnHostOverride(const ListenOnHostFunction override_function)
+        : previous_(default_listen_on_host_function()) {
+        default_listen_on_host_function() = override_function;
     }
 
-    ~ScopedPortBlocker() {
-        if (socket_fd_ >= 0) {
-            ::close(socket_fd_);
-        }
+    ~ScopedListenOnHostOverride() {
+        default_listen_on_host_function() = previous_;
     }
 
-    ScopedPortBlocker(const ScopedPortBlocker&) = delete;
-    ScopedPortBlocker& operator=(const ScopedPortBlocker&) = delete;
-
-    [[nodiscard]] bool owns_port() const {
-        return socket_fd_ >= 0;
-    }
+    ScopedListenOnHostOverride(const ScopedListenOnHostOverride&) = delete;
+    ScopedListenOnHostOverride& operator=(const ScopedListenOnHostOverride&) = delete;
 
 private:
-    int socket_fd_ = -1;
+    ListenOnHostFunction previous_;
 };
-#endif
 
 }  // namespace
 
@@ -263,11 +230,7 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 #ifdef _WIN32
     GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
 #else
-    ScopedPortBlocker blocker(kServerPort);
-    if (!blocker.owns_port()) {
-        GTEST_SKIP() << "Unable to reserve the default API port on this runner.";
-    }
-
+    ScopedListenOnHostOverride listen_override(always_fail_listen);
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
