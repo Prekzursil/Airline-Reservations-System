@@ -205,19 +205,23 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
 }
 
 TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlreadyInUse) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
+#endif
     httplib::Server blocker;
     blocker.Get("/health", [](const httplib::Request&, httplib::Response& response) {
         response.status = 200;
         response.set_content("ok", "text/plain");
     });
 
-    if (blocker.bind_to_port("127.0.0.1", kServerPort) != kServerPort) {
-        GTEST_SKIP() << "Port 8080 is already in use on this machine.";
+    const bool owns_blocker_port = blocker.bind_to_port("0.0.0.0", kServerPort);
+    std::jthread blocker_thread;
+    if (owns_blocker_port) {
+        blocker_thread = std::jthread([&blocker]() {
+            blocker.listen_after_bind();
+        });
+        ASSERT_TRUE(wait_for_status(kServerPort, "/health", 200));
     }
-    std::jthread blocker_thread([&blocker]() {
-        blocker.listen_after_bind();
-    });
-    ASSERT_TRUE(wait_for_status(kServerPort, "/health", 200));
 
     std::istringstream input_stream;
     std::ostringstream output_stream;
@@ -228,9 +232,11 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 
-    blocker.stop();
-    if (blocker_thread.joinable()) {
-        blocker_thread.join();
+    if (owns_blocker_port) {
+        blocker.stop();
+        if (blocker_thread.joinable()) {
+            blocker_thread.join();
+        }
     }
 }
 
