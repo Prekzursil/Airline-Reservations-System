@@ -164,6 +164,8 @@ def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
     repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
     if normalized.startswith(repo_prefix):
         normalized = normalized[len(repo_prefix):]
+    if normalized.startswith("repo/"):
+        normalized = normalized[len("repo/"):]
     normalized = normalized.lstrip("./")
 
     relative_path = PurePosixPath(normalized)

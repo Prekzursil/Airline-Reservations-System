@@ -126,6 +126,14 @@ class AssertCoverageParsingTests(unittest.TestCase):
         self.assertEqual(stats.total, 1)
         self.assertEqual(stats.covered, 1)
 
+    def test_lookup_repo_source_lines_strips_repo_prefix(self) -> None:
+        source_lines = ("int covered() { return 2; }",)
+
+        with patch.dict(assert_coverage_100.REPO_SOURCE_LINES, {"src/example.cpp": source_lines}, clear=True):
+            resolved = assert_coverage_100._lookup_repo_source_lines("repo/src/example.cpp")
+
+        self.assertEqual(resolved, source_lines)
+
 
 if __name__ == "__main__":
     unittest.main()
