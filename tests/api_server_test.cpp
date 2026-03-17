@@ -209,6 +209,11 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 #else
     httplib::Server blocking_server;
     ASSERT_TRUE(blocking_server.bind_to_port("0.0.0.0", kServerPort));
+    std::jthread blocking_thread([&blocking_server]() {
+        blocking_server.listen_after_bind();
+    });
+    ScopedServerShutdown blocking_shutdown(blocking_server, blocking_thread);
+    ASSERT_TRUE(wait_for_status(kServerPort, "/api/airplanes", 404));
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
