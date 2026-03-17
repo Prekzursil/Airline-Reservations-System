@@ -2,6 +2,7 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
+from functools import lru_cache
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,6 +16,9 @@ NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
 NODE_FINAL_JSON_PATH = Path("airline-gui/coverage/coverage-final.json")
 CPP_LCOV_PATH = Path("coverage/cpp/lcov.info")
 NON_EXECUTABLE_LCOV_TOKENS = {"", "{", "}", "};"}
+INLINE_EXCLUSION_MARKERS = ("GCOVR_EXCL_LINE", "LCOV_EXCL_LINE")
+EXCLUSION_START_MARKERS = ("GCOVR_EXCL_START", "LCOV_EXCL_START")
+EXCLUSION_STOP_MARKERS = ("GCOVR_EXCL_STOP", "LCOV_EXCL_STOP")
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -124,8 +128,35 @@ def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -
     if line_number > len(source_lines):
         return True
 
+    if line_number in _excluded_line_numbers(source_lines):
+        return False
+
     source_line = source_lines[line_number - 1].strip()
     return source_line not in NON_EXECUTABLE_LCOV_TOKENS
+
+
+@lru_cache(maxsize=None)
+def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
+    excluded = set()
+    in_excluded_block = False
+
+    for line_number, raw_line in enumerate(source_lines, start=1):
+        source_line = raw_line.strip()
+
+        if any(marker in source_line for marker in EXCLUSION_START_MARKERS):
+            excluded.add(line_number)
+            in_excluded_block = True
+            continue
+
+        if any(marker in source_line for marker in EXCLUSION_STOP_MARKERS):
+            excluded.add(line_number)
+            in_excluded_block = False
+            continue
+
+        if in_excluded_block or any(marker in source_line for marker in INLINE_EXCLUSION_MARKERS):
+            excluded.add(line_number)
+
+    return frozenset(excluded)
 
 
 def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:

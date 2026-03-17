@@ -1,9 +1,12 @@
 from __future__ import absolute_import, division
 
 from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 import unittest
 
-from scripts.quality import normalize_lcov
+from scripts.quality import assert_coverage_100, normalize_lcov
 
 
 class NormalizeLcovTests(unittest.TestCase):
@@ -69,6 +72,59 @@ class NormalizeLcovTests(unittest.TestCase):
             ),
         )
         self.assertIn("Normalized LCOV: stripped 3 branch records", stderr.getvalue())
+
+
+class AssertCoverageParsingTests(unittest.TestCase):
+    def test_include_lcov_line_skips_inline_and_block_exclusions(self) -> None:
+        source_lines = (
+            "// GCOVR_EXCL_START",
+            "int main() {",
+            "    return 0;",
+            "}",
+            "// GCOVR_EXCL_STOP",
+            "int helper() { return 1; } // GCOVR_EXCL_LINE",
+            "int covered() { return 2; }",
+        )
+
+        self.assertFalse(assert_coverage_100._include_lcov_line(source_lines, 2))
+        self.assertFalse(assert_coverage_100._include_lcov_line(source_lines, 3))
+        self.assertFalse(assert_coverage_100._include_lcov_line(source_lines, 6))
+        self.assertTrue(assert_coverage_100._include_lcov_line(source_lines, 7))
+
+    def test_parse_lcov_ignores_explicitly_excluded_lines(self) -> None:
+        sample_lcov = "\n".join(
+            [
+                "TN:",
+                "SF:src/example.cpp",
+                "DA:2,0",
+                "DA:3,0",
+                "DA:4,0",
+                "DA:6,0",
+                "DA:7,1",
+                "end_of_record",
+                "",
+            ]
+        )
+
+        source_lines = (
+            "// GCOVR_EXCL_START",
+            "int main() {",
+            "    return 0;",
+            "}",
+            "// GCOVR_EXCL_STOP",
+            "int helper() { return 1; } // GCOVR_EXCL_LINE",
+            "int covered() { return 2; }",
+        )
+
+        with patch.dict(assert_coverage_100.REPO_SOURCE_LINES, {"src/example.cpp": source_lines}, clear=True):
+            with TemporaryDirectory() as temp_dir:
+                lcov_path = Path(temp_dir) / "sample.lcov"
+                lcov_path.write_text(sample_lcov, encoding="utf-8")
+
+                stats = assert_coverage_100.parse_lcov("cpp", lcov_path)
+
+        self.assertEqual(stats.total, 1)
+        self.assertEqual(stats.covered, 1)
 
 
 if __name__ == "__main__":
