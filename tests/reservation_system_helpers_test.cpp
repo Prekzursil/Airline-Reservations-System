@@ -15,7 +15,7 @@ void expect_book_seat_prerequisites_result(
 ) {
     std::ostringstream output;
 
-    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers);
+    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, customers.size());
 
     EXPECT_FALSE(ready);
     EXPECT_EQ(output.str(), expected_output);

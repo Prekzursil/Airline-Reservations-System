@@ -34,7 +34,7 @@ void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& sug
 bool hasBookSeatPrerequisites(
     std::ostream& out,
     const std::vector<Airplane>& availableAirplanes,
-    const std::vector<Customer>& knownCustomers
+    std::size_t customerCount
 );
 bool tryPrepareSeatForBooking(
     std::ostream& out,

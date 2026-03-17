@@ -117,9 +117,9 @@ void printSeatSuggestions(std::ostream& out, const std::vector<const Seat*>& sug
         out << "- " << suggestedSeat->getSeatId() << " (" << suggestedSeat->getSeatClassString() << ") costs $" << suggestedSeat->getPrice() << std::endl;
     } }
 
-bool hasBookSeatPrerequisites(std::ostream& out, const std::vector<Airplane>& availableAirplanes, const std::vector<Customer>& knownCustomers) {
+bool hasBookSeatPrerequisites(std::ostream& out, const std::vector<Airplane>& availableAirplanes, const std::size_t customerCount) {
     if (availableAirplanes.empty()) { out << "No flights available to book." << std::endl; return false; }
-    if (knownCustomers.empty()) { out << "No customers in the system. Please add a customer first." << std::endl; return false; }
+    if (customerCount == 0U) { out << "No customers in the system. Please add a customer first." << std::endl; return false; }
     return true; }
 
 bool tryPrepareSeatForBooking(std::ostream& out, Airplane& airplane, const Customer& customer, const std::string& seatIdToBook, Seat*& selectedSeat) {

@@ -184,7 +184,7 @@ void ReservationSystem::handleAddCustomer() {
 
 void ReservationSystem::handleBookSeat() {
     (*m_cout_ptr) << "\n--- Book a Seat ---" << std::endl;
-    if (!rsh::hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers)) {
+    if (!rsh::hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers.size())) {
         return;
     }
 
