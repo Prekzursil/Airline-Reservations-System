@@ -8,6 +8,14 @@
 #include <optional>
 #include <sstream>
 #include <thread>
+
+#ifndef _WIN32
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
 #include "auto_generated_customer_test_helpers.h"
 
 #define main airline_api_server_entry_main
@@ -25,6 +33,45 @@ struct DefaultListenOverrideObservation {
     std::string host;
     int port = -1;
 };
+
+#ifndef _WIN32
+class ScopedPortOccupier {
+public:
+    explicit ScopedPortOccupier(const int port) {
+        socket_fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (socket_fd_ < 0) {
+            return;
+        }
+
+        sockaddr_in address{};
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = htonl(INADDR_ANY);
+        address.sin_port = htons(static_cast<uint16_t>(port));
+
+        if (::bind(socket_fd_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0 ||
+            ::listen(socket_fd_, SOMAXCONN) != 0) {
+            ::close(socket_fd_);
+            socket_fd_ = -1;
+        }
+    }
+
+    ~ScopedPortOccupier() {
+        if (socket_fd_ >= 0) {
+            ::close(socket_fd_);
+        }
+    }
+
+    ScopedPortOccupier(const ScopedPortOccupier&) = delete;
+    ScopedPortOccupier& operator=(const ScopedPortOccupier&) = delete;
+
+    bool is_listening() const {
+        return socket_fd_ >= 0;
+    }
+
+private:
+    int socket_fd_ = -1;
+};
+#endif
 
 }  // namespace
 
@@ -207,13 +254,8 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 #ifdef _WIN32
     GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
 #else
-    httplib::Server blocking_server;
-    ASSERT_TRUE(blocking_server.bind_to_port("0.0.0.0", kServerPort));
-    std::jthread blocking_thread([&blocking_server]() {
-        blocking_server.listen_after_bind();
-    });
-    ScopedServerShutdown blocking_shutdown(blocking_server, blocking_thread);
-    ASSERT_TRUE(wait_for_status(kServerPort, "/api/airplanes", 404));
+    ScopedPortOccupier blocking_listener(kServerPort);
+    ASSERT_TRUE(blocking_listener.is_listening());
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
