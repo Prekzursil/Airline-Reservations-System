@@ -34,19 +34,20 @@ bool always_fail_listen(httplib::Server&, const char*, int) {
 class ScopedListenOnHostOverride {
 public:
     explicit ScopedListenOnHostOverride(const ListenOnHostFunction override_function)
-        : previous_(default_listen_on_host_function()) {
-        default_listen_on_host_function() = override_function;
+    {
+        previous_ = default_listen_on_host_callback;
+        default_listen_on_host_callback = override_function;
     }
 
     ~ScopedListenOnHostOverride() {
-        default_listen_on_host_function() = previous_;
+        default_listen_on_host_callback = previous_;
     }
 
     ScopedListenOnHostOverride(const ScopedListenOnHostOverride&) = delete;
     ScopedListenOnHostOverride& operator=(const ScopedListenOnHostOverride&) = delete;
 
 private:
-    ListenOnHostFunction previous_;
+    ListenOnHostFunction previous_ = default_listen_on_host_callback;
 };
 
 }  // namespace
