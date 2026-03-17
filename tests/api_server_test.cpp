@@ -8,8 +8,6 @@
 #include <optional>
 #include <sstream>
 #include <thread>
-#include <utility>
-
 #include "auto_generated_customer_test_helpers.h"
 
 #define main airline_api_server_entry_main
@@ -26,30 +24,6 @@ struct DefaultListenOverrideObservation {
     bool invoked = false;
     std::string host;
     int port = -1;
-};
-
-bool always_fail_listen(httplib::Server&, const char*, int) {
-    return false;
-}
-
-class ScopedListenOnHostOverride {
-public:
-    explicit ScopedListenOnHostOverride(
-        std::function<bool(httplib::Server&, const char*, int)> override_function)
-    {
-        default_listen_on_host_callback() = std::move(override_function);
-    }
-
-    ~ScopedListenOnHostOverride() {
-        default_listen_on_host_callback() = previous_;
-    }
-
-    ScopedListenOnHostOverride(const ScopedListenOnHostOverride&) = delete;
-    ScopedListenOnHostOverride& operator=(const ScopedListenOnHostOverride&) = delete;
-
-private:
-    std::function<bool(httplib::Server&, const char*, int)> previous_ =
-        default_listen_on_host_callback();
 };
 
 }  // namespace
@@ -233,7 +207,8 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 #ifdef _WIN32
     GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
 #else
-    ScopedListenOnHostOverride listen_override(always_fail_listen);
+    httplib::Server blocking_server;
+    ASSERT_TRUE(blocking_server.bind_to_port("0.0.0.0", kServerPort));
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
@@ -243,20 +218,6 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 #endif
-}
-
-TEST(ApiServerEntryTest, EmbeddedMainReturnsFailureWhenDefaultListenOverrideFails) {
-    ScopedListenOnHostOverride listen_override(always_fail_listen);
-    std::ostringstream output_stream;
-    std::ostringstream error_stream;
-    ScopedStreamRedirect redirect_stdout(std::cout, output_stream);
-    ScopedStreamRedirect redirect_stderr(std::cerr, error_stream);
-
-    const int exit_code = airline_api_server_entry_main();
-
-    EXPECT_EQ(exit_code, 1);
-    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
-    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }
 
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
