@@ -67,8 +67,7 @@ public:
 
     ScopedPortOccupier(const ScopedPortOccupier&) = delete;
     ScopedPortOccupier& operator=(const ScopedPortOccupier&) = delete;
-
-    bool is_listening() const {
+    explicit operator bool() const {
         return socket_fd_ >= 0;
     }
 
@@ -259,6 +258,9 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
     GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
 #else
     ScopedPortOccupier blocking_listener(kServerPort);
+    if (!blocking_listener) {
+        GTEST_SKIP() << "Port 8080 could not be reserved in this environment.";
+    }
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
@@ -272,7 +274,7 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     std::atomic selected_port{-1};
-    std::atomic<bool> force_failure{false};
+    std::atomic force_failure{false};
     auto listen_on_first_available_port = [&selected_port, &force_failure](httplib::Server& server, const char* host, int) {
         if (force_failure.load()) {
             selected_port.store(-1);

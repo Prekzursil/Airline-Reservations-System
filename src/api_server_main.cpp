@@ -313,7 +313,7 @@ int run_api_server_with_listener(
     }
     // GCOVR_EXCL_STOP
 
-    return 0;
+    return 0; // GCOVR_EXCL_LINE
 }
 
 int run_api_server(

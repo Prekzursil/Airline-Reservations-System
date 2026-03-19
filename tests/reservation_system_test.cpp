@@ -103,7 +103,7 @@ TEST_F(ReservationSystemTest, GetValidatedInputThrowsWhenNumericInputEndsAfterRe
 
 TEST_F(ReservationSystemTest, GetValidatedInputHandlesFailStateForCharPrompts) {
     test_in.str("x\n");
-    test_in.setstate(std::ios::failbit);
+    test_in.clear(std::ios::failbit);
 
     EXPECT_THROW(
         static_cast<void>(ReservationSystemTestAccess::getValidatedChar(rs, "Confirm? (y/n): ")),
@@ -149,7 +149,7 @@ TEST_F(ReservationSystemTest, GetValidatedStringThrowsOnImmediateEof) {
 
 TEST_F(ReservationSystemTest, GetValidatedStringHandlesFailStateThenEof) {
     test_in.str("fallback\n");
-    test_in.setstate(std::ios::failbit);
+    test_in.clear(std::ios::failbit);
 
     EXPECT_THROW(
         static_cast<void>(ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ")),
