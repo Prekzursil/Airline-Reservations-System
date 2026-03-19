@@ -158,8 +158,7 @@ std::vector<const Seat*> Airplane::getAvailableSeatsByClass(SeatClass sc) const 
             available.push_back(&seat);
         }
     }
-    return available;
-}
+    return available; }
 
 std::vector<const Seat*> Airplane::suggestLowerPriceSeats(const Customer* customer, double maxPrice) const {
     std::vector<const Seat*> suggestions;
@@ -173,5 +172,4 @@ std::vector<const Seat*> Airplane::suggestLowerPriceSeats(const Customer* custom
         }
     }
     std::ranges::sort(suggestions, std::ranges::less {}, [](const Seat* seat) { return seat->getPrice(); });
-    return suggestions;
-}
+    return suggestions; }

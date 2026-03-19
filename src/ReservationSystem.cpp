@@ -13,8 +13,6 @@ ReservationSystem::ReservationSystem(std::istream& cin_ref, std::ostream& cout_r
     initializeSystem();
 }
 
-ReservationSystem::~ReservationSystem() = default;
-
 void ReservationSystem::setInputStreamForTest(std::istream& inputStream) {
     m_cin_ptr = &inputStream;
 }
@@ -186,7 +184,7 @@ void ReservationSystem::handleAddCustomer() {
 
 void ReservationSystem::handleBookSeat() {
     (*m_cout_ptr) << "\n--- Book a Seat ---" << std::endl;
-    if (!rsh::hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers)) {
+    if (!rsh::hasBookSeatPrerequisites(*m_cout_ptr, airplanes, customers.size())) {
         return;
     }
 
@@ -390,7 +388,7 @@ void ReservationSystem::handleAdminMenu() {
             break;
         case 0:
             return;
-        default: return; // LCOV_EXCL_LINE
+        default: return; // GCOVR_EXCL_LINE
     }
 }
 

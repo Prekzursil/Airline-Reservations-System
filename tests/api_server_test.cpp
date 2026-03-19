@@ -9,6 +9,13 @@
 #include <sstream>
 #include <thread>
 
+#ifndef _WIN32
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
 #include "auto_generated_customer_test_helpers.h"
 
 #define main airline_api_server_entry_main
@@ -26,6 +33,48 @@ struct DefaultListenOverrideObservation {
     std::string host;
     int port = -1;
 };
+
+#ifndef _WIN32
+sockaddr* as_sockaddr(sockaddr_in& address) {
+    return static_cast<sockaddr*>(static_cast<void*>(&address));
+}
+
+class ScopedPortOccupier {
+public:
+    explicit ScopedPortOccupier(const int port) {
+        socket_fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (socket_fd_ < 0) {
+            return;
+        }
+
+        sockaddr_in address{};
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = htonl(INADDR_ANY);
+        address.sin_port = htons(static_cast<uint16_t>(port));
+
+        if (::bind(socket_fd_, as_sockaddr(address), sizeof(address)) != 0 ||
+            ::listen(socket_fd_, SOMAXCONN) != 0) {
+            ::close(socket_fd_);
+            socket_fd_ = -1;
+        }
+    }
+
+    ~ScopedPortOccupier() {
+        if (socket_fd_ >= 0) {
+            ::close(socket_fd_);
+        }
+    }
+
+    ScopedPortOccupier(const ScopedPortOccupier&) = delete;
+    ScopedPortOccupier& operator=(const ScopedPortOccupier&) = delete;
+    explicit operator bool() const {
+        return socket_fd_ >= 0;
+    }
+
+private:
+    int socket_fd_ = -1;
+};
+#endif
 
 }  // namespace
 
@@ -205,20 +254,13 @@ TEST(ApiServerEntryTest, MainReturnsFailureWhenDefaultListenOverrideFails) {
 }
 
 TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlreadyInUse) {
-    httplib::Server blocker;
-    blocker.Get("/health", [](const httplib::Request&, httplib::Response& response) {
-        response.status = 200;
-        response.set_content("ok", "text/plain");
-    });
-
-    if (blocker.bind_to_port("127.0.0.1", kServerPort) != kServerPort) {
-        GTEST_SKIP() << "Port 8080 is already in use on this machine.";
+#ifdef _WIN32
+    GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
+#else
+    std::optional<ScopedPortOccupier> blocking_listener(std::in_place, kServerPort);
+    if (const auto port_reserved = static_cast<bool>(*blocking_listener); !port_reserved) {
+        GTEST_SKIP() << "Port 8080 could not be reserved in this environment.";
     }
-    std::jthread blocker_thread([&blocker]() {
-        blocker.listen_after_bind();
-    });
-    ASSERT_TRUE(wait_for_status(kServerPort, "/health", 200));
-
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
@@ -227,24 +269,26 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
     EXPECT_EQ(exit_code, 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
-
-    blocker.stop();
-    if (blocker_thread.joinable()) {
-        blocker_thread.join();
-    }
+#endif
 }
 
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     std::atomic selected_port{-1};
-    auto listen_on_first_available_port = [&selected_port](httplib::Server& server, const char* host, int) {
+    std::atomic force_failure{false};
+    auto listen_on_first_available_port = [&selected_port, &force_failure](httplib::Server& server, const char* host, int) {
+        if (force_failure.load()) {
+            selected_port.store(-1);
+            return false;
+        }
+
         for (int offset = 0; offset < kTestPortCount; ++offset) {
             const int port = kTestPortStart + offset;
-            selected_port.store(port, std::memory_order_release);
+            selected_port.store(port);
             if (listen_on_host(server, host, port)) {
                 return true;
             }
         }
-        selected_port.store(-1, std::memory_order_release);
+        selected_port.store(-1);
         return false;
     };
 
@@ -267,7 +311,7 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     ScopedServerShutdown shutdown(server, server_thread);
 
     ASSERT_TRUE(wait_for_selected_port(selected_port));
-    const int port = selected_port.load(std::memory_order_acquire);
+    const int port = selected_port.load();
     ASSERT_TRUE(wait_for_status(port, "/api/airplanes", 200));
     server.stop();
     if (server_thread.joinable()) {
@@ -279,6 +323,25 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_TRUE(error_stream.str().empty());
+
+    force_failure = true;
+    selected_port.store(-1);
+    std::stringstream failure_input;
+    std::ostringstream failure_output;
+    std::ostringstream failure_error;
+    ReservationSystem failure_reservation_system(failure_input, failure_output);
+    httplib::Server failure_server;
+    EXPECT_EQ(
+        run_api_server_with_listener(
+            failure_reservation_system,
+            failure_server,
+            failure_output,
+            failure_error,
+            listen_on_first_available_port),
+        1);
+    EXPECT_EQ(selected_port.load(), -1);
+    EXPECT_NE(failure_output.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+    EXPECT_NE(failure_error.str().find("Failed to start server!"), std::string::npos);
 }
 
 TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {

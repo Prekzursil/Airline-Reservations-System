@@ -62,6 +62,10 @@ public:
 
 class ReservationSystemTestAccess {
 public:
+    static char getValidatedChar(ReservationSystem& reservation_system, const std::string& prompt) {
+        return reservation_system.getValidatedInput<char>(prompt);
+    }
+
     static int getValidatedInt(ReservationSystem& reservation_system, const std::string& prompt) {
         return reservation_system.getValidatedInput<int>(prompt);
     }

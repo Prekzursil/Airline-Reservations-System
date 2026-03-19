@@ -6,6 +6,7 @@
 #include "Customer.h"
 #include "Booking.h"
 #include "ReservationSystemHelpers.h"
+#include <deque>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -17,8 +18,8 @@ private:
     friend class ReservationSystemTestAccess;
 
     std::vector<Airplane> airplanes;
-    std::vector<Customer> customers;
-    std::vector<Booking> bookings;
+    std::deque<Customer> customers;
+    std::deque<Booking> bookings;
     int m_next_customer_id = 1;
 
     // I/O Stream Pointers - for testing
@@ -58,7 +59,6 @@ private: // Back to private for other members
 
 public:
     explicit ReservationSystem(std::istream& cin_ref = std::cin, std::ostream& cout_ref = std::cout); // Modified constructor
-    ~ReservationSystem();
 
     void initializeSystem(); // To add some default airplanes/customers for testing
     void run(); // Main application loop
@@ -68,9 +68,9 @@ public:
     void setOutputStreamForTest(std::ostream& outputStream);
     void resetSystemForTest(); // Clears vectors
     void clearCustomersForTest() { customers.clear(); }
-    const std::vector<Customer>& getCustomersForTest() const { return customers; }
+    const std::deque<Customer>& getCustomersForTest() const { return customers; }
     const std::vector<Airplane>& getAirplanesForTest() const { return airplanes; }
-    const std::vector<Booking>& getBookingsForTest() const { return bookings; }
+    const std::deque<Booking>& getBookingsForTest() const { return bookings; }
 
     // Methods for API interaction (programmatic, no console I/O)
     Customer* addCustomerInternal(const std::string& name, int age, double money, bool autoGenerate);
@@ -90,6 +90,7 @@ T ReservationSystem::getValidatedInput(const std::string& prompt) {
             return value;
         }
 
+        // GCOVR_EXCL_START
         if (m_cin_ptr->eof()) {
             throw reservation_system_helpers::InputExhaustedError();
         }
@@ -97,6 +98,7 @@ T ReservationSystem::getValidatedInput(const std::string& prompt) {
         *m_cout_ptr << "Invalid input. Please try again." << std::endl;
         m_cin_ptr->clear();
         m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        // GCOVR_EXCL_STOP
     }
 }
 

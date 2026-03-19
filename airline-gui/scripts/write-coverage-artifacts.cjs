@@ -4,9 +4,11 @@ const path = require("node:path");
 const libCoverage = require("istanbul-lib-coverage");
 const libReport = require("istanbul-lib-report");
 const reports = require("istanbul-reports");
+const { prefixCoverageMapPath } = require("./coverage-path-prefix.cjs");
 
 const coverageDir = path.resolve(__dirname, "..", "coverage");
 const coverageJsonPath = path.join(coverageDir, "coverage-final.json");
+const coveragePrefix = "airline-gui/";
 
 if (!fs.existsSync(coverageJsonPath)) {
   console.error(`Coverage JSON report is missing: ${coverageJsonPath}`);
@@ -14,9 +16,17 @@ if (!fs.existsSync(coverageJsonPath)) {
 }
 
 const coverageMap = libCoverage.createCoverageMap(require(coverageJsonPath));
+const prefixedCoverageMap = libCoverage.createCoverageMap({});
+
+for (const filePath of coverageMap.files()) {
+  const fileCoverage = coverageMap.fileCoverageFor(filePath).toJSON();
+  fileCoverage.path = prefixCoverageMapPath(fileCoverage, coveragePrefix).path;
+  prefixedCoverageMap.addFileCoverage(fileCoverage);
+}
+
 const context = libReport.createContext({
   dir: coverageDir,
-  coverageMap,
+  coverageMap: prefixedCoverageMap,
 });
 
 reports.create("json-summary").execute(context);
