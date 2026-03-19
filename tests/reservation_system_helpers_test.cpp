@@ -92,6 +92,56 @@ TEST(ReservationSystemHelpersTest, FormatMoneyAmountRoundsNegativeValues) {
     EXPECT_EQ(rsh::formatMoneyAmount(-12.04), "-12.04");
 }
 
+TEST(ReservationSystemHelpersTest, GenerateAutoCustomerDataIsDeterministicAndInExpectedRange) {
+    const rsh::AutoCustomerData first = rsh::generateAutoCustomerData("CUST0007");
+    const rsh::AutoCustomerData second = rsh::generateAutoCustomerData("CUST0007");
+
+    EXPECT_EQ(first.name, second.name);
+    EXPECT_EQ(first.age, second.age);
+    EXPECT_DOUBLE_EQ(first.money, second.money);
+    EXPECT_TRUE(first.name.ends_with("_CUST0007"));
+    EXPECT_GE(first.age, 18);
+    EXPECT_LE(first.age, 80);
+    EXPECT_GE(first.money, 100.0);
+    EXPECT_LE(first.money, 2000.0);
+}
+
+TEST(ReservationSystemHelpersTest, GenerateApiAutoCustomerDataIsDeterministicAndInExpectedRange) {
+    const rsh::AutoCustomerData first = rsh::generateApiAutoCustomerData("CUST0008");
+    const rsh::AutoCustomerData second = rsh::generateApiAutoCustomerData("CUST0008");
+
+    EXPECT_EQ(first.name, second.name);
+    EXPECT_EQ(first.age, second.age);
+    EXPECT_DOUBLE_EQ(first.money, second.money);
+    EXPECT_TRUE(first.name.ends_with("_CUST0008"));
+    EXPECT_GE(first.age, 18);
+    EXPECT_LE(first.age, 80);
+    EXPECT_GE(first.money, 100.0);
+    EXPECT_LE(first.money, 2000.0);
+}
+
+TEST(ReservationSystemHelpersTest, FormatCustomerIdPadsValuesToAtLeastFourDigits) {
+    EXPECT_EQ(rsh::formatCustomerId(7), "CUST0007");
+    EXPECT_EQ(rsh::formatCustomerId(1234), "CUST1234");
+    EXPECT_EQ(rsh::formatCustomerId(12345), "CUST12345");
+}
+
+TEST(ReservationSystemHelpersTest, PrintAvailableFlightsListsIndexedFlightNumbers) {
+    const std::vector<Airplane> airplanes = {
+        Airplane{"FL101", 2, 2},
+        Airplane{"FL202", 3, 2},
+    };
+    std::ostringstream output;
+
+    rsh::printAvailableFlights(output, airplanes);
+
+    EXPECT_EQ(
+        output.str(),
+        "\nAvailable Flights:\n"
+        "1. Flight FL101\n"
+        "2. Flight FL202\n");
+}
+
 TEST(ReservationSystemHelpersTest, PrintSeatSuggestionsSkipsNullPointersAndPrintsValidSeats) {
     Seat suggestedSeat("4A", SeatClass::ECONOMY, 50.0);
     const std::vector<const Seat*> suggestions = {nullptr, &suggestedSeat};
@@ -128,4 +178,79 @@ TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesRejectsEmptyCustomerL
         airplanes,
         customers,
         "No customers in the system. Please add a customer first.\n");
+}
+
+TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesReturnsTrueWhenSystemIsReady) {
+    const std::vector<Airplane> airplanes = {Airplane{"FL101", 2, 2}};
+    std::ostringstream output;
+
+    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, 1U);
+
+    EXPECT_TRUE(ready);
+    EXPECT_TRUE(output.str().empty());
+}
+
+TEST(ReservationSystemHelpersTest, TryPrepareSeatForBookingRejectsMissingSeat) {
+    Airplane airplane("FL101", 2, 2);
+    Customer customer("Seat Hunter", 29, "CUST0201", 500.0);
+    Seat* selected_seat = reinterpret_cast<Seat*>(0x1);
+    std::ostringstream output;
+
+    const bool prepared =
+        rsh::tryPrepareSeatForBooking(output, airplane, customer, "99Z", selected_seat);
+
+    EXPECT_FALSE(prepared);
+    EXPECT_EQ(selected_seat, nullptr);
+    EXPECT_EQ(output.str(), "Seat 99Z does not exist on this flight.\n");
+}
+
+TEST(ReservationSystemHelpersTest, TryPrepareSeatForBookingRejectsBookedSeat) {
+    Airplane airplane("FL101", 2, 2);
+    Seat* booked_seat = airplane.findSeat("1A");
+    ASSERT_NE(booked_seat, nullptr);
+    ASSERT_TRUE(booked_seat->bookSeat());
+
+    Customer customer("Booked Seat User", 30, "CUST0202", 500.0);
+    Seat* selected_seat = nullptr;
+    std::ostringstream output;
+
+    const bool prepared =
+        rsh::tryPrepareSeatForBooking(output, airplane, customer, "1A", selected_seat);
+
+    EXPECT_FALSE(prepared);
+    EXPECT_EQ(selected_seat, booked_seat);
+    EXPECT_EQ(output.str(), "Seat 1A is already booked.\n");
+}
+
+TEST(ReservationSystemHelpersTest, TryPrepareSeatForBookingSuggestsLowerPriceSeatsWhenFundsAreInsufficient) {
+    Airplane airplane("FL101", 2, 2);
+    Customer customer("Low Funds", 31, "CUST0203", 100.0);
+    Seat* selected_seat = nullptr;
+    std::ostringstream output;
+
+    const bool prepared =
+        rsh::tryPrepareSeatForBooking(output, airplane, customer, "1A", selected_seat);
+
+    EXPECT_FALSE(prepared);
+    ASSERT_NE(selected_seat, nullptr);
+    EXPECT_EQ(selected_seat->getSeatId(), "1A");
+    EXPECT_NE(output.str().find("Seat 1A (Business) costs $200"), std::string::npos);
+    EXPECT_NE(output.str().find("Insufficient funds. You have $100"), std::string::npos);
+    EXPECT_NE(output.str().find("Perhaps one of these seats instead?"), std::string::npos);
+    EXPECT_NE(output.str().find("(Economy) costs $50"), std::string::npos);
+}
+
+TEST(ReservationSystemHelpersTest, TryPrepareSeatForBookingSelectsSeatWhenCustomerCanAffordIt) {
+    Airplane airplane("FL101", 2, 2);
+    Customer customer("Ready Buyer", 32, "CUST0204", 500.0);
+    Seat* selected_seat = nullptr;
+    std::ostringstream output;
+
+    const bool prepared =
+        rsh::tryPrepareSeatForBooking(output, airplane, customer, "1A", selected_seat);
+
+    EXPECT_TRUE(prepared);
+    ASSERT_NE(selected_seat, nullptr);
+    EXPECT_EQ(selected_seat->getSeatId(), "1A");
+    EXPECT_EQ(output.str(), "Seat 1A (Business) costs $200\n");
 }
