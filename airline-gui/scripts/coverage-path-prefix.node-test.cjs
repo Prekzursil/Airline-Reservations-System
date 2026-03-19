@@ -27,7 +27,7 @@ test("prefixCoveragePath trims embedded absolute repo paths", () => {
 test("prefixCoveragePath trims embedded Windows repo paths", () => {
   assert.equal(
     prefixCoveragePath(
-      "C:\\agent\\_work\\1\\s\\airline-gui\\src\\App.js",
+      String.raw`C:\agent\_work\1\s\airline-gui\src\App.js`,
       "airline-gui",
     ),
     "airline-gui/src/App.js",
