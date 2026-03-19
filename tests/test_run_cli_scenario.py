@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import subprocess
+import subprocess  # nosec B404 - test harness executes a locally built allowlisted binary without shell expansion
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,7 +75,7 @@ def _resolve_binary(binary_dir: Path) -> Path:
 
 def _run_binary(binary: Path, scenario: Scenario) -> subprocess.CompletedProcess[str]:
     input_text = scenario.input_file.read_text(encoding="utf-8")
-    return subprocess.run(
+    return subprocess.run(  # nosec B603 - _resolve_binary restricts execution to a fixed local allowlist
         [str(binary)],
         input=input_text,
         text=True,

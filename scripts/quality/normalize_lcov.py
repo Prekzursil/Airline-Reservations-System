@@ -8,13 +8,18 @@ from typing import Iterable, TextIO, Tuple
 
 _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
 _IGNORED_PARTS = {".git", "build", "coverage", "coverage-100", "dist", "node_modules", "obj"}
+_SOURCE_SUFFIXES = (".cpp", ".cc", ".c", ".h", ".hpp", ".py", ".js", ".jsx", ".ts", ".tsx")
 
 
 def _build_repo_file_indexes(repo_root: Path) -> tuple[set[str], dict[str, list[str]]]:
     exact_paths: set[str] = set()
     by_name: dict[str, list[str]] = defaultdict(list)
     for path in repo_root.rglob("*"):
-        if not path.is_file() or any(part in _IGNORED_PARTS for part in path.parts):
+        try:
+            is_file = path.is_file()
+        except OSError:
+            continue
+        if not is_file or any(part in _IGNORED_PARTS for part in path.parts):
             continue
         relative_path = path.relative_to(repo_root).as_posix()
         exact_paths.add(relative_path)
@@ -27,6 +32,31 @@ def _sanitize_relative_candidate(candidate: str) -> str:
     if not parts or any(part == ".." for part in parts):
         return PurePosixPath(candidate).name
     return "/".join(parts)
+
+
+def _trim_to_source_suffix(candidate: str) -> str:
+    lowered = candidate.lower()
+    best_end = -1
+    for suffix in _SOURCE_SUFFIXES:
+        index = lowered.rfind(suffix)
+        if index == -1:
+            continue
+        end = index + len(suffix)
+        if end > best_end:
+            best_end = end
+    return candidate if best_end == -1 else candidate[:best_end]
+
+
+def _matching_repo_suffix(candidate: str, repo_paths: set[str]) -> str:
+    normalized = _sanitize_relative_candidate(_trim_to_source_suffix(candidate))
+    if normalized in repo_paths:
+        return normalized
+    parts = PurePosixPath(normalized).parts
+    for index in range(len(parts)):
+        suffix = "/".join(parts[index:])
+        if suffix in repo_paths:
+            return suffix
+    return normalized
 
 
 def _normalize_source_path(
@@ -44,22 +74,20 @@ def _normalize_source_path(
 
     repo_root_text = repo_root.resolve(strict=False).as_posix().rstrip("/")
     if candidate.startswith("/") or (len(candidate) >= 3 and candidate[1:3] == ":/"):
-        try:
-            prefix = f"{repo_root_text}/"
-            if candidate == repo_root_text:
-                candidate = ""
-            elif candidate.startswith(prefix):
-                candidate = candidate[len(prefix) :]
-            else:
-                candidate = PurePosixPath(candidate).name
-        except ValueError:
+        prefix = f"{repo_root_text}/"
+        if candidate == repo_root_text:
+            candidate = ""
+        elif candidate.startswith(prefix):
+            candidate = candidate[len(prefix) :]
+        else:
             candidate = PurePosixPath(candidate).name
 
-    candidate = _sanitize_relative_candidate(candidate)
+    candidate = _matching_repo_suffix(candidate, repo_paths)
     if candidate in repo_paths:
         return candidate
 
-    basename_matches = repo_file_index.get(PurePosixPath(candidate).name, [])
+    basename = PurePosixPath(_trim_to_source_suffix(candidate)).name
+    basename_matches = repo_file_index.get(basename, [])
     if len(basename_matches) == 1:
         return basename_matches[0]
 

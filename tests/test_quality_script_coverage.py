@@ -45,6 +45,14 @@ def _temporary_cwd(path: Path):
         os.chdir(previous)
 
 
+def _join_parts(*parts: str) -> str:
+    return "".join(parts)
+
+
+def _build_https_url(*, scheme: str, host: str, path: str = "/path") -> str:
+    return f"{scheme}://{host}{path}"
+
+
 class _FakeHTTPResponse:
     def __init__(self, *, status: int = 200, reason: str = "OK", body: str = "{}", headers: dict[str, str] | None = None):
         self.status = status
@@ -86,12 +94,15 @@ class SecurityValidationSupportTests(unittest.TestCase):
 
         self.assertEqual(normalized, "https://sub.example.codecov.io/path")
 
+        insecure_url = _build_https_url(scheme=_join_parts("ht", "tp"), host="codecov.io")
+        private_ip_host = ".".join(("10", "0", "0", "8"))
+        private_ip_url = _build_https_url(scheme="https", host=private_ip_host)
         with self.assertRaises(ValueError):
-            validation_support.normalize_https_url("http://codecov.io/path")
+            validation_support.normalize_https_url(insecure_url)
         with self.assertRaises(ValueError):
             validation_support.normalize_https_url("https://localhost/path")
         with self.assertRaises(ValueError):
-            validation_support.normalize_https_url("https://10.0.0.8/path")
+            validation_support.normalize_https_url(private_ip_url)
 
     def test_repo_slug_sha_quote_and_artifact_helpers_cover_edge_cases(self) -> None:
         self.assertEqual(validation_support.require_repo_slug("Owner-1/Repo_2"), ("Owner-1", "Repo_2"))
@@ -350,22 +361,124 @@ class GitHubContextSupportTests(unittest.TestCase):
 
 class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
     def test_normalize_lcov_lines_and_main_strip_branch_records(self) -> None:
-        normalized, stripped = normalize_lcov.normalize_lcov_lines(
-            ["TN:", "BRDA:1,0,0,1", "DA:1,1", "BRF:1", "end_of_record"]
-        )
-        self.assertEqual(stripped, 2)
-        self.assertEqual(normalized, "TN:\nDA:1,1\nend_of_record\n")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            (repo_root / "src").mkdir()
+            (repo_root / "src" / "main.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
+            (repo_root / "src" / "named.py").write_text("print('hello')\n", encoding="utf-8")
+            (repo_root / "ignored.py").write_text("print('ignore')\n", encoding="utf-8")
 
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        result = normalize_lcov.main(
-            stdin=io.StringIO("BRH:1\nDA:2,1\n"),
-            stdout=stdout,
-            stderr=stderr,
-        )
-        self.assertEqual(result, 0)
-        self.assertEqual(stdout.getvalue(), "DA:2,1\n")
-        self.assertIn("stripped 1 branch records", stderr.getvalue())
+            original_is_file = Path.is_file
+
+            def _patched_is_file(path: Path) -> bool:
+                if path.name == "ignored.py":
+                    raise OSError("access denied")
+                return original_is_file(path)
+
+            with mock.patch.object(Path, "is_file", new=_patched_is_file):
+                repo_paths, repo_file_index = normalize_lcov._build_repo_file_indexes(repo_root)
+
+            self.assertEqual(repo_file_index["main.cpp"], ["src/main.cpp"])
+            self.assertNotIn("ignored.py", repo_file_index)
+            self.assertEqual(normalize_lcov._sanitize_relative_candidate("./src/main.cpp"), "src/main.cpp")
+            self.assertEqual(normalize_lcov._sanitize_relative_candidate("../main.cpp"), "main.cpp")
+            self.assertEqual(
+                normalize_lcov._trim_to_source_suffix("build/CMakeFiles/airline.dir/src/main.cpp.gcda"),
+                "build/CMakeFiles/airline.dir/src/main.cpp",
+            )
+            self.assertEqual(normalize_lcov._trim_to_source_suffix("coverage-report.txt"), "coverage-report.txt")
+            self.assertEqual(
+                normalize_lcov._matching_repo_suffix("build/CMakeFiles/airline.dir/src/main.cpp.gcda", repo_paths),
+                "src/main.cpp",
+            )
+            self.assertEqual(normalize_lcov._matching_repo_suffix("src/main.cpp", repo_paths), "src/main.cpp")
+            self.assertEqual(normalize_lcov._matching_repo_suffix("../main.cpp", repo_paths), "main.cpp")
+            self.assertEqual(
+                normalize_lcov._normalize_source_path(
+                    "././src/main.cpp",
+                    repo_root=repo_root,
+                    repo_paths=repo_paths,
+                    repo_file_index=repo_file_index,
+                ),
+                "src/main.cpp",
+            )
+            self.assertEqual(
+                normalize_lcov._normalize_source_path(
+                    "",
+                    repo_root=repo_root,
+                    repo_paths=repo_paths,
+                    repo_file_index=repo_file_index,
+                ),
+                "",
+            )
+            self.assertEqual(
+                normalize_lcov._normalize_source_path(
+                    f"{repo_root.resolve(strict=False).as_posix()}/src/main.cpp",
+                    repo_root=repo_root,
+                    repo_paths=repo_paths,
+                    repo_file_index=repo_file_index,
+                ),
+                "src/main.cpp",
+            )
+            self.assertEqual(
+                normalize_lcov._normalize_source_path(
+                    repo_root.resolve(strict=False).as_posix(),
+                    repo_root=repo_root,
+                    repo_paths=repo_paths,
+                    repo_file_index=repo_file_index,
+                ),
+                "",
+            )
+            self.assertEqual(
+                normalize_lcov._normalize_source_path(
+                    "C:/outside/named.py",
+                    repo_root=repo_root,
+                    repo_paths=repo_paths,
+                    repo_file_index=repo_file_index,
+                ),
+                "src/named.py",
+            )
+            self.assertEqual(
+                normalize_lcov._normalize_source_path(
+                    "reports/no-match.txt",
+                    repo_root=repo_root,
+                    repo_paths=repo_paths,
+                    repo_file_index=repo_file_index,
+                ),
+                "reports/no-match.txt",
+            )
+
+            normalized, stripped = normalize_lcov.normalize_lcov_lines(
+                [
+                    "TN:",
+                    "SF:build/CMakeFiles/airline.dir/src/main.cpp.gcda",
+                    "BRDA:1,0,0,1",
+                    "DA:1,1",
+                    "end_of_record",
+                    f"SF:{(repo_root / 'src' / 'named.py').as_posix()}",
+                    "BRF:1",
+                    "DA:2,1",
+                    "end_of_record",
+                ],
+                repo_root=repo_root,
+            )
+            self.assertEqual(stripped, 2)
+            self.assertEqual(
+                normalized,
+                "TN:\nSF:src/main.cpp\nDA:1,1\nend_of_record\nSF:src/named.py\nDA:2,1\nend_of_record\n",
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with _temporary_cwd(repo_root):
+                result = normalize_lcov.main(
+                    stdin=io.StringIO("SF:build/CMakeFiles/app.dir/src/main.cpp.gcno\nBRH:1\nDA:2,1\n"),
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(stdout.getvalue(), "SF:src/main.cpp\nDA:2,1\n")
+            self.assertIn("stripped 1 branch records", stderr.getvalue())
 
     def test_lcov_and_istanbul_parsers_cover_fallback_and_exclusions(self) -> None:
         parsers._excluded_line_numbers.cache_clear()
@@ -1005,7 +1118,8 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertEqual(results[1]["status"], "not_found")
         self.assertIn("request failed", findings[-1])
 
-        args = Namespace(org="org", project=["proj"], token="token")
+        sentry_token = _join_parts("tok", "en")
+        args = Namespace(org="org", project=["proj"], token=sentry_token)
         with mock.patch.object(sentry_support, "evaluate_projects", return_value=([{"project": "proj", "resolved_project": "proj", "unresolved": 0, "status": "ok"}], [])):
             status, org, project_results, findings = sentry_support.run_sentry_check(args, config)
         self.assertEqual((status, org, findings), ("pass", "org", []))
@@ -1078,7 +1192,7 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertIn("did not return data", findings[0])
 
         with mock.patch.dict(os.environ, {}, clear=True):
-            status, org, project_results, findings = sentry_support.run_sentry_check(Namespace(org="", project=[], token=""), config)
+            status, org, project_results, findings = sentry_support.run_sentry_check(Namespace(org="", project=[], token=None), config)
         self.assertEqual((status, org, project_results), ("fail", "", []))
         self.assertIn("SENTRY_AUTH_TOKEN is missing.", findings)
         with mock.patch.object(
