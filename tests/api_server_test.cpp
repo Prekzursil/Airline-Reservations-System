@@ -257,7 +257,8 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 #ifdef _WIN32
     GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
 #else
-    if (ScopedPortOccupier blocking_listener(kServerPort); !blocking_listener) {
+    std::optional<ScopedPortOccupier> blocking_listener(std::in_place, kServerPort);
+    if (const bool port_reserved = static_cast<bool>(*blocking_listener); !port_reserved) {
         GTEST_SKIP() << "Port 8080 could not be reserved in this environment.";
     }
     std::istringstream input_stream;

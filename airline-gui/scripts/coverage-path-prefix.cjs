@@ -1,6 +1,22 @@
+function trimTrailingSlashes(value) {
+  let normalizedValue = value;
+  while (normalizedValue.endsWith("/")) {
+    normalizedValue = normalizedValue.slice(0, -1);
+  }
+  return normalizedValue;
+}
+
+function trimLeadingCurrentDirectory(value) {
+  let normalizedValue = value;
+  while (normalizedValue.startsWith("./")) {
+    normalizedValue = normalizedValue.slice(2);
+  }
+  return normalizedValue;
+}
+
 function prefixCoveragePath(filePath, prefix) {
-  const normalizedPrefix = prefix.replaceAll("\\", "/").replace(/\/+$/, "");
-  const normalizedPath = filePath.replaceAll("\\", "/").replace(/^(?:\.\/)+/, "");
+  const normalizedPrefix = trimTrailingSlashes(prefix.replaceAll("\\", "/"));
+  const normalizedPath = trimLeadingCurrentDirectory(filePath.replaceAll("\\", "/"));
 
   if (!normalizedPrefix) {
     return normalizedPath;
