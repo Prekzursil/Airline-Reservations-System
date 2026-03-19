@@ -92,6 +92,13 @@ TEST(ReservationSystemHelpersTest, FormatMoneyAmountRoundsNegativeValues) {
     EXPECT_EQ(rsh::formatMoneyAmount(-12.04), "-12.04");
 }
 
+TEST(ReservationSystemHelpersTest, IsAffirmativeAcceptsLowerAndUpperCaseYOnly) {
+    EXPECT_TRUE(rsh::isAffirmative('y'));
+    EXPECT_TRUE(rsh::isAffirmative('Y'));
+    EXPECT_FALSE(rsh::isAffirmative('n'));
+    EXPECT_FALSE(rsh::isAffirmative('N'));
+}
+
 TEST(ReservationSystemHelpersTest, GenerateAutoCustomerDataIsDeterministicAndInExpectedRange) {
     const rsh::AutoCustomerData first = rsh::generateAutoCustomerData("CUST0007");
     const rsh::AutoCustomerData second = rsh::generateAutoCustomerData("CUST0007");
@@ -184,7 +191,7 @@ TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesReturnsTrueWhenSystem
     const std::vector<Airplane> airplanes = {Airplane{"FL101", 2, 2}};
     std::ostringstream output;
 
-    const bool ready = rsh::hasBookSeatPrerequisites(output, airplanes, 1U);
+    const auto ready = rsh::hasBookSeatPrerequisites(output, airplanes, 1U);
 
     EXPECT_TRUE(ready);
     EXPECT_TRUE(output.str().empty());
@@ -193,7 +200,8 @@ TEST(ReservationSystemHelpersTest, HasBookSeatPrerequisitesReturnsTrueWhenSystem
 TEST(ReservationSystemHelpersTest, TryPrepareSeatForBookingRejectsMissingSeat) {
     Airplane airplane("FL101", 2, 2);
     Customer customer("Seat Hunter", 29, "CUST0201", 500.0);
-    Seat* selected_seat = reinterpret_cast<Seat*>(0x1);
+    Seat fallback_seat("Z9", SeatClass::ECONOMY, 10.0);
+    Seat* selected_seat = &fallback_seat;
     std::ostringstream output;
 
     const bool prepared =

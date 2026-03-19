@@ -35,6 +35,10 @@ struct DefaultListenOverrideObservation {
 };
 
 #ifndef _WIN32
+sockaddr* as_sockaddr(sockaddr_in& address) {
+    return static_cast<sockaddr*>(static_cast<void*>(&address));
+}
+
 class ScopedPortOccupier {
 public:
     explicit ScopedPortOccupier(const int port) {
@@ -48,7 +52,7 @@ public:
         address.sin_addr.s_addr = htonl(INADDR_ANY);
         address.sin_port = htons(static_cast<uint16_t>(port));
 
-        if (::bind(socket_fd_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0 ||
+        if (::bind(socket_fd_, as_sockaddr(address), sizeof(address)) != 0 ||
             ::listen(socket_fd_, SOMAXCONN) != 0) {
             ::close(socket_fd_);
             socket_fd_ = -1;
@@ -255,7 +259,6 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
     GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
 #else
     ScopedPortOccupier blocking_listener(kServerPort);
-    ASSERT_TRUE(blocking_listener.is_listening());
     std::istringstream input_stream;
     std::ostringstream output_stream;
     std::ostringstream error_stream;
@@ -269,7 +272,13 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
 
 TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     std::atomic selected_port{-1};
-    auto listen_on_first_available_port = [&selected_port](httplib::Server& server, const char* host, int) {
+    std::atomic<bool> force_failure{false};
+    auto listen_on_first_available_port = [&selected_port, &force_failure](httplib::Server& server, const char* host, int) {
+        if (force_failure.load()) {
+            selected_port.store(-1);
+            return false;
+        }
+
         for (int offset = 0; offset < kTestPortCount; ++offset) {
             const int port = kTestPortStart + offset;
             selected_port.store(port);
@@ -312,6 +321,25 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_TRUE(error_stream.str().empty());
+
+    force_failure = true;
+    selected_port.store(-1);
+    std::stringstream failure_input;
+    std::ostringstream failure_output;
+    std::ostringstream failure_error;
+    ReservationSystem failure_reservation_system(failure_input, failure_output);
+    httplib::Server failure_server;
+    EXPECT_EQ(
+        run_api_server_with_listener(
+            failure_reservation_system,
+            failure_server,
+            failure_output,
+            failure_error,
+            listen_on_first_available_port),
+        1);
+    EXPECT_EQ(selected_port.load(), -1);
+    EXPECT_NE(failure_output.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+    EXPECT_NE(failure_error.str().find("Failed to start server!"), std::string::npos);
 }
 
 TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {

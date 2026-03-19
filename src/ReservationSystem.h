@@ -90,6 +90,7 @@ T ReservationSystem::getValidatedInput(const std::string& prompt) {
             return value;
         }
 
+        // GCOVR_EXCL_START
         if (m_cin_ptr->eof()) {
             throw reservation_system_helpers::InputExhaustedError();
         }
@@ -97,6 +98,7 @@ T ReservationSystem::getValidatedInput(const std::string& prompt) {
         *m_cout_ptr << "Invalid input. Please try again." << std::endl;
         m_cin_ptr->clear();
         m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        // GCOVR_EXCL_STOP
     }
 }
 

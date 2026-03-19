@@ -10,7 +10,7 @@ binary="$1"
 input_file="$2"
 shift 2
 
-output="$("$binary" < "$input_file")"
+output="$($binary < "$input_file" | tr -d '\r')"
 
 for expected in "$@"; do
   if [[ "$output" != *"$expected"* ]]; then

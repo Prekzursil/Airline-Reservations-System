@@ -101,6 +101,16 @@ TEST_F(ReservationSystemTest, GetValidatedInputThrowsWhenNumericInputEndsAfterRe
     EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, GetValidatedInputHandlesFailStateForCharPrompts) {
+    test_in.str("x\n");
+    test_in.setstate(std::ios::failbit);
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedChar(rs, "Confirm? (y/n): ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, GetValidatedDoubleRetriesAfterInvalidNumericInput) {
     test_in.str("oops\n123.5\n");
 
@@ -135,6 +145,16 @@ TEST_F(ReservationSystemTest, GetValidatedStringThrowsOnImmediateEof) {
         static_cast<void>(ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ")),
         reservation_system_helpers::InputExhaustedError);
     EXPECT_EQ(test_out.str(), "Enter flight: ");
+}
+
+TEST_F(ReservationSystemTest, GetValidatedStringHandlesFailStateThenEof) {
+    test_in.str("fallback\n");
+    test_in.setstate(std::ios::failbit);
+
+    EXPECT_THROW(
+        static_cast<void>(ReservationSystemTestAccess::getValidatedString(rs, "Enter flight: ")),
+        reservation_system_helpers::InputExhaustedError);
+    EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
 }
 
 TEST_F(ReservationSystemTest, ExecuteMenuChoiceReportsOutOfRangeChoice) {

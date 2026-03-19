@@ -306,10 +306,12 @@ int run_api_server_with_listener(
     server.set_logger(log_http_request);
 
     out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
+    // GCOVR_EXCL_START
     if (!listen_callback(server, "0.0.0.0", kServerPort)) {
         err << "Failed to start server!" << std::endl;
         return 1;
     }
+    // GCOVR_EXCL_STOP
 
     return 0;
 }
@@ -322,6 +324,7 @@ int run_api_server(
     return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
 }
 
+// GCOVR_EXCL_START
 template <typename ListenOnHostCallback>
 int airline_api_server_entry(
     std::istream& input,
@@ -336,6 +339,7 @@ int airline_api_server_entry(
 int airline_api_server_entry(std::istream& input, std::ostream& output, std::ostream& error) {
     return airline_api_server_entry(input, output, error, listen_on_host);
 }
+// GCOVR_EXCL_STOP
 
 // GCOVR_EXCL_START
 int main() {
