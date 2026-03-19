@@ -272,12 +272,12 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     auto listen_on_first_available_port = [&selected_port](httplib::Server& server, const char* host, int) {
         for (int offset = 0; offset < kTestPortCount; ++offset) {
             const int port = kTestPortStart + offset;
-            selected_port.store(port, std::memory_order_release);
+            selected_port.store(port);
             if (listen_on_host(server, host, port)) {
                 return true;
             }
         }
-        selected_port.store(-1, std::memory_order_release);
+        selected_port.store(-1);
         return false;
     };
 
@@ -300,7 +300,7 @@ TEST(ApiServerEntryTest, RunApiServerUsesLoggerWithRealListenPath) {
     ScopedServerShutdown shutdown(server, server_thread);
 
     ASSERT_TRUE(wait_for_selected_port(selected_port));
-    const int port = selected_port.load(std::memory_order_acquire);
+    const int port = selected_port.load();
     ASSERT_TRUE(wait_for_status(port, "/api/airplanes", 200));
     server.stop();
     if (server_thread.joinable()) {

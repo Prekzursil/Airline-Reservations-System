@@ -59,7 +59,7 @@ bool wait_for_status(const int port, const std::string& path, const int expected
 bool wait_for_selected_port(const std::atomic<int>& selected_port) {
     const auto deadline = std::chrono::steady_clock::now() + kStartupTimeout;
     while (std::chrono::steady_clock::now() < deadline) {
-        if (selected_port.load(std::memory_order_acquire) > 0) {
+        if (selected_port.load() > 0) {
             return true;
         }
         std::this_thread::sleep_for(kPollInterval);
