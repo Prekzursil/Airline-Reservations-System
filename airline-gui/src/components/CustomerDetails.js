@@ -2,6 +2,32 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { fetchCustomerDetails, cancelBooking as apiCancelBooking } from '../services/apiService';
 
+const renderBookings = (bookings, handleCancelBooking) => {
+    if (!bookings || bookings.length === 0) {
+        return <p>No bookings found for this customer.</p>;
+    }
+
+    return (
+        <ul>
+            {bookings.map((booking) => (
+                <li key={booking.bookingId}>
+                    ID: {booking.bookingId}, Flight: {booking.flightNumber}, Seat: {booking.seatId}, Status: {booking.status}
+                    {booking.status !== 'CANCELLED' && (
+                        <button
+                            type="button"
+                            onClick={() => handleCancelBooking(booking.bookingId)}
+                            aria-label={`Cancel booking ${booking.bookingId}`}
+                            style={{ marginLeft: '10px' }}
+                        >
+                            Cancel Booking
+                        </button>
+                    )}
+                </li>
+            ))}
+        </ul>
+    );
+};
+
 const CustomerDetails = ({ customerId, onBookingCancelled = null, refreshTrigger = 0 }) => {
     const [customer, setCustomer] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -46,49 +72,28 @@ const CustomerDetails = ({ customerId, onBookingCancelled = null, refreshTrigger
         }
     };
 
-    if (!customerId) {
-        return <p>Select or enter a customer ID to view details.</p>;
+    let content = <p>Select or enter a customer ID to view details.</p>;
+    if (customerId) {
+        if (loading) {
+            content = <p>Loading customer details...</p>;
+        } else if (error) {
+            content = <p style={{ color: 'red' }}>{error}</p>;
+        } else if (!customer) {
+            content = <p>No customer data found for ID: {customerId}.</p>;
+        } else {
+            content = (
+                <div>
+                    <h4>Customer Details: {customer.name} (ID: {customer.personId})</h4>
+                    <p>Age: {customer.age}</p>
+                    <p>Money: ${customer.money.toFixed(2)}</p>
+                    <h5>Bookings:</h5>
+                    {renderBookings(customer.bookings, handleCancelBooking)}
+                    {actionStatus && <p aria-live="polite"><em>{actionStatus}</em></p>}
+                </div>
+            );
+        }
     }
-    if (loading) {
-        return <p>Loading customer details...</p>;
-    }
-    if (error) {
-        return <p style={{ color: 'red' }}>{error}</p>;
-    }
-    if (!customer) {
-        return <p>No customer data found for ID: {customerId}.</p>;
-    }
-
-    return (
-        <div>
-            <h4>Customer Details: {customer.name} (ID: {customer.personId})</h4>
-            <p>Age: {customer.age}</p>
-            <p>Money: ${customer.money.toFixed(2)}</p>
-            <h5>Bookings:</h5>
-            {customer.bookings && customer.bookings.length > 0 ? (
-                <ul>
-                    {customer.bookings.map((booking) => (
-                        <li key={booking.bookingId}>
-                            ID: {booking.bookingId}, Flight: {booking.flightNumber}, Seat: {booking.seatId}, Status: {booking.status}
-                            {booking.status !== 'CANCELLED' && (
-                                <button
-                                    type="button"
-                                    onClick={() => handleCancelBooking(booking.bookingId)}
-                                    aria-label={`Cancel booking ${booking.bookingId}`}
-                                    style={{ marginLeft: '10px' }}
-                                >
-                                    Cancel Booking
-                                </button>
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                <p>No bookings found for this customer.</p>
-            )}
-            {actionStatus && <p aria-live="polite"><em>{actionStatus}</em></p>}
-        </div>
-    );
+    return content;
 };
 
 CustomerDetails.propTypes = {

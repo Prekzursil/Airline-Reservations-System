@@ -86,6 +86,7 @@ if(WIN32)
 endif()
 
 enable_testing()
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 add_executable(
   run_tests_executable
@@ -129,8 +130,8 @@ endif()
 add_test(
   NAME airline_cli_smoke_exit
   COMMAND
-    bash
-    ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
+    ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tests/test_run_cli_scenario.py
     $<TARGET_FILE:airline_reservation_system>
     ${CMAKE_SOURCE_DIR}/tests/cli_exit_input.txt
     "Welcome to the Airline Reservation System!"
@@ -141,8 +142,8 @@ add_test(
 add_test(
   NAME airline_cli_smoke_menu_flow
   COMMAND
-    bash
-    ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
+    ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tests/test_run_cli_scenario.py
     $<TARGET_FILE:airline_reservation_system>
     ${CMAKE_SOURCE_DIR}/tests/cli_menu_flow_input.txt
     "Customer Coverage User with ID CUST0003 added successfully."

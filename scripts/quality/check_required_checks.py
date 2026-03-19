@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
+    HTTPSRequestOptions,
     HTTPSRequestError,
     HTTPSRequestTarget,
     QualityArtifact,
@@ -19,6 +20,11 @@ from scripts.security_helpers import (
     request_json_https_target,
     require_repo_slug,
     require_sha,
+)
+from scripts.quality.github_contexts import collect_contexts
+from scripts.quality.required_checks_support import (
+    evaluate_required_contexts,
+    has_check_runs_in_progress,
 )
 
 
@@ -39,13 +45,15 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
         try:
             return request_json_https_target(
                 target=target,
-                method="GET",
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "Authorization": f"Bearer {token}",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                    "User-Agent": "airline-quality-zero-gate",
-                },
+                options=HTTPSRequestOptions(
+                    method="GET",
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "Authorization": f"Bearer {token}",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                        "User-Agent": "airline-quality-zero-gate",
+                    },
+                ),
             )
         except HTTPSRequestError as exc:
             retryable = exc.status in {429, 500, 502, 503, 504}
@@ -57,100 +65,6 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
 
         time.sleep(delay_seconds)
         delay_seconds *= 2
-
-    raise RuntimeError("GitHub API request exhausted retries")
-
-
-def _upsert_context(contexts: Dict[str, Dict[str, str]], name: str, *, state: str, conclusion: str, source: str) -> None:
-    key = str(name or "").strip()
-    if not key:
-        return
-    contexts[key] = {
-        "state": str(state or ""),
-        "conclusion": str(conclusion or ""),
-        "source": source,
-    }
-
-
-def _collect_source_contexts(
-    contexts: Dict[str, Dict[str, str]],
-    items: List[Any],
-    *,
-    name_field: str,
-    state_field: str,
-    conclusion_field: Optional[str],
-    source: str,
-) -> None:
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        state = str(item.get(state_field) or "")
-        conclusion = state if conclusion_field is None else str(item.get(conclusion_field) or "")
-        _upsert_context(
-            contexts,
-            str(item.get(name_field) or ""),
-            state=state,
-            conclusion=conclusion,
-            source=source,
-        )
-
-
-def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-    contexts: Dict[str, Dict[str, str]] = {}
-    _collect_source_contexts(
-        contexts,
-        check_runs_payload.get("check_runs", []) or [],
-        name_field="name",
-        state_field="status",
-        conclusion_field="conclusion",
-        source="check_run",
-    )
-    _collect_source_contexts(
-        contexts,
-        status_payload.get("statuses", []) or [],
-        name_field="context",
-        state_field="state",
-        conclusion_field=None,
-        source="status",
-    )
-    return contexts
-
-
-def _evaluate_check_run(context: str, observed: Dict[str, str]) -> Optional[str]:
-    state = observed.get("state")
-    conclusion = observed.get("conclusion")
-    if state != "completed":
-        return f"{context}: status={state}"
-    if conclusion != "success":
-        return f"{context}: conclusion={conclusion}"
-    return None
-
-
-def _evaluate_status_context(context: str, observed: Dict[str, str]) -> Optional[str]:
-    state = observed.get("conclusion")
-    if state != "success":
-        return f"{context}: state={state}"
-    return None
-
-
-def _evaluate(required: List[str], contexts: Dict[str, Dict[str, str]]) -> Tuple[str, List[str], List[str]]:
-    missing: List[str] = []
-    failed: List[str] = []
-
-    for context in required:
-        observed = contexts.get(context)
-        if not observed:
-            missing.append(context)
-            continue
-
-        evaluator = _evaluate_check_run if observed.get("source") == "check_run" else _evaluate_status_context
-        failure = evaluator(context, observed)
-        if failure:
-            failed.append(failure)
-
-    status = "pass" if not missing and not failed else "fail"
-    return status, missing, failed
-
 
 def _render_md(payload: Dict[str, Any]) -> str:
     lines = [
@@ -202,15 +116,6 @@ def _fetch_check_payloads(repo: str, sha: str, token: str) -> Tuple[Dict[str, An
     return check_runs, statuses
 
 
-def _has_check_runs_in_progress(contexts: Dict[str, Dict[str, str]]) -> bool:
-    for observed in contexts.values():
-        if observed.get("source") != "check_run":
-            continue
-        if observed.get("state") != "completed":
-            return True
-    return False
-
-
 def _collect_payload(
     args: argparse.Namespace,
     required: List[str],
@@ -221,8 +126,8 @@ def _collect_payload(
 
     while time.time() <= deadline:
         check_runs, statuses = _fetch_check_payloads(args.repo, args.sha, token)
-        contexts = _collect_contexts(check_runs, statuses)
-        status, missing, failed = _evaluate(required, contexts)
+        contexts = collect_contexts(check_runs, statuses)
+        status, missing, failed = evaluate_required_contexts(required, contexts)
 
         final_payload = {
             "status": status,
@@ -238,7 +143,7 @@ def _collect_payload(
         if status == "pass":
             break
 
-        if not missing and not _has_check_runs_in_progress(contexts):
+        if not missing and not has_check_runs_in_progress(contexts):
             break
         time.sleep(max(args.poll_seconds, 1))
 
@@ -267,5 +172,5 @@ def main() -> int:
     return 0 if final_payload["status"] == "pass" else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     raise SystemExit(main())

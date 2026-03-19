@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
+    HTTPSRequestOptions,
     HTTPSRequestTarget,
     QualityArtifact,
     build_https_request_target,
@@ -108,12 +109,14 @@ def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
         body["branchName"] = branch_name
     payload = request_json_https_target(
         target=target,
-        method="POST",
-        headers={
-            "api-token": token,
-            "User-Agent": "airline-codacy-zero-gate",
-        },
-        body=body,
+        options=HTTPSRequestOptions(
+            method="POST",
+            headers={
+                "api-token": token,
+                "User-Agent": "airline-codacy-zero-gate",
+            },
+            body=body,
+        ),
     )
     return extract_total_open(payload)
 
@@ -167,5 +170,5 @@ def main() -> int:
     return 0 if status == "pass" else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     raise SystemExit(main())

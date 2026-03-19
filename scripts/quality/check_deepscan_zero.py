@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
+    HTTPSRequestOptions,
     HTTPSRequestTarget,
     QualityArtifact,
     build_https_request_target,
@@ -19,6 +20,7 @@ from scripts.security_helpers import (
     require_repo_slug,
     require_sha,
 )
+from scripts.quality.github_contexts import collect_contexts
 
 _PENDING_STATES = {"pending", ""}
 
@@ -63,65 +65,16 @@ def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRe
 def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
     return request_json_https_target(
         target=target,
-        method="GET",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "airline-deepscan-zero-gate",
-        },
+        options=HTTPSRequestOptions(
+            method="GET",
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "airline-deepscan-zero-gate",
+            },
+        ),
     )
-
-
-def _context_name(value: Any) -> str:
-    return str(value or "").strip()
-
-
-def _build_context_entry(*, state: Any, conclusion: Any, source: str) -> Dict[str, str]:
-    return {
-        "state": str(state or ""),
-        "conclusion": str(conclusion or ""),
-        "source": source,
-    }
-
-
-def _collect_context_entries(
-    items: List[Dict[str, Any]],
-    *,
-    name_field: str,
-    state_field: str,
-    conclusion_field: Optional[str],
-    source: str,
-) -> Dict[str, Dict[str, str]]:
-    contexts: Dict[str, Dict[str, str]] = {}
-    for item in items:
-        name = _context_name(item.get(name_field))
-        if not name:
-            continue
-        state = item.get(state_field)
-        conclusion = state if conclusion_field is None else item.get(conclusion_field)
-        contexts[name] = _build_context_entry(state=state, conclusion=conclusion, source=source)
-    return contexts
-
-
-def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-    contexts = _collect_context_entries(
-        [item for item in check_runs_payload.get("check_runs", []) or [] if isinstance(item, dict)],
-        name_field="name",
-        state_field="status",
-        conclusion_field="conclusion",
-        source="check_run",
-    )
-    contexts.update(
-        _collect_context_entries(
-            [item for item in status_payload.get("statuses", []) or [] if isinstance(item, dict)],
-            name_field="context",
-            state_field="state",
-            conclusion_field=None,
-            source="status",
-        )
-    )
-    return contexts
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
@@ -187,7 +140,7 @@ def _run_deepscan_check(args: argparse.Namespace, token: str) -> Tuple[str, List
     while True:
         check_runs = _api_get(check_runs_target, token)
         statuses = _api_get(statuses_target, token)
-        observed = _collect_contexts(check_runs, statuses).get(args.required_context)
+        observed = collect_contexts(check_runs, statuses).get(args.required_context)
 
         if observed is None:
             if _poll_or_timeout(time.time(), deadline, args.poll_interval_seconds):
@@ -232,5 +185,5 @@ def main() -> int:
     return 0 if status == "pass" else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     raise SystemExit(main())

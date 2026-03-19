@@ -388,7 +388,6 @@ void ReservationSystem::handleAdminMenu() {
             break;
         case 0:
             return;
-        default: return; // GCOVR_EXCL_LINE
     }
 }
 
