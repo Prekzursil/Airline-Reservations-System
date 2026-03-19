@@ -1,76 +1,87 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-ALLOWED_BINARY_ROOTS = (
-    REPO_ROOT / "build",
-    REPO_ROOT / "build-clang",
-    REPO_ROOT / "build-gcc",
-)
-ALLOWED_BINARY_NAMES = {
-    "ReservationSystemTests",
-    "ReservationSystemTests.exe",
+ALLOWED_BINARY_NAMES = (
     "airline_reservation_system",
     "airline_reservation_system.exe",
+)
+KNOWN_BUILD_SUBDIRECTORIES = ("", "Debug", "Release", "RelWithDebInfo", "MinSizeRel")
+
+
+@dataclass(frozen=True)
+class Scenario:
+    input_file: Path
+    expected_fragments: tuple[str, ...]
+
+
+SCENARIOS = {
+    "cli_exit": Scenario(
+        input_file=REPO_ROOT / "tests" / "cli_exit_input.txt",
+        expected_fragments=(
+            "Welcome to the Airline Reservation System!",
+            "Exiting system. Goodbye!",
+            "Thank you for using the Airline Reservation System.",
+        ),
+    ),
+    "cli_menu_flow": Scenario(
+        input_file=REPO_ROOT / "tests" / "cli_menu_flow_input.txt",
+        expected_fragments=(
+            "Customer Coverage User with ID CUST0003 added successfully.",
+            "Booking successful! Booking ID:",
+            "Airplane FL303 added successfully.",
+        ),
+    ),
 }
-ALLOWED_INPUT_ROOT = REPO_ROOT / "tests"
 
 
 def _print_usage(program_name: str) -> int:
-    print(
-        f"usage: {program_name} <binary> <input-file> [expected-fragment...]",
-        file=sys.stderr,
-    )
+    available = ", ".join(sorted(SCENARIOS))
+    print(f"usage: {program_name} <scenario>", file=sys.stderr)
+    print(f"available scenarios: {available}", file=sys.stderr)
     return 2
 
 
-def _resolve_required_file(raw_path: str, *, label: str) -> Path:
-    candidate = Path(raw_path)
-    resolved = candidate if candidate.is_absolute() else REPO_ROOT / candidate
-    resolved = resolved.resolve()
-    if not resolved.is_file():
-        raise ValueError(f"{label} does not exist: {resolved}")
-    return resolved
+def _resolve_scenario(name: str) -> Scenario:
+    scenario = SCENARIOS.get(name)
+    if scenario is None:
+        available = ", ".join(sorted(SCENARIOS))
+        raise ValueError(f"unknown scenario '{name}'. Expected one of: {available}")
+    return scenario
 
 
-def _is_within(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root.resolve())
-        return True
-    except ValueError:
-        return False
+def _binary_candidates(binary_dir: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for subdirectory in KNOWN_BUILD_SUBDIRECTORIES:
+        search_root = binary_dir if not subdirectory else binary_dir / subdirectory
+        for binary_name in ALLOWED_BINARY_NAMES:
+            candidates.append(search_root / binary_name)
+    return candidates
 
 
-def _resolve_binary(raw_path: str) -> Path:
-    binary = _resolve_required_file(raw_path, label="binary")
-    if binary.name not in ALLOWED_BINARY_NAMES:
-        raise ValueError(f"binary is not allowlisted: {binary.name}")
-    if not any(_is_within(binary, root) for root in ALLOWED_BINARY_ROOTS):
-        raise ValueError(f"binary must live under a known build directory: {binary}")
-    return binary
+def _resolve_binary(binary_dir: Path) -> Path:
+    resolved_binary_dir = binary_dir.resolve()
+    for candidate in _binary_candidates(resolved_binary_dir):
+        if candidate.is_file():
+            return candidate
+    searched = ", ".join(str(candidate) for candidate in _binary_candidates(resolved_binary_dir))
+    raise ValueError(f"unable to locate allowlisted airline CLI binary. Searched: {searched}")
 
 
-def _resolve_input_file(raw_path: str) -> Path:
-    input_file = _resolve_required_file(raw_path, label="input file")
-    if not _is_within(input_file, ALLOWED_INPUT_ROOT):
-        raise ValueError(f"input file must live under tests/: {input_file}")
-    return input_file
-
-
-def _run_binary(binary: Path, input_file: Path) -> subprocess.CompletedProcess[str]:
-    with input_file.open("r", encoding="utf-8") as handle:
-        return subprocess.run(
-            [os.fspath(binary)],
-            stdin=handle,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+def _run_binary(binary: Path, scenario: Scenario) -> subprocess.CompletedProcess[str]:
+    input_text = scenario.input_file.read_text(encoding="utf-8")
+    return subprocess.run(
+        [str(binary)],
+        input=input_text,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def _print_process_output(output: str, error_output: str) -> None:
@@ -95,24 +106,24 @@ def _assert_expected_fragments(output: str, expected_fragments: list[str]) -> in
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 3:
+    if len(argv) != 2:
         return _print_usage(argv[0])
 
     try:
-        binary = _resolve_binary(argv[1])
-        input_file = _resolve_input_file(argv[2])
+        scenario = _resolve_scenario(argv[1])
+        binary = _resolve_binary(Path.cwd())
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
-    completed = _run_binary(binary, input_file)
+    completed = _run_binary(binary, scenario)
     output = completed.stdout.replace("\r", "")
 
     if completed.returncode != 0:
         _print_process_output(output, completed.stderr)
         return completed.returncode
 
-    return _assert_expected_fragments(output, argv[3:])
+    return _assert_expected_fragments(output, list(scenario.expected_fragments))
 
 
 if __name__ == "__main__":

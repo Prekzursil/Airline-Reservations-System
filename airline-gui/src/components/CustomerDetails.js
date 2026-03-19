@@ -78,9 +78,7 @@ const CustomerDetails = ({ customerId, onBookingCancelled = null, refreshTrigger
             content = <p>Loading customer details...</p>;
         } else if (error) {
             content = <p style={{ color: 'red' }}>{error}</p>;
-        } else if (!customer) {
-            content = <p>No customer data found for ID: {customerId}.</p>;
-        } else {
+        } else if (customer) {
             content = (
                 <div>
                     <h4>Customer Details: {customer.name} (ID: {customer.personId})</h4>
@@ -91,6 +89,8 @@ const CustomerDetails = ({ customerId, onBookingCancelled = null, refreshTrigger
                     {actionStatus && <p aria-live="polite"><em>{actionStatus}</em></p>}
                 </div>
             );
+        } else {
+            content = <p>No customer data found for ID: {customerId}.</p>;
         }
     }
     return content;

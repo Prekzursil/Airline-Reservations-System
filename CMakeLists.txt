@@ -132,11 +132,7 @@ add_test(
   COMMAND
     ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tests/test_run_cli_scenario.py
-    $<TARGET_FILE:airline_reservation_system>
-    ${CMAKE_SOURCE_DIR}/tests/cli_exit_input.txt
-    "Welcome to the Airline Reservation System!"
-    "Exiting system. Goodbye!"
-    "Thank you for using the Airline Reservation System."
+    cli_exit
 )
 
 add_test(
@@ -144,10 +140,12 @@ add_test(
   COMMAND
     ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tests/test_run_cli_scenario.py
-    $<TARGET_FILE:airline_reservation_system>
-    ${CMAKE_SOURCE_DIR}/tests/cli_menu_flow_input.txt
-    "Customer Coverage User with ID CUST0003 added successfully."
-    "Booking successful! Booking ID:"
-    "Airplane FL303 added successfully."
+    cli_menu_flow
 )
-set_tests_properties(airline_cli_smoke_exit airline_cli_smoke_menu_flow PROPERTIES TIMEOUT 120)
+set_tests_properties(
+  airline_cli_smoke_exit
+  airline_cli_smoke_menu_flow
+  PROPERTIES
+    TIMEOUT 120
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:airline_reservation_system>
+)
