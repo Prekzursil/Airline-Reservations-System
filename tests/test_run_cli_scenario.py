@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+from __future__ import absolute_import, division
 
 import subprocess  # nosec B404 - test harness executes a locally built allowlisted binary without shell expansion
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_BINARY_NAMES = (
@@ -17,7 +18,7 @@ KNOWN_BUILD_SUBDIRECTORIES = ("", "Debug", "Release", "RelWithDebInfo", "MinSize
 @dataclass(frozen=True)
 class Scenario:
     input_file: Path
-    expected_fragments: tuple[str, ...]
+    expected_fragments: Tuple[str, ...]
 
 
 SCENARIOS = {
@@ -55,8 +56,8 @@ def _resolve_scenario(name: str) -> Scenario:
     return scenario
 
 
-def _binary_candidates(binary_dir: Path) -> list[Path]:
-    candidates: list[Path] = []
+def _binary_candidates(binary_dir: Path) -> List[Path]:
+    candidates: List[Path] = []
     for subdirectory in KNOWN_BUILD_SUBDIRECTORIES:
         search_root = binary_dir if not subdirectory else binary_dir / subdirectory
         for binary_name in ALLOWED_BINARY_NAMES:
@@ -73,7 +74,7 @@ def _resolve_binary(binary_dir: Path) -> Path:
     raise ValueError(f"unable to locate allowlisted airline CLI binary. Searched: {searched}")
 
 
-def _run_binary(binary: Path, scenario: Scenario) -> subprocess.CompletedProcess[str]:
+def _run_binary(binary: Path, scenario: Scenario) -> subprocess.CompletedProcess:
     input_text = scenario.input_file.read_text(encoding="utf-8")
     return subprocess.run(  # nosec B603 - _resolve_binary restricts execution to a fixed local allowlist
         [str(binary)],
@@ -95,7 +96,7 @@ def _print_process_output(output: str, error_output: str) -> None:
         )
 
 
-def _assert_expected_fragments(output: str, expected_fragments: list[str]) -> int:
+def _assert_expected_fragments(output: str, expected_fragments: List[str]) -> int:
     for expected in expected_fragments:
         if expected not in output:
             print(f"missing expected output fragment: {expected}", file=sys.stderr)
@@ -105,7 +106,7 @@ def _assert_expected_fragments(output: str, expected_fragments: list[str]) -> in
     return 0
 
 
-def main(argv: list[str]) -> int:
+def main(argv: List[str]) -> int:
     if len(argv) != 2:
         return _print_usage(argv[0])
 

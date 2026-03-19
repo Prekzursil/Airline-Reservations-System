@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import absolute_import, division
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -18,8 +18,9 @@ class NormalizeLcovPathTests(unittest.TestCase):
 
         with TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            source_path = repo_root / "src" / "ReservationSystem.cpp"
-            source_path.parent.mkdir(parents=True, exist_ok=True)
+            source_dir = Path(repo_root / "src")
+            source_dir.mkdir(parents=True, exist_ok=True)
+            source_path = Path(source_dir / "ReservationSystem.cpp")
             source_path.write_text("int main() { return 0; }\n", encoding="utf-8")
 
             normalized, stripped = normalize_lcov.normalize_lcov_lines(raw, repo_root=repo_root)
