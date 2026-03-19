@@ -1,8 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SeatMap from './SeatMap';
-import { bookingRequestForSelection } from './SeatMap';
-import { seatBackgroundColor, selectionStatusForSeat } from './SeatMap';
+import SeatMap, { bookingRequestForSelection, seatBackgroundColor, selectionStatusForSeat } from './SeatMap';
 import {
   cancelBooking,
   createBooking,

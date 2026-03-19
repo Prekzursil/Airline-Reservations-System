@@ -12,7 +12,7 @@ const renderBookings = (bookings, handleCancelBooking) => {
             {bookings.map((booking) => (
                 <li key={booking.bookingId}>
                     ID: {booking.bookingId}, Flight: {booking.flightNumber}, Seat: {booking.seatId}, Status: {booking.status}
-                    {booking.status !== 'CANCELLED' && (
+                    {booking.status === 'CANCELLED' ? null : (
                         <button
                             type="button"
                             onClick={() => handleCancelBooking(booking.bookingId)}

@@ -82,6 +82,25 @@ const LEGEND_ITEMS = [
     { label: 'Selected', color: 'yellow' },
 ];
 
+const bookingIdPropType = PropTypes.oneOfType([PropTypes.number, PropTypes.string]);
+const seatPropType = PropTypes.shape({
+    seatId: PropTypes.string.isRequired,
+    seatClass: PropTypes.string.isRequired,
+    price: PropTypes.number.isRequired,
+    isBooked: PropTypes.bool.isRequired,
+    bookedByCustomerId: PropTypes.string,
+    bookingId: bookingIdPropType,
+}).isRequired;
+const customerPropType = PropTypes.shape({
+    personId: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+}).isRequired;
+const customerSelectionPropType = PropTypes.shape({
+    value: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+});
+const seatRowPropType = PropTypes.arrayOf(seatPropType).isRequired;
+
 const selectionStatusForSeat = (seat) => {
     if (!seat.isBooked) {
         return {
@@ -173,6 +192,13 @@ const SeatCell = ({ seat, isSelected, onSeatClick, onCancelBooking }) => (
     </div>
 );
 
+SeatCell.propTypes = {
+    seat: seatPropType,
+    isSelected: PropTypes.bool.isRequired,
+    onSeatClick: PropTypes.func.isRequired,
+    onCancelBooking: PropTypes.func.isRequired,
+};
+
 const SeatGrid = ({ rows, selectedSeatId, onSeatClick, onCancelBooking }) => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {rows.map((row) => (
@@ -190,6 +216,13 @@ const SeatGrid = ({ rows, selectedSeatId, onSeatClick, onCancelBooking }) => (
         ))}
     </div>
 );
+
+SeatGrid.propTypes = {
+    rows: PropTypes.arrayOf(seatRowPropType).isRequired,
+    selectedSeatId: PropTypes.string,
+    onSeatClick: PropTypes.func.isRequired,
+    onCancelBooking: PropTypes.func.isRequired,
+};
 
 const BookingControls = ({
     selectedSeatId,
@@ -231,6 +264,16 @@ const BookingControls = ({
             </button>
         </div>
     );
+};
+
+BookingControls.propTypes = {
+    selectedSeatId: PropTypes.string,
+    loadingCustomers: PropTypes.bool.isRequired,
+    customerLoadingError: PropTypes.string.isRequired,
+    customers: PropTypes.arrayOf(customerPropType).isRequired,
+    customerIdForBooking: customerSelectionPropType,
+    onCustomerChange: PropTypes.func.isRequired,
+    onConfirmBooking: PropTypes.func.isRequired,
 };
 
 const Legend = () => (
@@ -283,6 +326,20 @@ const SeatMapContent = ({
             />
         </>
     );
+};
+
+SeatMapContent.propTypes = {
+    hasSeats: PropTypes.bool.isRequired,
+    rows: PropTypes.arrayOf(seatRowPropType).isRequired,
+    selectedSeatId: PropTypes.string,
+    loadingCustomers: PropTypes.bool.isRequired,
+    customerLoadingError: PropTypes.string.isRequired,
+    customers: PropTypes.arrayOf(customerPropType).isRequired,
+    customerIdForBooking: customerSelectionPropType,
+    onSeatClick: PropTypes.func.isRequired,
+    onCancelBooking: PropTypes.func.isRequired,
+    onCustomerChange: PropTypes.func.isRequired,
+    onConfirmBooking: PropTypes.func.isRequired,
 };
 
 const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
@@ -366,14 +423,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
 };
 
 SeatMap.propTypes = {
-    seats: PropTypes.arrayOf(PropTypes.shape({
-        seatId: PropTypes.string.isRequired,
-        seatClass: PropTypes.string.isRequired,
-        price: PropTypes.number.isRequired,
-        isBooked: PropTypes.bool.isRequired,
-        bookedByCustomerId: PropTypes.string,
-        bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    })).isRequired,
+    seats: PropTypes.arrayOf(seatPropType).isRequired,
     flightNumber: PropTypes.string.isRequired,
     onBookingSuccess: PropTypes.func,
 };

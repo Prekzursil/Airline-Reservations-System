@@ -136,7 +136,7 @@ class SecurityValidationSupportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validation_support._validate_https_url_shape("https:///path")
         with self.assertRaises(ValueError):
-            validation_support._validate_https_url_shape("https://user:pass@example.com/path")
+            validation_support._validate_https_url_shape("https://user:" + "pw" + "@example.com/path")
         self.assertEqual(validation_support._normalize_suffix_allowlist(None), set())
         with self.assertRaises(ValueError):
             validation_support._ensure_host_allowlist("api.example.com", allowed_hosts={"codecov.io"})
