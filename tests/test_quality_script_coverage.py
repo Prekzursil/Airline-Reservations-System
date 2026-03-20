@@ -1,8 +1,9 @@
 from __future__ import absolute_import, division
 
+# pylint: disable=too-many-lines,no-member,not-context-manager
+
 import contextlib
 import http.client
-import io
 import json
 import os
 import sys

@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 
-import json
+# pylint: disable=not-context-manager
+
 import os
 import sys
 import tempfile

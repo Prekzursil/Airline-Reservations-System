@@ -108,10 +108,10 @@ def _coverage_parser_fixture():
 
 
 class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
-    def test_repo_index_and_source_path_helpers_cover_edge_cases(self) -> None:
+    def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(self) -> None:
         with _normalize_lcov_fixture() as (repo_root, repo_indexes):
-            repo_paths = repo_indexes.exact_paths
             repo_file_index = repo_indexes.by_name
+
             self.assertEqual(repo_file_index["main.cpp"], ["src/main.cpp"])
             self.assertNotIn("ignored.py", repo_file_index)
             self.assertEqual(
@@ -132,6 +132,11 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 normalize_lcov._trim_to_source_suffix("coverage-report.txt"),
                 "coverage-report.txt",
             )
+
+    def test_matching_repo_suffix_handles_exact_and_trimmed_paths(self) -> None:
+        with _normalize_lcov_fixture() as (_, repo_indexes):
+            repo_paths = repo_indexes.exact_paths
+
             self.assertEqual(
                 normalize_lcov._matching_repo_suffix(
                     "build/CMakeFiles/airline.dir/src/main.cpp.gcda",
@@ -148,6 +153,9 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 normalize_lcov._matching_repo_suffix("../main.cpp", repo_paths, repo_indexes.casefold_paths),
                 "main.cpp",
             )
+
+    def test_normalize_source_path_handles_repo_and_outside_inputs(self) -> None:
+        with _normalize_lcov_fixture() as (repo_root, repo_indexes):
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "././src/main.cpp",
@@ -283,7 +291,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         )
 
     def test_handle_da_line_ignores_inactive_records(self) -> None:
-        kept_lines: list[str] = []
+        kept_lines = []
         record = normalize_lcov._RecordState()
         normalize_lcov._handle_da_line("DA:7,1", kept_lines=kept_lines, record=record)
 
