@@ -135,22 +135,19 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
 
     def test_matching_repo_suffix_handles_exact_and_trimmed_paths(self) -> None:
         with _normalize_lcov_fixture() as (_, repo_indexes):
-            repo_paths = repo_indexes.exact_paths
-
             self.assertEqual(
                 normalize_lcov._matching_repo_suffix(
                     "build/CMakeFiles/airline.dir/src/main.cpp.gcda",
-                    repo_paths,
                     repo_indexes.casefold_paths,
                 ),
                 "src/main.cpp",
             )
             self.assertEqual(
-                normalize_lcov._matching_repo_suffix("src/main.cpp", repo_paths, repo_indexes.casefold_paths),
+                normalize_lcov._matching_repo_suffix("src/main.cpp", repo_indexes.casefold_paths),
                 "src/main.cpp",
             )
             self.assertEqual(
-                normalize_lcov._matching_repo_suffix("../main.cpp", repo_paths, repo_indexes.casefold_paths),
+                normalize_lcov._matching_repo_suffix("../main.cpp", repo_indexes.casefold_paths),
                 "main.cpp",
             )
 

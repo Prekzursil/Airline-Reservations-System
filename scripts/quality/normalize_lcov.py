@@ -78,7 +78,6 @@ def _trim_to_source_suffix(candidate: str) -> str:
 
 def _matching_repo_suffix(
     candidate: str,
-    repo_paths: set[str],
     repo_paths_casefold: dict[str, str],
 ) -> str:
     normalized = _sanitize_relative_candidate(_trim_to_source_suffix(candidate))
@@ -119,7 +118,7 @@ def _normalize_source_path(
     repo_root_text = repo_indexes.root.resolve(strict=False).as_posix().rstrip("/")
     candidate = _normalize_absolute_candidate(candidate, repo_root_text)
 
-    candidate = _matching_repo_suffix(candidate, repo_indexes.exact_paths, repo_indexes.casefold_paths)
+    candidate = _matching_repo_suffix(candidate, repo_indexes.casefold_paths)
     if candidate in repo_indexes.exact_paths:
         return candidate
 

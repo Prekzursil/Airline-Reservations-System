@@ -22,6 +22,18 @@ from scripts.quality import check_codacy_zero as codacy
 from scripts.quality import check_quality_secrets as quality_secrets
 from scripts.quality import github_contexts
 from scripts.quality import required_checks_support
+from tests.test_quality_script_deepscan_required_checks import DeepScanAndRequiredChecksTests
+from tests.test_quality_script_paths import CoverageParsersAndNormalizeLCOVTests
+from tests.test_quality_script_sentry_sonar import SentryAndSonarScriptTests
+
+# Keep the strict-zero profile's narrowed Python coverage command honest by making
+# the companion script test cases visible when this module is the only quality
+# script test file selected.
+_PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
+    CoverageParsersAndNormalizeLCOVTests,
+    DeepScanAndRequiredChecksTests,
+    SentryAndSonarScriptTests,
+)
 
 
 @contextlib.contextmanager
