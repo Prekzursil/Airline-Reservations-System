@@ -109,7 +109,7 @@ def _coverage_parser_fixture():
 
 class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
     def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(self) -> None:
-        with _normalize_lcov_fixture() as (repo_root, repo_indexes):
+        with _normalize_lcov_fixture() as (_, repo_indexes):
             repo_file_index = repo_indexes.by_name
 
             self.assertEqual(repo_file_index["main.cpp"], ["src/main.cpp"])
@@ -153,55 +153,26 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
 
     def test_normalize_source_path_handles_repo_and_outside_inputs(self) -> None:
         with _normalize_lcov_fixture() as (repo_root, repo_indexes):
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    "././src/main.cpp",
-                    repo_indexes=repo_indexes,
-                ),
-                "src/main.cpp",
-            )
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    "SRC/MAIN.CPP",
-                    repo_indexes=repo_indexes,
-                ),
-                "src/main.cpp",
-            )
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    "",
-                    repo_indexes=repo_indexes,
-                ),
-                "",
-            )
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    f"{repo_root.resolve(strict=False).as_posix()}/src/main.cpp",
-                    repo_indexes=repo_indexes,
-                ),
-                "src/main.cpp",
-            )
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    repo_root.resolve(strict=False).as_posix(),
-                    repo_indexes=repo_indexes,
-                ),
-                "",
-            )
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    "C:/outside/named.py",
-                    repo_indexes=repo_indexes,
-                ),
-                "src/named.py",
-            )
-            self.assertEqual(
-                normalize_lcov._normalize_source_path(
-                    "reports/no-match.txt",
-                    repo_indexes=repo_indexes,
-                ),
-                "reports/no-match.txt",
-            )
+            repo_root_posix = repo_root.resolve(strict=False).as_posix()
+            expected_cases = [
+                ("././src/main.cpp", "src/main.cpp"),
+                ("SRC/MAIN.CPP", "src/main.cpp"),
+                ("", ""),
+                (f"{repo_root_posix}/src/main.cpp", "src/main.cpp"),
+                (repo_root_posix, ""),
+                ("C:/outside/named.py", "src/named.py"),
+                ("reports/no-match.txt", "reports/no-match.txt"),
+            ]
+
+            for raw_path, expected in expected_cases:
+                with self.subTest(raw_path=raw_path):
+                    self.assertEqual(
+                        normalize_lcov._normalize_source_path(
+                            raw_path,
+                            repo_indexes=repo_indexes,
+                        ),
+                        expected,
+                    )
 
     def test_normalize_lcov_lines_and_main_strip_branch_records(self) -> None:
         with _normalize_lcov_fixture() as (repo_root, _):
@@ -288,7 +259,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         )
 
     def test_handle_da_line_ignores_inactive_records(self) -> None:
-        kept_lines = []
+        kept_lines: list[str] = []
         record = normalize_lcov._RecordState()
         normalize_lcov._handle_da_line("DA:7,1", kept_lines=kept_lines, record=record)
 

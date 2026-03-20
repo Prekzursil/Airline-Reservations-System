@@ -1,5 +1,3 @@
-from __future__ import absolute_import, annotations, division
-
 import importlib.util
 from pathlib import Path
 import sys
@@ -29,11 +27,11 @@ class RunCliScenarioScriptTests(unittest.TestCase):
 
     def test_resolve_binary_uses_current_working_directory_allowlist(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            binary_dir = Path(temp_dir)
-            binary_path = binary_dir / "airline_reservation_system"
+            binary_dir: Path = Path(temp_dir)
+            binary_path: Path = binary_dir / "airline_reservation_system"
             binary_path.write_text("", encoding="utf-8")
 
-            resolved = run_cli_scenario._resolve_binary(binary_dir)
+            resolved = Path(run_cli_scenario._resolve_binary(binary_dir))
 
         self.assertEqual(resolved.resolve(), binary_path.resolve())
 
