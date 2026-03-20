@@ -52,9 +52,9 @@ def _normalize_lcov_fixture():
             return original_is_file(path)
 
         with mock.patch.object(Path, "is_file", new=_patched_is_file):
-            repo_paths, repo_file_index = normalize_lcov._build_repo_file_indexes(repo_root)
+            repo_indexes = normalize_lcov._build_repo_file_indexes(repo_root)
 
-        yield repo_root, repo_paths, repo_file_index
+        yield repo_root, repo_indexes
 
 
 @contextlib.contextmanager
@@ -109,7 +109,9 @@ def _coverage_parser_fixture():
 
 class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
     def test_repo_index_and_source_path_helpers_cover_edge_cases(self) -> None:
-        with _normalize_lcov_fixture() as (repo_root, repo_paths, repo_file_index):
+        with _normalize_lcov_fixture() as (repo_root, repo_indexes):
+            repo_paths = repo_indexes.exact_paths
+            repo_file_index = repo_indexes.by_name
             self.assertEqual(repo_file_index["main.cpp"], ["src/main.cpp"])
             self.assertNotIn("ignored.py", repo_file_index)
             self.assertEqual(
@@ -134,83 +136,70 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 normalize_lcov._matching_repo_suffix(
                     "build/CMakeFiles/airline.dir/src/main.cpp.gcda",
                     repo_paths,
+                    repo_indexes.casefold_paths,
                 ),
                 "src/main.cpp",
             )
             self.assertEqual(
-                normalize_lcov._matching_repo_suffix("src/main.cpp", repo_paths),
+                normalize_lcov._matching_repo_suffix("src/main.cpp", repo_paths, repo_indexes.casefold_paths),
                 "src/main.cpp",
             )
             self.assertEqual(
-                normalize_lcov._matching_repo_suffix("../main.cpp", repo_paths),
+                normalize_lcov._matching_repo_suffix("../main.cpp", repo_paths, repo_indexes.casefold_paths),
                 "main.cpp",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "././src/main.cpp",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "src/main.cpp",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "SRC/MAIN.CPP",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "src/main.cpp",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     f"{repo_root.resolve(strict=False).as_posix()}/src/main.cpp",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "src/main.cpp",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     repo_root.resolve(strict=False).as_posix(),
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "C:/outside/named.py",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "src/named.py",
             )
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "reports/no-match.txt",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "reports/no-match.txt",
             )
 
     def test_normalize_lcov_lines_and_main_strip_branch_records(self) -> None:
-        with _normalize_lcov_fixture() as (repo_root, _, _):
+        with _normalize_lcov_fixture() as (repo_root, _):
             normalized, stripped = normalize_lcov.normalize_lcov_lines(
                 [
                     "TN:",
@@ -247,19 +236,17 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
             self.assertIn("stripped 1 branch records", stderr.getvalue())
 
     def test_normalize_source_path_matches_casefolded_suffix_for_outside_paths(self) -> None:
-        with _normalize_lcov_fixture() as (repo_root, repo_paths, repo_file_index):
+        with _normalize_lcov_fixture() as (_, repo_indexes):
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
                     "C:/outside/SRC/MAIN.CPP.gcda",
-                    repo_root=repo_root,
-                    repo_paths=repo_paths,
-                    repo_file_index=repo_file_index,
+                    repo_indexes=repo_indexes,
                 ),
                 "src/main.cpp",
             )
 
     def test_normalize_lcov_lines_synthesizes_lf_lh_from_da_records(self) -> None:
-        with _normalize_lcov_fixture() as (repo_root, _, _):
+        with _normalize_lcov_fixture() as (repo_root, _):
             normalized, stripped = normalize_lcov.normalize_lcov_lines(
                 [
                     "SF:C:/outside/SRC/MAIN.CPP.gcda",
@@ -277,7 +264,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         )
 
     def test_normalize_lcov_lines_preserves_existing_lf_lh_records(self) -> None:
-        with _normalize_lcov_fixture() as (repo_root, _, _):
+        with _normalize_lcov_fixture() as (repo_root, _):
             normalized, stripped = normalize_lcov.normalize_lcov_lines(
                 [
                     "SF:src/main.cpp",
@@ -294,6 +281,15 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
             normalized,
             "SF:src/main.cpp\nDA:1,1\nLF:4\nLH:2\nend_of_record\n",
         )
+
+    def test_handle_da_line_ignores_inactive_records(self) -> None:
+        kept_lines: list[str] = []
+        record = normalize_lcov._RecordState()
+        normalize_lcov._handle_da_line("DA:7,1", kept_lines=kept_lines, record=record)
+
+        self.assertEqual(kept_lines, ["DA:7,1"])
+        self.assertEqual(record.total, 0)
+        self.assertEqual(record.covered, 0)
 
     def test_lcov_and_istanbul_parsers_cover_fallback_and_exclusions(self) -> None:
         parsers._excluded_line_numbers.cache_clear()
