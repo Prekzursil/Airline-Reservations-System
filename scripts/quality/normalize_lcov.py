@@ -51,11 +51,19 @@ def _matching_repo_suffix(candidate: str, repo_paths: set[str]) -> str:
     normalized = _sanitize_relative_candidate(_trim_to_source_suffix(candidate))
     if normalized in repo_paths:
         return normalized
+    normalized_casefold = normalized.casefold()
+    for repo_path in sorted(repo_paths):
+        if repo_path.casefold() == normalized_casefold:
+            return repo_path
     parts = PurePosixPath(normalized).parts
     for index in range(len(parts)):
         suffix = "/".join(parts[index:])
         if suffix in repo_paths:
             return suffix
+        suffix_casefold = suffix.casefold()
+        for repo_path in sorted(repo_paths):
+            if repo_path.casefold() == suffix_casefold:
+                return repo_path
     return normalized
 
 
@@ -80,7 +88,7 @@ def _normalize_source_path(
         elif candidate.startswith(prefix):
             candidate = candidate[len(prefix) :]
         else:
-            candidate = PurePosixPath(candidate).name
+            candidate = PurePosixPath(candidate).as_posix()
 
     candidate = _matching_repo_suffix(candidate, repo_paths)
     if candidate in repo_paths:
@@ -99,12 +107,32 @@ def normalize_lcov_lines(lines: Iterable[str], *, repo_root: Path | None = None)
     stripped_count = 0
     root = (repo_root or Path.cwd()).resolve()
     repo_paths, repo_file_index = _build_repo_file_indexes(root)
+    record_total = 0
+    record_covered = 0
+    saw_lf = False
+    saw_lh = False
+    in_record = False
+
+    def _append_record_totals() -> None:
+        nonlocal in_record, record_total, record_covered, saw_lf, saw_lh
+        if not in_record:
+            return
+        if not saw_lf and record_total:
+            kept_lines.append(f"LF:{record_total}")
+        if not saw_lh and record_total:
+            kept_lines.append(f"LH:{record_covered}")
+        record_total = 0
+        record_covered = 0
+        saw_lf = False
+        saw_lh = False
+        in_record = False
 
     for raw_line in lines:
         if raw_line.startswith(_BRANCH_PREFIXES):
             stripped_count += 1
             continue
         if raw_line.startswith("SF:"):
+            _append_record_totals()
             normalized_source = _normalize_source_path(
                 raw_line.split(":", 1)[1],
                 repo_root=root,
@@ -112,9 +140,33 @@ def normalize_lcov_lines(lines: Iterable[str], *, repo_root: Path | None = None)
                 repo_file_index=repo_file_index,
             )
             kept_lines.append(f"SF:{normalized_source}")
+            in_record = True
+            continue
+        if raw_line.startswith("DA:"):
+            kept_lines.append(raw_line)
+            if in_record:
+                _, hits, *_ = raw_line[3:].split(",")
+                record_total += 1
+                if int(float(hits)) > 0:
+                    record_covered += 1
+            continue
+        if raw_line.startswith("LF:"):
+            kept_lines.append(raw_line)
+            saw_lf = True
+            in_record = True
+            continue
+        if raw_line.startswith("LH:"):
+            kept_lines.append(raw_line)
+            saw_lh = True
+            in_record = True
+            continue
+        if raw_line == "end_of_record":
+            _append_record_totals()
+            kept_lines.append(raw_line)
             continue
         kept_lines.append(raw_line)
 
+    _append_record_totals()
     normalized = "\n".join(kept_lines)
     if normalized and not normalized.endswith("\n"):
         normalized += "\n"

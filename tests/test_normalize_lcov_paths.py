@@ -33,6 +33,8 @@ class NormalizeLcovPathTests(unittest.TestCase):
                     "TN:",
                     "SF:src/ReservationSystem.cpp",
                     "DA:10,1",
+                    "LF:1",
+                    "LH:1",
                     "end_of_record",
                     "",
                 ]
