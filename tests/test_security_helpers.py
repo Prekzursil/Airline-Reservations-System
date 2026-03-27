@@ -54,6 +54,30 @@ def test_https_url_and_path_helpers() -> None:
         sec.require_https_path("repos/owner/repo")
 
 
+def test_normalize_host_validation_rejects_bad_inputs() -> None:
+    with pytest.raises(ValueError):
+        sec._normalize_host("")
+    with pytest.raises(ValueError):
+        sec._normalize_host("bad host")
+    with pytest.raises(ValueError):
+        sec._normalize_host("bad..host")
+    with pytest.raises(ValueError):
+        sec._normalize_host("-bad.example")
+
+
+def test_output_directory_and_filename_validation_rejects_bad_values() -> None:
+    with pytest.raises(ValueError):
+        sec._validate_output_filename("", label="JSON filename")
+    with pytest.raises(ValueError):
+        sec._validate_output_filename("..", label="JSON filename")
+    with pytest.raises(ValueError):
+        sec._validate_output_filename("bad/name", label="JSON filename")
+    with pytest.raises(ValueError):
+        sec._validate_output_directory("")
+    with pytest.raises(ValueError):
+        sec._validate_output_directory("/absolute/path")
+
+
 def test_fixed_output_paths_and_quality_artifact_paths_stay_in_workspace(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -91,6 +115,25 @@ def test_build_https_request_target_and_header_helpers() -> None:
         sec._safe_timeout_seconds(0)
     with pytest.raises(ValueError):
         sec._merge_safe_headers({"Bad Header": "x"}, include_json_content_type=False)
+    with pytest.raises(ValueError):
+        sec._validate_header_value("bad\nvalue", name="X-Test")
+
+
+def test_allowlist_and_local_address_helpers_cover_negative_branches() -> None:
+    sec._ensure_host_allowlist("api.github.com", allowed_hosts={"api.github.com"})
+    sec._ensure_host_allowlist("api.codacy.com", allowed_host_suffixes={"codacy.com"})
+    _ensure(sec._parse_ip_or_none("127.0.0.1") is not None)
+    _ensure(sec._parse_ip_or_none("not-an-ip") is None)
+    _ensure(sec._is_private_or_local_address(sec.ipaddress.ip_address("127.0.0.1")) is True)
+
+    with pytest.raises(ValueError):
+        sec._ensure_host_allowlist("api.github.com", allowed_hosts={"api.codacy.com"})
+    with pytest.raises(ValueError):
+        sec._ensure_host_allowlist("api.github.com", allowed_host_suffixes={"example.com"})
+    with pytest.raises(ValueError):
+        sec._reject_private_or_local_host("127.0.0.1")
+    with pytest.raises(ValueError):
+        sec._reject_private_or_local_host("localhost")
 
 
 def test_request_json_https_success_and_error_paths(monkeypatch) -> None:
@@ -167,6 +210,54 @@ def test_request_json_https_success_and_error_paths(monkeypatch) -> None:
         sec.request_json_https(host="sentry.io", path="/api/0/projects/org/proj/issues/")
 
 
+def test_request_https_payload_and_json_parsers_cover_error_paths(monkeypatch) -> None:
+    class _BadConn:
+        def __init__(self, host: str, timeout: int):
+            self.host = host
+            self.timeout = timeout
+
+        def request(self, method: str, path: str, body=None, headers=None):
+            self.method = method
+            self.path = path
+            self.headers = headers
+
+        @staticmethod
+        def getresponse():
+            class _Resp:
+                status = 200
+                reason = "OK"
+
+                @staticmethod
+                def read():
+                    return b"not-json"
+
+                @staticmethod
+                def getheaders():
+                    return []
+
+            return _Resp()
+
+        @staticmethod
+        def close():
+            return None
+
+    monkeypatch.setattr(sec, "_https_connection", lambda: _BadConn)
+    with pytest.raises(RuntimeError, match="Invalid JSON response body"):
+        sec.request_json_https(host="api.github.com", path="/repos/owner/repo")
+
+    bad_response = sec.HTTPSResponsePayload(
+        host="api.github.com",
+        path="/repos/owner/repo",
+        status=200,
+        reason="OK",
+        body='["not-a-dict"]',
+        headers={},
+    )
+    monkeypatch.setattr(sec, "_request_https_payload", lambda **_kwargs: bad_response)
+    with pytest.raises(RuntimeError, match="Expected JSON object response"):
+        sec.request_json_https_target(target=sec.HTTPSRequestTarget(host="api.github.com", path="/repos/owner/repo"))
+
+
 def test_request_json_list_https_target_and_invalid_json(monkeypatch) -> None:
     target = sec.HTTPSRequestTarget(host="api.github.com", path="/repos/owner/repo/commits/a1b2c3d/check-runs")
 
@@ -196,3 +287,21 @@ def test_request_json_list_https_target_and_invalid_json(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="Expected JSON list response"):
         sec.request_json_list_https_target(target=target)
+
+
+def test_request_json_list_https_and_target_cover_http_error_status(monkeypatch) -> None:
+    response = sec.HTTPSResponsePayload(
+        host="api.github.com",
+        path="/repos/owner/repo/status",
+        status=500,
+        reason="Server Error",
+        body='{"error":"boom"}',
+        headers={},
+    )
+    monkeypatch.setattr(sec, "_request_https_payload", lambda **_kwargs: response)
+
+    with pytest.raises(sec.HTTPSRequestError, match="500 Server Error"):
+        sec.request_json_list_https(
+            host="api.github.com",
+            path="/repos/owner/repo/status",
+        )
