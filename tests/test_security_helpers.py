@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division
 
+"""Security-helper regression checks for the Airline repo quality scripts."""
+
 import io
 from email.message import Message
 from typing import Any, Dict

@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division
 
+"""Main-flow coverage for Airline quality helper scripts."""
+
 import json
 import os
 import sys
@@ -16,6 +18,8 @@ from scripts.quality import check_sonar_zero as sonar
 
 
 class QualityScriptArgParsingTests(TestCase):
+    """Argument parsing regression checks for the quality helper scripts."""
+
     def test_codacy_parse_args_accepts_branch(self) -> None:
         with mock.patch.object(sys, "argv", ["prog", "--owner", "Prekzursil", "--repo", "Airline-Reservations-System", "--branch", "feature/test"]):
             args = codacy._parse_args()
@@ -55,6 +59,8 @@ class QualityScriptArgParsingTests(TestCase):
 
 
 class QualityScriptMainFlowTests(TestCase):
+    """Main-flow regression checks for quality helper scripts and artifact emission."""
+
     def test_codacy_run_check_fails_without_token(self) -> None:
         open_issues, findings, status = codacy._run_codacy_check(
             mock.Mock(provider="gh", owner="Prekzursil", repo="Airline-Reservations-System", branch=""),

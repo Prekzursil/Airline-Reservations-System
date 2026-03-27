@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division
 
+"""Coverage helper regressions for the Airline repo's local quality scripts."""
+
 from io import StringIO
 import json
 import os
@@ -13,6 +15,7 @@ from scripts.quality import assert_coverage_100, normalize_lcov
 
 
 class NormalizeLcovTests(unittest.TestCase):
+    """Behavioral checks for the LCOV normalization helper."""
     def test_normalize_lcov_lines_preserves_branch_records(self) -> None:
         raw = [
             "TN:",
@@ -85,6 +88,7 @@ class NormalizeLcovTests(unittest.TestCase):
 
 
 class AssertCoverageParsingTests(unittest.TestCase):
+    """Parsing and reporting coverage for the Airline repo's helper scripts."""
     def test_coverage_stats_branch_percent_defaults_to_full_when_no_branch_total(self) -> None:
         stats = assert_coverage_100.CoverageStats(name="node", path="node.lcov", covered=0, total=0, branch_covered=0, branch_total=0)
 

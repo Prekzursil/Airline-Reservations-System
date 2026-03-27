@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import absolute_import, annotations, division
 
+"""Assert the Airline repo's line and optional branch coverage thresholds."""
+
 import argparse
 from functools import lru_cache
 import json
@@ -24,6 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass
 class CoverageStats:
+    """Coverage counts for one component input."""
+
     name: str
     path: str
     covered: int
@@ -46,6 +50,8 @@ class CoverageStats:
 
 @dataclass
 class LcovState:
+    """Mutable LCOV parsing state for one in-progress source record."""
+
     total: int = 0
     covered: int = 0
     record_lines: Dict[int, int] | None = None
@@ -67,6 +73,7 @@ REPO_SOURCE_LINES = {
 
 
 def _parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the local coverage assertion helper."""
     parser = argparse.ArgumentParser(description="Assert 100% coverage for known project components.")
     parser.add_argument("--require-cpp", action="store_true", help="Fail if C++ lcov report is missing.")
     parser.add_argument(
@@ -79,6 +86,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
+    """Parse an LCOV report into aggregate statement and branch counts."""
     state = LcovState()
     branch_total = 0
     branch_covered = 0
@@ -106,6 +114,7 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
 
 
 def _process_lcov_line(state: LcovState, line: str) -> None:
+    """Update the current LCOV parser state from one normalized line."""
     if line.startswith("SF:"):
         _flush_lcov_record(state)
         state.source_lines = _lookup_repo_source_lines(line.split(":", 1)[1])
@@ -128,6 +137,7 @@ def _process_lcov_line(state: LcovState, line: str) -> None:
 
 
 def _flush_lcov_record(state: LcovState) -> None:
+    """Commit the current LCOV record into the running totals."""
     if not ((state.record_lines or {}) or state.fallback_total or state.fallback_covered):
         return
 
@@ -144,6 +154,7 @@ def _flush_lcov_record(state: LcovState) -> None:
 
 
 def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...] | None, line: str) -> None:
+    """Track the max hit count for one executable source line in the current record."""
     line_number_text, hit_count_text, *_ = line[3:].split(",")
     line_number = _safe_int(line_number_text)
     hit_count = _safe_int(hit_count_text)
@@ -152,6 +163,7 @@ def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...
 
 
 def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -> bool:
+    """Return whether an LCOV DA entry should count toward executable coverage."""
     if source_lines is None or line_number <= 0:
         return True
 
@@ -167,6 +179,7 @@ def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -
 
 @lru_cache(maxsize=None)
 def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
+    """Return source line numbers excluded by GCOVR/LCOV inline or block markers."""
     excluded = set()
     in_excluded_block = False
 
@@ -190,6 +203,7 @@ def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
 
 
 def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
+    """Resolve an LCOV source path to repo-local source lines when possible."""
     normalized = raw_path_text.replace("\\", "/")
     repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
     if normalized.startswith(repo_prefix):
@@ -206,6 +220,7 @@ def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
 
 
 def _safe_int(value: Any) -> int:
+    """Best-effort integer coercion for coverage counters."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -213,6 +228,7 @@ def _safe_int(value: Any) -> int:
 
 
 def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
+    """Parse Istanbul summary JSON into aggregate statement and branch coverage stats."""
     data = json.loads(path.read_text(encoding="utf-8"))
     total_node = data.get("total", {})
     lines = total_node.get("lines", {}) if isinstance(total_node, dict) else {}
@@ -239,6 +255,7 @@ def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
 
 
 def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
+    """Parse Istanbul final JSON into aggregate statement and branch coverage stats."""
     data = json.loads(path.read_text(encoding="utf-8"))
     covered = 0
     total = 0
@@ -246,7 +263,14 @@ def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
     branch_total = 0
 
     if not isinstance(data, dict):
-        return CoverageStats(name=name, path=str(path), covered=0, total=0, branch_covered=0, branch_total=0)
+        return CoverageStats(
+            name=name,
+            path=str(path),
+            covered=0,
+            total=0,
+            branch_covered=0,
+            branch_total=0,
+        )
 
     for file_cov in data.values():
         if not isinstance(file_cov, dict):
@@ -275,6 +299,7 @@ def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
 
 
 def load_node_stats() -> CoverageStats:
+    """Load the preferred frontend coverage artifact in LCOV, summary, or final-json form."""
     if NODE_LCOV_PATH.exists():
         return parse_lcov("node", NODE_LCOV_PATH)
     if NODE_SUMMARY_JSON_PATH.exists():
@@ -288,6 +313,7 @@ def load_node_stats() -> CoverageStats:
 
 
 def _component_findings(stats: List[CoverageStats]) -> List[str]:
+    """Return per-component line coverage failures against the hard 100 percent target."""
     findings: List[str] = []
     for item in stats:
         if item.percent >= 100.0:
@@ -297,6 +323,7 @@ def _component_findings(stats: List[CoverageStats]) -> List[str]:
 
 
 def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
+    """Return aggregate covered lines, total lines, and percentage across all stats."""
     combined_total = sum(item.total for item in stats)
     combined_covered = sum(item.covered for item in stats)
     combined_percent = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
@@ -304,6 +331,7 @@ def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
 
 
 def _combined_branch_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
+    """Return aggregate covered branches, total branches, and percentage across all stats."""
     combined_total = sum(item.branch_total for item in stats)
     combined_covered = sum(item.branch_covered for item in stats)
     combined_percent = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
@@ -311,6 +339,7 @@ def _combined_branch_coverage(stats: List[CoverageStats]) -> Tuple[int, int, flo
 
 
 def _branch_findings(stats: List[CoverageStats], branch_min_percent: float | None) -> List[str]:
+    """Return branch coverage findings when a branch threshold is enabled."""
     if branch_min_percent is None:
         return []
 
@@ -338,10 +367,14 @@ def _branch_findings(stats: List[CoverageStats], branch_min_percent: float | Non
 
 
 def evaluate(stats: List[CoverageStats], branch_min_percent: float | None = None) -> Tuple[str, List[str]]:
+    """Evaluate component coverage stats against configured line and branch thresholds."""
     findings = _component_findings(stats)
     combined_covered, combined_total, combined_percent = _combined_coverage(stats)
     if combined_percent < 100.0:
-        findings.append(f"combined coverage below 100%: {combined_percent:.2f}% ({combined_covered}/{combined_total})")
+        findings.append(
+            f"combined coverage below 100%: "
+            f"{combined_percent:.2f}% ({combined_covered}/{combined_total})"
+        )
     findings.extend(_branch_findings(stats, branch_min_percent))
 
     status = "pass" if not findings else "fail"
@@ -349,6 +382,7 @@ def evaluate(stats: List[CoverageStats], branch_min_percent: float | None = None
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
+    """Render the local coverage gate payload as markdown."""
     lines = [
         "# Coverage 100 Gate",
         "",
@@ -384,6 +418,7 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
 
 def main() -> int:
+    """Run the local coverage gate and emit the standard artifact payloads."""
     args = _parse_args()
 
     stats: List[CoverageStats] = []
@@ -397,7 +432,11 @@ def main() -> int:
     elif CPP_LCOV_PATH.exists():
         stats.append(parse_lcov("cpp", CPP_LCOV_PATH))
 
-    branch_min_percent = None if args.branch_min_percent is None else max(0.0, min(100.0, float(args.branch_min_percent)))
+    branch_min_percent = (
+        None
+        if args.branch_min_percent is None
+        else max(0.0, min(100.0, float(args.branch_min_percent)))
+    )
     status, findings = evaluate(stats, branch_min_percent=branch_min_percent)
     payload = {
         "status": status,
