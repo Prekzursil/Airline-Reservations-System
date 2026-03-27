@@ -126,27 +126,61 @@ if(AIRLINE_DISCOVERED_TESTS)
   set_tests_properties(${AIRLINE_DISCOVERED_TESTS} PROPERTIES TIMEOUT 120)
 endif()
 
-add_test(
-  NAME airline_cli_smoke_exit
-  COMMAND
-    bash
-    ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
-    $<TARGET_FILE:airline_reservation_system>
-    ${CMAKE_SOURCE_DIR}/tests/cli_exit_input.txt
-    "Welcome to the Airline Reservation System!"
-    "Exiting system. Goodbye!"
-    "Thank you for using the Airline Reservation System."
-)
+if(WIN32)
+  add_test(
+    NAME airline_cli_smoke_exit
+    COMMAND
+      pwsh
+      -NoProfile
+      -ExecutionPolicy
+      Bypass
+      -File
+      ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.ps1
+      $<TARGET_FILE:airline_reservation_system>
+      ${CMAKE_SOURCE_DIR}/tests/cli_exit_input.txt
+      "Welcome to the Airline Reservation System!"
+      "Exiting system. Goodbye!"
+      "Thank you for using the Airline Reservation System."
+  )
 
-add_test(
-  NAME airline_cli_smoke_menu_flow
-  COMMAND
-    bash
-    ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
-    $<TARGET_FILE:airline_reservation_system>
-    ${CMAKE_SOURCE_DIR}/tests/cli_menu_flow_input.txt
-    "Customer Coverage User with ID CUST0003 added successfully."
-    "Booking successful! Booking ID:"
-    "Airplane FL303 added successfully."
-)
+  add_test(
+    NAME airline_cli_smoke_menu_flow
+    COMMAND
+      pwsh
+      -NoProfile
+      -ExecutionPolicy
+      Bypass
+      -File
+      ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.ps1
+      $<TARGET_FILE:airline_reservation_system>
+      ${CMAKE_SOURCE_DIR}/tests/cli_menu_flow_input.txt
+      "Customer Coverage User with ID CUST0003 added successfully."
+      "Booking successful! Booking ID:"
+      "Airplane FL303 added successfully."
+  )
+else()
+  add_test(
+    NAME airline_cli_smoke_exit
+    COMMAND
+      bash
+      ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
+      $<TARGET_FILE:airline_reservation_system>
+      ${CMAKE_SOURCE_DIR}/tests/cli_exit_input.txt
+      "Welcome to the Airline Reservation System!"
+      "Exiting system. Goodbye!"
+      "Thank you for using the Airline Reservation System."
+  )
+
+  add_test(
+    NAME airline_cli_smoke_menu_flow
+    COMMAND
+      bash
+      ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
+      $<TARGET_FILE:airline_reservation_system>
+      ${CMAKE_SOURCE_DIR}/tests/cli_menu_flow_input.txt
+      "Customer Coverage User with ID CUST0003 added successfully."
+      "Booking successful! Booking ID:"
+      "Airplane FL303 added successfully."
+  )
+endif()
 set_tests_properties(airline_cli_smoke_exit airline_cli_smoke_menu_flow PROPERTIES TIMEOUT 120)
