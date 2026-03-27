@@ -8,18 +8,17 @@ _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
 
 def normalize_lcov_lines(lines: Iterable[str]) -> Tuple[str, int]:
     kept_lines = []
-    stripped_count = 0
+    branch_record_count = 0
 
     for raw_line in lines:
         if raw_line.startswith(_BRANCH_PREFIXES):
-            stripped_count += 1
-            continue
+            branch_record_count += 1
         kept_lines.append(raw_line)
 
     normalized = "\n".join(kept_lines)
     if normalized and not normalized.endswith("\n"):
         normalized += "\n"
-    return normalized, stripped_count
+    return normalized, branch_record_count
 
 
 def main(
@@ -32,9 +31,9 @@ def main(
     output_stream = stdout or sys.stdout
     error_stream = stderr or sys.stderr
 
-    normalized, stripped_count = normalize_lcov_lines(input_stream.read().splitlines())
+    normalized, branch_record_count = normalize_lcov_lines(input_stream.read().splitlines())
     output_stream.write(normalized)
-    error_stream.write(f"Normalized LCOV: stripped {stripped_count} branch records\n")
+    error_stream.write(f"Normalized LCOV: preserved {branch_record_count} branch records\n")
     return 0
 
 

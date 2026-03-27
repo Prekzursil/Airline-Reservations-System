@@ -169,6 +169,16 @@ describe('apiService', () => {
       expectedTarget: '/internal-api/airplanes'
     },
     {
+      label: 'normalizes relative path without a leading slash',
+      baseUrl: 'internal-api///',
+      expectedTarget: '/internal-api/airplanes'
+    },
+    {
+      label: 'falls back for protocol-relative path values',
+      baseUrl: '//api.example.test/internal-api',
+      expectedTarget: '/api/airplanes'
+    },
+    {
       label: 'falls back for external absolute URL',
       baseUrl: 'https://api.example.test/api/',
       expectedTarget: '/api/airplanes'
@@ -199,6 +209,15 @@ describe('apiService', () => {
   it('rejects invalid API path inputs via normalizeApiPath guard', () => {
     expect(() => __internal.normalizeApiPath('airplanes')).toThrow('Invalid API path');
     expect(() => __internal.normalizeApiPath('//airplanes')).toThrow('Invalid API path');
+  });
+
+  it('normalizes API paths by trimming surrounding whitespace', () => {
+    expect(__internal.normalizeApiPath('  /airplanes  ')).toBe('/airplanes');
+  });
+
+  it('handles falsy helper inputs via internal path normalizers', () => {
+    expect(__internal.normalizeRelativeBasePath(undefined)).toBe('');
+    expect(() => __internal.normalizeApiPath(undefined)).toThrow('Invalid API path');
   });
 
   it('rejects unsafe path segment inputs', () => {

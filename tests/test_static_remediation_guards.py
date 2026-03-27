@@ -51,13 +51,14 @@ class StaticRemediationGuardsTest(unittest.TestCase):
         self.assertIn("static std::atomic_uint64_t bookingSequence_;", booking_header)
         self.assertIn("std::atomic_uint64_t Booking::bookingSequence_{100};", booking_source)
 
-    def test_coverage_workflow_requires_cpp_artifacts(self) -> None:
-        workflow_text = (REPO_ROOT / ".github" / "workflows" / "coverage-100.yml").read_text(encoding="utf-8")
+    def test_quality_zero_platform_wrapper_uses_shared_coverage_lane(self) -> None:
+        workflow_text = (REPO_ROOT / ".github" / "workflows" / "quality-zero-platform.yml").read_text(encoding="utf-8")
         codecov_text = (REPO_ROOT / ".github" / "workflows" / "codecov-analytics.yml").read_text(encoding="utf-8")
+        verify_text = (REPO_ROOT / "scripts" / "verify").read_text(encoding="utf-8")
 
-        self.assertIn("--require-cpp", workflow_text)
-        self.assertIn("coverage/cpp/lcov.info", workflow_text)
-        self.assertIn("coverage/cpp/lcov.info", codecov_text)
+        self.assertIn("reusable-scanner-matrix.yml", workflow_text)
+        self.assertIn("reusable-codecov-analytics.yml", codecov_text)
+        self.assertIn("ENABLE_COVERAGE=ON", verify_text)
 
 
 if __name__ == "__main__":

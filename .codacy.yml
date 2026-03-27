@@ -26,6 +26,3 @@ exclude_paths:
   - ".github/BRANCH_POLICY.md"
   - ".github/BRANCH_PROTECTION.md"
   - "airline-gui/package-lock.json"
-  - "airline-gui/**"
-  - "scripts/**"
-  - "tests/test_quality_security_scripts.py"

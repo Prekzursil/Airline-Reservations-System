@@ -88,6 +88,7 @@ const encodePathSegment = (value, label) => {
 };
 
 export const __internal = {
+  normalizeRelativeBasePath,
   normalizeApiPath,
   encodePathSegment
 };

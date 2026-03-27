@@ -28,12 +28,20 @@ class CoverageStats:
     path: str
     covered: int
     total: int
+    branch_covered: int = 0
+    branch_total: int = 0
 
     @property
     def percent(self) -> float:
         if self.total <= 0:
             return 100.0
         return (self.covered / self.total) * 100.0
+
+    @property
+    def branch_percent(self) -> float:
+        if self.branch_total <= 0:
+            return 100.0
+        return (self.branch_covered / self.branch_total) * 100.0
 
 
 @dataclass
@@ -61,18 +69,40 @@ REPO_SOURCE_LINES = {
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Assert 100% coverage for known project components.")
     parser.add_argument("--require-cpp", action="store_true", help="Fail if C++ lcov report is missing.")
+    parser.add_argument(
+        "--branch-min-percent",
+        type=float,
+        default=None,
+        help="Optional minimum required branch coverage percentage.",
+    )
     return parser.parse_args()
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
     state = LcovState()
+    branch_total = 0
+    branch_covered = 0
 
     for raw in path.read_text(encoding="utf-8").splitlines():
-        _process_lcov_line(state, raw.strip())
+        line = raw.strip()
+        if line.startswith("BRF:"):
+            branch_total += _safe_int(line.split(":", 1)[1])
+            continue
+        if line.startswith("BRH:"):
+            branch_covered += _safe_int(line.split(":", 1)[1])
+            continue
+        _process_lcov_line(state, line)
 
     _flush_lcov_record(state)
 
-    return CoverageStats(name=name, path=str(path), covered=state.covered, total=state.total)
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=state.covered,
+        total=state.total,
+        branch_covered=branch_covered,
+        branch_total=branch_total,
+    )
 
 
 def _process_lcov_line(state: LcovState, line: str) -> None:
@@ -186,25 +216,37 @@ def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
     data = json.loads(path.read_text(encoding="utf-8"))
     total_node = data.get("total", {})
     lines = total_node.get("lines", {}) if isinstance(total_node, dict) else {}
+    branches = total_node.get("branches", {}) if isinstance(total_node, dict) else {}
 
     covered = _safe_int(lines.get("covered"))
     total = _safe_int(lines.get("total"))
+    branch_covered = _safe_int(branches.get("covered"))
+    branch_total = _safe_int(branches.get("total"))
 
     if total <= 0:
         statements = total_node.get("statements", {}) if isinstance(total_node, dict) else {}
         covered = _safe_int(statements.get("covered"))
         total = _safe_int(statements.get("total"))
 
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=covered,
+        total=total,
+        branch_covered=branch_covered,
+        branch_total=branch_total,
+    )
 
 
 def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
     data = json.loads(path.read_text(encoding="utf-8"))
     covered = 0
     total = 0
+    branch_covered = 0
+    branch_total = 0
 
     if not isinstance(data, dict):
-        return CoverageStats(name=name, path=str(path), covered=0, total=0)
+        return CoverageStats(name=name, path=str(path), covered=0, total=0, branch_covered=0, branch_total=0)
 
     for file_cov in data.values():
         if not isinstance(file_cov, dict):
@@ -214,8 +256,22 @@ def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
             continue
         total += len(statements)
         covered += sum(1 for count in statements.values() if _safe_int(count) > 0)
+        branches = file_cov.get("b", {})
+        if isinstance(branches, dict):
+            for counts in branches.values():
+                if not isinstance(counts, list):
+                    continue
+                branch_total += len(counts)
+                branch_covered += sum(1 for count in counts if _safe_int(count) > 0)
 
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=covered,
+        total=total,
+        branch_covered=branch_covered,
+        branch_total=branch_total,
+    )
 
 
 def load_node_stats() -> CoverageStats:
@@ -247,11 +303,46 @@ def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     return combined_covered, combined_total, combined_percent
 
 
-def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
+def _combined_branch_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
+    combined_total = sum(item.branch_total for item in stats)
+    combined_covered = sum(item.branch_covered for item in stats)
+    combined_percent = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
+    return combined_covered, combined_total, combined_percent
+
+
+def _branch_findings(stats: List[CoverageStats], branch_min_percent: float | None) -> List[str]:
+    if branch_min_percent is None:
+        return []
+
+    findings: List[str] = []
+    branch_stats = [item for item in stats if item.branch_total > 0]
+    missing_branch_stats = [item for item in stats if item.branch_total <= 0]
+    findings.extend(
+        f"{item.name} branch coverage data missing from {item.path}"
+        for item in missing_branch_stats
+    )
+    for item in branch_stats:
+        if item.branch_percent < branch_min_percent:
+            findings.append(
+                f"{item.name} branch coverage below {branch_min_percent:.2f}%: "
+                f"{item.branch_percent:.2f}% ({item.branch_covered}/{item.branch_total})"
+            )
+
+    combined_covered, combined_total, combined_percent = _combined_branch_coverage(branch_stats)
+    if combined_total > 0 and combined_percent < branch_min_percent:
+        findings.append(
+            f"combined branch coverage below {branch_min_percent:.2f}%: "
+            f"{combined_percent:.2f}% ({combined_covered}/{combined_total})"
+        )
+    return findings
+
+
+def evaluate(stats: List[CoverageStats], branch_min_percent: float | None = None) -> Tuple[str, List[str]]:
     findings = _component_findings(stats)
     combined_covered, combined_total, combined_percent = _combined_coverage(stats)
     if combined_percent < 100.0:
         findings.append(f"combined coverage below 100%: {combined_percent:.2f}% ({combined_covered}/{combined_total})")
+    findings.extend(_branch_findings(stats, branch_min_percent))
 
     status = "pass" if not findings else "fail"
     return status, findings
@@ -263,13 +354,20 @@ def _render_md(payload: Dict[str, Any]) -> str:
         "",
         f"- Status: `{payload['status']}`",
         f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        f"- Minimum required branch coverage: `{payload['branch_min_percent'] if payload['branch_min_percent'] is not None else 'disabled'}`",
         "",
         "## Components",
     ]
 
     for item in payload.get("components", []):
         lines.append(
-            f"- `{item['name']}`: `{item['percent']:.2f}%` ({item['covered']}/{item['total']}) from `{item['path']}`"
+            f"- `{item['name']}`: line=`{item['percent']:.2f}%` ({item['covered']}/{item['total']})"
+            + (
+                f", branch=`{item['branch_percent']:.2f}%` ({item['branch_covered']}/{item['branch_total']})"
+                if item.get("branch_total", 0)
+                else ""
+            )
+            + f" from `{item['path']}`"
         )
 
     if not payload.get("components"):
@@ -299,10 +397,12 @@ def main() -> int:
     elif CPP_LCOV_PATH.exists():
         stats.append(parse_lcov("cpp", CPP_LCOV_PATH))
 
-    status, findings = evaluate(stats)
+    branch_min_percent = None if args.branch_min_percent is None else max(0.0, min(100.0, float(args.branch_min_percent)))
+    status, findings = evaluate(stats, branch_min_percent=branch_min_percent)
     payload = {
         "status": status,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "branch_min_percent": branch_min_percent,
         "components": [
             {
                 "name": item.name,
@@ -310,6 +410,9 @@ def main() -> int:
                 "covered": item.covered,
                 "total": item.total,
                 "percent": item.percent,
+                "branch_covered": item.branch_covered,
+                "branch_total": item.branch_total,
+                "branch_percent": item.branch_percent,
             }
             for item in stats
         ],

@@ -192,6 +192,54 @@ class ScriptPathBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             required_checks._build_commit_api_path("owner/repo/extra", "a1b2c3d")
 
+    def test_deepscan_context_helpers_cover_status_and_pending_paths(self) -> None:
+        contexts = deepscan._collect_contexts(
+            {"check_runs": [{"name": "DeepScan", "status": "in_progress", "conclusion": None}]},
+            {"statuses": [{"context": "legacy", "state": "success"}]},
+        )
+
+        self.assertEqual(contexts["DeepScan"]["source"], "check_run")
+        self.assertEqual(contexts["legacy"]["source"], "status")
+        self.assertTrue(deepscan._is_pending_context(contexts["DeepScan"]))
+        self.assertEqual(
+            deepscan._context_outcome("legacy", contexts["legacy"]),
+            ("pass", None),
+        )
+        self.assertIn(
+            "expected success",
+            deepscan._context_outcome("DeepScan", {"source": "check_run", "state": "completed", "conclusion": "failure"})[1],
+        )
+
+    def test_required_checks_helpers_cover_context_collection_and_failures(self) -> None:
+        contexts = required_checks._collect_contexts(
+            {"check_runs": [{"name": "verify", "status": "completed", "conclusion": "success"}]},
+            {"statuses": [{"context": "DeepScan", "state": "failure"}]},
+        )
+
+        status, missing, failed = required_checks._evaluate(["verify", "DeepScan", "SonarCloud"], contexts)
+
+        self.assertEqual(status, "fail")
+        self.assertEqual(missing, ["SonarCloud"])
+        self.assertEqual(failed, ["DeepScan: state=failure"])
+        self.assertFalse(required_checks._has_check_runs_in_progress(contexts))
+
+    def test_required_checks_collect_payload_converges_when_checks_pass(self) -> None:
+        args = mock.Mock(repo="Prekzursil/Airline-Reservations-System", sha="a1b2c3d", timeout_seconds=1, poll_seconds=0)
+
+        with mock.patch.object(
+            required_checks,
+            "_fetch_check_payloads",
+            return_value=(
+                {"check_runs": [{"name": "verify", "status": "completed", "conclusion": "success"}]},
+                {"statuses": []},
+            ),
+        ):
+            payload = required_checks._collect_payload(args, ["verify"], "token")
+
+        self.assertEqual(payload["status"], "pass")
+        self.assertEqual(payload["missing"], [])
+        self.assertEqual(payload["failed"], [])
+
 
 class QualitySecretsScriptTests(unittest.TestCase):
     def test_quality_secrets_summary_uses_counts_only(self) -> None:
@@ -286,6 +334,17 @@ class SonarZeroScriptTests(unittest.TestCase):
 
         self.assertEqual(findings, ["Sonar reports 2 unresolved security hotspots (expected 0)."])
 
+    def test_sonar_run_check_handles_missing_token(self) -> None:
+        args = mock.Mock(project_key="Prekzursil_Airline-Reservations-System", branch="", pull_request="", expected_pr_sha="")
+
+        status, open_issues, unresolved_hotspots, quality_gate, findings = sonar._run_sonar_check(args, "")
+
+        self.assertEqual(status, "fail")
+        self.assertIsNone(open_issues)
+        self.assertIsNone(unresolved_hotspots)
+        self.assertIsNone(quality_gate)
+        self.assertEqual(findings, ["SONAR_TOKEN is missing."])
+
     def test_sonar_main_writes_hotspot_counts_into_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
@@ -317,6 +376,155 @@ class SonarZeroScriptTests(unittest.TestCase):
                 self.assertEqual(payload["quality_gate"], "OK")
                 self.assertIn("Unresolved security hotspots: `3`", markdown)
                 self.assertIn("Sonar reports 3 unresolved security hotspots (expected 0).", markdown)
+            finally:
+                os.chdir(previous)
+
+
+class CodacyAndSentryMainFlowTests(unittest.TestCase):
+    def test_codacy_extract_total_open_handles_nested_and_missing_counts(self) -> None:
+        payload = {"outer": [{"nested": {"open_issues": 7}}, {"other": "x"}]}
+        self.assertEqual(codacy.extract_total_open(payload), 7)
+        self.assertEqual(codacy.extract_total_open({"pagination": {"total": 4}}), 4)
+        self.assertIsNone(codacy.extract_total_open({"outer": [{"nested": "value"}]}))
+
+    def test_codacy_main_writes_outputs_without_token(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                args = mock.Mock(provider="gh", owner="Prekzursil", repo="Airline-Reservations-System", branch="", token="")
+                with mock.patch.object(codacy, "_parse_args", return_value=args), mock.patch.dict(os.environ, {}, clear=False):
+                    rc = codacy.main()
+
+                out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.CODACY_ZERO)
+                self.assertEqual(rc, 1)
+                self.assertTrue(out_json.exists())
+                self.assertTrue(out_md.exists())
+            finally:
+                os.chdir(previous)
+
+    def test_sentry_helpers_cover_project_resolution_and_main(self) -> None:
+        self.assertEqual(sentry._hits_from_headers({"x-hits": "2"}), 2)
+        self.assertIsNone(sentry._hits_from_headers({"x-hits": "bad"}))
+        self.assertEqual(
+            sentry._projects_from_args_or_env(mock.Mock(project=["backend"])),
+            ["backend"],
+        )
+        self.assertEqual(
+            sentry._projects_from_args_or_env(mock.Mock(project=[])),
+            [],
+        )
+        self.assertEqual(
+            sentry._project_slug_from_match({"slug": "backend-service", "name": "Backend Service"}, "backend service"),
+            "backend-service",
+        )
+
+        with mock.patch.object(
+            sentry,
+            "_fetch_org_projects",
+            return_value=[{"slug": "backend-service", "name": "Backend Service"}],
+        ):
+            candidates = sentry._project_candidates("org", "Backend_Service", "token")
+
+        self.assertIn("Backend_Service", candidates)
+        self.assertIn("Backend-Service", candidates)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                args = mock.Mock(org="my-org", project=["proj"], token="placeholder")
+                with mock.patch.object(
+                    sentry,
+                    "_run_sentry_check",
+                    return_value=("pass", "my-org", [{"project": "proj", "unresolved": 0, "status": "ok"}], []),
+                ), mock.patch.object(sentry, "_parse_args", return_value=args):
+                    rc = sentry.main()
+
+                out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.SENTRY_ZERO)
+                payload = json.loads(out_json.read_text(encoding="utf-8"))
+                markdown = out_md.read_text(encoding="utf-8")
+                self.assertEqual(rc, 0)
+                self.assertEqual(payload["status"], "pass")
+                self.assertIn("`proj` unresolved=`0`", markdown)
+            finally:
+                os.chdir(previous)
+
+
+class DeepScanMainFlowTests(unittest.TestCase):
+    def test_run_deepscan_check_reports_missing_context(self) -> None:
+        args = mock.Mock(
+            repo="Prekzursil/Airline-Reservations-System",
+            sha="a1b2c3d",
+            required_context="DeepScan",
+            max_wait_seconds=0,
+            poll_interval_seconds=0,
+        )
+
+        with mock.patch.object(deepscan, "_api_get", return_value={"check_runs": [], "statuses": []}):
+            status, findings, observed = deepscan._run_deepscan_check(args, "token")
+
+        self.assertEqual(status, "fail")
+        self.assertEqual(findings, ["Missing required context: DeepScan"])
+        self.assertIsNone(observed)
+
+    def test_deepscan_main_writes_outputs_with_stubbed_result(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                args = mock.Mock(
+                    repo="Prekzursil/Airline-Reservations-System",
+                    sha="a1b2c3d",
+                    required_context="DeepScan",
+                )
+                with mock.patch.object(deepscan, "_parse_args", return_value=args), mock.patch.dict(
+                    os.environ,
+                    {"GITHUB_TOKEN": "token"},
+                    clear=False,
+                ), mock.patch.object(
+                    deepscan,
+                    "_run_deepscan_check",
+                    return_value=("pass", [], {"state": "completed", "conclusion": "success", "source": "check_run"}),
+                ):
+                    rc = deepscan.main()
+
+                out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.DEEPSCAN_ZERO)
+                self.assertEqual(rc, 0)
+                self.assertTrue(out_json.exists())
+                self.assertTrue(out_md.exists())
+            finally:
+                os.chdir(previous)
+
+
+class RequiredChecksMainFlowTests(unittest.TestCase):
+    def test_required_checks_main_writes_outputs_with_stubbed_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                args = mock.Mock(repo="Prekzursil/Airline-Reservations-System", sha="a1b2c3d", required_context=["verify"])
+                payload = {
+                    "status": "pass",
+                    "repo": args.repo,
+                    "sha": args.sha,
+                    "required": ["verify"],
+                    "missing": [],
+                    "failed": [],
+                    "contexts": {},
+                    "timestamp_utc": "2026-03-27T00:00:00+00:00",
+                }
+                with mock.patch.object(required_checks, "_parse_args", return_value=args), mock.patch.dict(
+                    os.environ,
+                    {"GITHUB_TOKEN": "token"},
+                    clear=False,
+                ), mock.patch.object(required_checks, "_collect_payload", return_value=payload):
+                    rc = required_checks.main()
+
+                out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.REQUIRED_CHECKS)
+                self.assertEqual(rc, 0)
+                self.assertTrue(out_json.exists())
+                self.assertTrue(out_md.exists())
             finally:
                 os.chdir(previous)
 
