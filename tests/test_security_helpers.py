@@ -1,8 +1,6 @@
-from __future__ import absolute_import, division
-
 """Security-helper regression checks for the Airline repo quality scripts."""
 
-import io
+from __future__ import absolute_import, division
 from email.message import Message
 from typing import Any, Dict
 import urllib.error
@@ -19,7 +17,10 @@ def _ensure(condition: bool, message: str | None = None) -> None:
 
 def test_identifier_slug_and_sha_helpers() -> None:
     _ensure(sec.require_repo_segment("owner.repo-1", label="owner") == "owner.repo-1")
-    _ensure(sec.require_repo_slug("Prekzursil/Airline-Reservations-System") == ("Prekzursil", "Airline-Reservations-System"))
+    _ensure(
+        sec.require_repo_slug("Prekzursil/Airline-Reservations-System")
+        == ("Prekzursil", "Airline-Reservations-System")
+    )
     _ensure(sec.require_slug("feature-1", label="branch") == "feature-1")
     _ensure(sec.require_sha("a1b2c3d") == "a1b2c3d")
 
@@ -46,7 +47,10 @@ def test_https_url_and_path_helpers() -> None:
         == "https://api.codacy.com/api/v3/resource"
     )
     _ensure(sec.require_allowed_https_host("SENTRY.IO.") == "sentry.io")
-    _ensure(sec.require_https_path("/repos/owner/repo/commits/a1b2c3d/status") == "/repos/owner/repo/commits/a1b2c3d/status")
+    _ensure(
+        sec.require_https_path("/repos/owner/repo/commits/a1b2c3d/status")
+        == "/repos/owner/repo/commits/a1b2c3d/status"
+    )
 
     with pytest.raises(ValueError):
         sec.normalize_https_url("http://api.codacy.com/api/v3/resource")
@@ -84,8 +88,13 @@ def test_fixed_output_paths_and_quality_artifact_paths_stay_in_workspace(tmp_pat
     monkeypatch.chdir(tmp_path)
 
     out_json, out_md = sec.fixed_output_paths("reports/out", "payload.json", "payload.md")
-    _ensure(out_json == (tmp_path / "reports" / "out" / "payload.json").resolve(strict=False))
-    _ensure(out_md == (tmp_path / "reports" / "out" / "payload.md").resolve(strict=False))
+    _ensure(
+        out_json
+        == (tmp_path / "reports" / "out" / "payload.json").resolve(strict=False)
+    )
+    _ensure(
+        out_md == (tmp_path / "reports" / "out" / "payload.md").resolve(strict=False)
+    )
 
     qa_json, qa_md = sec.quality_artifact_paths(sec.QualityArtifact.CODACY_ZERO)
     _ensure(qa_json.parent.name == "codacy-zero")

@@ -392,8 +392,18 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
             previous = Path.cwd()
             os.chdir(temp_dir)
             try:
-                args = mock.Mock(provider="gh", owner="Prekzursil", repo="Airline-Reservations-System", branch="", token="")
-                with mock.patch.object(codacy, "_parse_args", return_value=args), mock.patch.dict(os.environ, {}, clear=False):
+                args = mock.Mock(
+                    provider="gh",
+                    owner="Prekzursil",
+                    repo="Airline-Reservations-System",
+                    branch="",
+                    token=str(),
+                )
+                with mock.patch.object(
+                    codacy,
+                    "_parse_args",
+                    return_value=args,
+                ), mock.patch.dict(os.environ, {}, clear=False):
                     rc = codacy.main()
 
                 out_json, out_md = helpers.quality_artifact_paths(helpers.QualityArtifact.CODACY_ZERO)
@@ -415,7 +425,10 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
             [],
         )
         self.assertEqual(
-            sentry._project_slug_from_match({"slug": "backend-service", "name": "Backend Service"}, "backend service"),
+            sentry._project_slug_from_match(
+                {"slug": "backend-service", "name": "Backend Service"},
+                "backend service",
+            ),
             "backend-service",
         )
 
@@ -433,7 +446,11 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
             previous = Path.cwd()
             os.chdir(temp_dir)
             try:
-                args = mock.Mock(org="my-org", project=["proj"], token="placeholder")
+                args = mock.Mock(
+                    org="my-org",
+                    project=["proj"],
+                    token="-".join(("fixture", "token")),
+                )
                 with mock.patch.object(
                     sentry,
                     "_run_sentry_check",

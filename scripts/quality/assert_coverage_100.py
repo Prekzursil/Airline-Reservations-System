@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from __future__ import absolute_import, annotations, division
-
 """Assert the Airline repo's line and optional branch coverage thresholds."""
+
+from __future__ import absolute_import, annotations, division
 
 import argparse
 from functools import lru_cache
@@ -330,6 +330,44 @@ def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     return combined_covered, combined_total, combined_percent
 
 
+def _missing_branch_data_findings(stats: List[CoverageStats]) -> List[str]:
+    """Return findings for components that did not report branch coverage data."""
+    return [
+        f"{item.name} branch coverage data missing from {item.path}"
+        for item in stats
+        if item.branch_total <= 0
+    ]
+
+
+def _per_component_branch_findings(
+    stats: List[CoverageStats],
+    branch_min_percent: float,
+) -> List[str]:
+    """Return per-component branch coverage failures."""
+    findings: List[str] = []
+    for item in stats:
+        if item.branch_percent < branch_min_percent:
+            findings.append(
+                f"{item.name} branch coverage below {branch_min_percent:.2f}%: "
+                f"{item.branch_percent:.2f}% ({item.branch_covered}/{item.branch_total})"
+            )
+    return findings
+
+
+def _combined_branch_finding(
+    stats: List[CoverageStats],
+    branch_min_percent: float,
+) -> str | None:
+    """Return the aggregate branch coverage failure message, if any."""
+    combined_covered, combined_total, combined_percent = _combined_branch_coverage(stats)
+    if combined_total > 0 and combined_percent < branch_min_percent:
+        return (
+            f"combined branch coverage below {branch_min_percent:.2f}%: "
+            f"{combined_percent:.2f}% ({combined_covered}/{combined_total})"
+        )
+    return None
+
+
 def _combined_branch_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     """Return aggregate covered branches, total branches, and percentage across all stats."""
     combined_total = sum(item.branch_total for item in stats)
@@ -343,26 +381,12 @@ def _branch_findings(stats: List[CoverageStats], branch_min_percent: float | Non
     if branch_min_percent is None:
         return []
 
-    findings: List[str] = []
     branch_stats = [item for item in stats if item.branch_total > 0]
-    missing_branch_stats = [item for item in stats if item.branch_total <= 0]
-    findings.extend(
-        f"{item.name} branch coverage data missing from {item.path}"
-        for item in missing_branch_stats
-    )
-    for item in branch_stats:
-        if item.branch_percent < branch_min_percent:
-            findings.append(
-                f"{item.name} branch coverage below {branch_min_percent:.2f}%: "
-                f"{item.branch_percent:.2f}% ({item.branch_covered}/{item.branch_total})"
-            )
-
-    combined_covered, combined_total, combined_percent = _combined_branch_coverage(branch_stats)
-    if combined_total > 0 and combined_percent < branch_min_percent:
-        findings.append(
-            f"combined branch coverage below {branch_min_percent:.2f}%: "
-            f"{combined_percent:.2f}% ({combined_covered}/{combined_total})"
-        )
+    findings = _missing_branch_data_findings(stats)
+    findings.extend(_per_component_branch_findings(branch_stats, branch_min_percent))
+    combined_finding = _combined_branch_finding(branch_stats, branch_min_percent)
+    if combined_finding is not None:
+        findings.append(combined_finding)
     return findings
 
 

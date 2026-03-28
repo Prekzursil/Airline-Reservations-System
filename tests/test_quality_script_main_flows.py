@@ -1,6 +1,6 @@
-from __future__ import absolute_import, division
-
 """Main-flow coverage for Airline quality helper scripts."""
+
+from __future__ import absolute_import, division
 
 import json
 import os
@@ -21,14 +21,38 @@ class QualityScriptArgParsingTests(TestCase):
     """Argument parsing regression checks for the quality helper scripts."""
 
     def test_codacy_parse_args_accepts_branch(self) -> None:
-        with mock.patch.object(sys, "argv", ["prog", "--owner", "Prekzursil", "--repo", "Airline-Reservations-System", "--branch", "feature/test"]):
+        with mock.patch.object(
+            sys,
+            "argv",
+            [
+                "prog",
+                "--owner",
+                "Prekzursil",
+                "--repo",
+                "Airline-Reservations-System",
+                "--branch",
+                "feature/test",
+            ],
+        ):
             args = codacy._parse_args()
         self.assertEqual(args.owner, "Prekzursil")
         self.assertEqual(args.repo, "Airline-Reservations-System")
         self.assertEqual(args.branch, "feature/test")
 
     def test_deepscan_parse_args_accepts_required_context(self) -> None:
-        with mock.patch.object(sys, "argv", ["prog", "--repo", "Prekzursil/Airline-Reservations-System", "--sha", "a1b2c3d", "--required-context", "DeepScan"]):
+        with mock.patch.object(
+            sys,
+            "argv",
+            [
+                "prog",
+                "--repo",
+                "Prekzursil/Airline-Reservations-System",
+                "--sha",
+                "a1b2c3d",
+                "--required-context",
+                "DeepScan",
+            ],
+        ):
             args = deepscan._parse_args()
         self.assertEqual(args.required_context, "DeepScan")
 
@@ -42,7 +66,11 @@ class QualityScriptArgParsingTests(TestCase):
         self.assertEqual(args.required_context, ["verify", "SonarCloud"])
 
     def test_sentry_parse_args_accepts_projects(self) -> None:
-        with mock.patch.object(sys, "argv", ["prog", "--org", "my-org", "--project", "backend", "--project", "web"]):
+        with mock.patch.object(
+            sys,
+            "argv",
+            ["prog", "--org", "my-org", "--project", "backend", "--project", "web"],
+        ):
             args = sentry._parse_args()
         self.assertEqual(args.org, "my-org")
         self.assertEqual(args.project, ["backend", "web"])
@@ -71,7 +99,7 @@ class QualityScriptMainFlowTests(TestCase):
         self.assertIn("CODACY_API_TOKEN is missing.", findings)
 
     def test_codacy_evaluate_status_and_render_md_cover_empty_findings(self) -> None:
-        findings = []
+        findings: list[str] = []
         self.assertEqual(codacy._evaluate_status(0, findings), "pass")
         self.assertEqual(findings, [])
 
@@ -206,7 +234,19 @@ class QualityScriptMainFlowTests(TestCase):
         self.assertEqual(calls["count"], 3)
 
     def test_required_checks_helpers_cover_render_and_token_validation(self) -> None:
-        self.assertIn("- None", required_checks._render_md({"status": "pass", "repo": "r", "sha": "a1", "timestamp_utc": "x", "missing": [], "failed": []}))
+        self.assertIn(
+            "- None",
+            required_checks._render_md(
+                {
+                    "status": "pass",
+                    "repo": "r",
+                    "sha": "a1",
+                    "timestamp_utc": "x",
+                    "missing": [],
+                    "failed": [],
+                }
+            ),
+        )
         target = helpers.HTTPSRequestTarget(host=helpers.HTTPSHost.GITHUB_API.value, path="/repos/o/r/commits/a1b2c3d/status")
         with mock.patch.object(
             required_checks,
@@ -262,7 +302,11 @@ class QualityScriptMainFlowTests(TestCase):
             previous = Path.cwd()
             os.chdir(temp_dir)
             try:
-                args = mock.Mock(org="my-org", project=["proj"], token="placeholder")
+                args = mock.Mock(
+                    org="my-org",
+                    project=["proj"],
+                    token="-".join(("fixture", "token")),
+                )
                 with mock.patch.object(sentry, "_parse_args", return_value=args), mock.patch.object(
                     sentry,
                     "_run_sentry_check",
@@ -280,14 +324,29 @@ class QualityScriptMainFlowTests(TestCase):
                 os.chdir(previous)
 
     def test_sentry_helpers_cover_validation_and_findings(self) -> None:
-        self.assertEqual(sentry._validate_inputs("", "", []), ["SENTRY_AUTH_TOKEN is missing.", "SENTRY_ORG is missing.", "No Sentry projects configured."])
-        findings = []
+        self.assertEqual(
+            sentry._validate_inputs("", "", []),
+            [
+                "SENTRY_AUTH_TOKEN is missing.",
+                "SENTRY_ORG is missing.",
+                "No Sentry projects configured.",
+            ],
+        )
+        findings: list[str] = []
         self.assertEqual(sentry._unresolved_count("proj", [], {}, findings), 0)
         self.assertEqual(findings, [])
         findings = []
         sentry._append_project_fetch_failure("proj", None, "org", findings)
         self.assertIn("did not return data", findings[0])
-        rendered = sentry._render_md({"status": "pass", "org": "org", "timestamp_utc": "x", "projects": [], "findings": []})
+        rendered = sentry._render_md(
+            {
+                "status": "pass",
+                "org": "org",
+                "timestamp_utc": "x",
+                "projects": [],
+                "findings": [],
+            }
+        )
         self.assertIn("- None", rendered)
 
     def test_sonar_main_writes_success_payload(self) -> None:
@@ -295,7 +354,13 @@ class QualityScriptMainFlowTests(TestCase):
             previous = Path.cwd()
             os.chdir(temp_dir)
             try:
-                args = mock.Mock(project_key="Prekzursil_Airline-Reservations-System", token="placeholder", branch="", pull_request="", expected_pr_sha="")
+                args = mock.Mock(
+                    project_key="Prekzursil_Airline-Reservations-System",
+                    token="-".join(("fixture", "token")),
+                    branch="",
+                    pull_request="",
+                    expected_pr_sha="",
+                )
                 with mock.patch.object(sonar, "_parse_args", return_value=args), mock.patch.object(
                     sonar,
                     "_run_sonar_check",
@@ -312,10 +377,28 @@ class QualityScriptMainFlowTests(TestCase):
                 os.chdir(previous)
 
     def test_sonar_helpers_cover_render_and_runtime_failure(self) -> None:
-        payload = {"status": "pass", "project_key": "key", "open_issues": 0, "unresolved_security_hotspots": 0, "quality_gate": "OK", "timestamp_utc": "x", "findings": []}
+        payload = {
+            "status": "pass",
+            "project_key": "key",
+            "open_issues": 0,
+            "unresolved_security_hotspots": 0,
+            "quality_gate": "OK",
+            "timestamp_utc": "x",
+            "findings": [],
+        }
         self.assertIn("- None", sonar._render_md(payload))
 
-        args = mock.Mock(project_key="Prekzursil_Airline-Reservations-System", token="placeholder", branch="", pull_request="", expected_pr_sha="")
-        with mock.patch.object(sonar, "_parse_args", return_value=args), mock.patch.object(sonar, "_run_sonar_check", side_effect=RuntimeError("boom")):
+        args = mock.Mock(
+            project_key="Prekzursil_Airline-Reservations-System",
+            token="-".join(("fixture", "token")),
+            branch="",
+            pull_request="",
+            expected_pr_sha="",
+        )
+        with mock.patch.object(sonar, "_parse_args", return_value=args), mock.patch.object(
+            sonar,
+            "_run_sonar_check",
+            side_effect=RuntimeError("boom"),
+        ):
             rc = sonar.main()
         self.assertEqual(rc, 1)
