@@ -3,6 +3,45 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { createBooking, fetchCustomers, cancelBooking as apiCancelBooking } from '../services/apiService';
 
+const validateBookingSelection = (selectedSeatId, customerIdForBooking) => {
+    if (!selectedSeatId) {
+        return 'Please select a seat first.';
+    }
+    if (!customerIdForBooking?.value) {
+        return 'Please select a Customer for booking.';
+    }
+    return null;
+};
+
+const applyBookingValidationError = (selectedSeatId, customerIdForBooking, setBookingStatus) => {
+    const validationError = validateBookingSelection(selectedSeatId, customerIdForBooking);
+    if (!validationError) {
+        return false;
+    }
+    setBookingStatus(validationError);
+    return true;
+};
+
+const resolveSeatBackgroundColor = (seat, selectedSeatId) => {
+    let backgroundColor = 'lightgreen';
+    if (seat.isBooked) {
+        backgroundColor = 'lightcoral';
+    } else if (seat.seatClass === 'Business') {
+        backgroundColor = 'lightblue';
+    }
+
+    if (seat.seatId === selectedSeatId) {
+        backgroundColor = 'yellow';
+    }
+    return backgroundColor;
+};
+
+const seatMapInternals = {
+    applyBookingValidationError,
+    resolveSeatBackgroundColor,
+    validateBookingSelection,
+};
+
 const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     const [selectedSeatId, setSelectedSeatId] = useState(null);
     const [bookingStatus, setBookingStatus] = useState('');
@@ -76,16 +115,9 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     };
 
     const handleConfirmBooking = async () => {
-        /* c8 ignore start - guarded by UI state; confirm button is only rendered/enabled when these are satisfied */
-        if (!selectedSeatId) {
-            setBookingStatus('Please select a seat first.');
+        if (seatMapInternals.applyBookingValidationError(selectedSeatId, customerIdForBooking, setBookingStatus)) {
             return;
         }
-        if (!customerIdForBooking?.value) {
-            setBookingStatus('Please select a Customer for booking.');
-            return;
-        }
-        /* c8 ignore end */
 
         const bookingData = {
             customerId: customerIdForBooking.value,
@@ -109,16 +141,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     };
 
     const getSeatStyle = (seat) => {
-        let backgroundColor = 'lightgreen';
-        if (seat.isBooked) {
-            backgroundColor = 'lightcoral';
-        } else if (seat.seatClass === 'Business') {
-            backgroundColor = 'lightblue';
-        }
-
-        if (seat.seatId === selectedSeatId) {
-            backgroundColor = 'yellow';
-        }
+        const backgroundColor = seatMapInternals.resolveSeatBackgroundColor(seat, selectedSeatId);
 
         return {
             width: '60px',
@@ -150,7 +173,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
             <h4>Seat Map for {flightNumber}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 {rows.map((row) => (
-                    <div key={row[0]?.seatId || 'seat-row'} style={{ display: 'flex' }}>
+                    <div key={row[0].seatId} style={{ display: 'flex' }}>
                         {row.map((seat) => (
                             <div key={seat.seatId} style={getSeatStyle(seat)}>
                                 <button
@@ -232,3 +255,4 @@ SeatMap.propTypes = {
 };
 
 export default SeatMap;
+export const __internal = seatMapInternals;

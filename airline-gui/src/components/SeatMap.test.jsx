@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SeatMap from './SeatMap';
+import SeatMap, { __internal } from './SeatMap';
 import {
   cancelBooking,
   createBooking,
@@ -52,6 +52,12 @@ const baseSeats = [
     seatClass: 'Economy',
     price: 120,
     isBooked: false
+  },
+  {
+    seatId: '2A',
+    seatClass: 'Business',
+    price: 220,
+    isBooked: false
   }
 ];
 
@@ -96,6 +102,16 @@ describe('SeatMap', () => {
     await waitFor(() => {
       expect(screen.getByTestId('customerSelectBooking')).toBeInTheDocument();
     });
+  });
+
+  it('disables customer selection when loading succeeds with no available customers', async () => {
+    fetchCustomers.mockResolvedValue([]);
+
+    render(<SeatMap seats={baseSeats} flightNumber="FL-175" />);
+
+    fireEvent.click(await screen.findByText('1B'));
+    const select = await screen.findByTestId('customerSelectBooking');
+    expect(select).toBeDisabled();
   });
 
   it('handles booked-seat info and cancel-booking confirm/no-confirm/success/failure branches', async () => {
@@ -162,6 +178,33 @@ describe('SeatMap', () => {
     await waitFor(() => {
       expect(screen.getByText('Booking failed: insufficient funds')).toBeInTheDocument();
     });
+  });
+
+  it('covers the no-customer guard and unbooked business-seat styling path', async () => {
+    fetchCustomers.mockResolvedValue([{ personId: 'C1', name: 'Alice' }]);
+
+    render(<SeatMap seats={baseSeats} flightNumber="FL-305" />);
+
+    const businessSeatButton = screen.getByRole('button', { name: 'Seat 2A' });
+    expect(businessSeatButton.parentElement.style.backgroundColor).toBe('lightblue');
+
+    fireEvent.click(await screen.findByText('2A'));
+    expect(screen.getByText('Selected seat: 2A (Business, Price: $220)')).toBeInTheDocument();
+
+    expect(__internal.validateBookingSelection('2A', null)).toBe('Please select a Customer for booking.');
+    const setBookingStatus = vi.fn();
+    expect(__internal.applyBookingValidationError('2A', null, setBookingStatus)).toBe(true);
+    expect(setBookingStatus).toHaveBeenCalledWith('Please select a Customer for booking.');
+    expect(__internal.resolveSeatBackgroundColor(baseSeats[2], null)).toBe('lightblue');
+    expect(__internal.resolveSeatBackgroundColor(baseSeats[2], '2A')).toBe('yellow');
+    expect(__internal.validateBookingSelection(null, null)).toBe('Please select a seat first.');
+
+    fireEvent.change(screen.getByTestId('customerSelectBooking'), { target: { value: 'C1' } });
+    const guardSpy = vi.spyOn(__internal, 'applyBookingValidationError').mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking for 2A' }));
+
+    expect(guardSpy).toHaveBeenCalled();
+    expect(createBooking).not.toHaveBeenCalled();
   });
 
   it('supports keyboard seat selection for accessibility', async () => {
