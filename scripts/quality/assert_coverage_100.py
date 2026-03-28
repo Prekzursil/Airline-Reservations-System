@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Assert 100% coverage for the repository's required components."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -24,6 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass
 class CoverageStats:
+    """Coverage totals for a single component report."""
+
     name: str
     path: str
     covered: int
@@ -31,6 +35,7 @@ class CoverageStats:
 
     @property
     def percent(self) -> float:
+        """Return the covered percentage for this component."""
         if self.total <= 0:
             return 100.0
         return (self.covered / self.total) * 100.0
@@ -38,6 +43,8 @@ class CoverageStats:
 
 @dataclass
 class LcovState:
+    """Mutable accumulator while parsing an LCOV stream."""
+
     total: int = 0
     covered: int = 0
     record_lines: Dict[int, int] | None = None
@@ -46,6 +53,7 @@ class LcovState:
     source_lines: Tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
+        """Ensure record-level storage is always initialized."""
         if self.record_lines is None:
             self.record_lines = {}
 
@@ -65,6 +73,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
+    """Parse line coverage totals from an LCOV file."""
     state = LcovState()
 
     for raw in path.read_text(encoding="utf-8").splitlines():
@@ -183,6 +192,7 @@ def _safe_int(value: Any) -> int:
 
 
 def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
+    """Parse aggregate line coverage from Istanbul summary JSON."""
     data = json.loads(path.read_text(encoding="utf-8"))
     total_node = data.get("total", {})
     lines = total_node.get("lines", {}) if isinstance(total_node, dict) else {}
@@ -199,6 +209,7 @@ def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
 
 
 def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
+    """Parse aggregate statement coverage from Istanbul final JSON."""
     data = json.loads(path.read_text(encoding="utf-8"))
     covered = 0
     total = 0
@@ -219,6 +230,7 @@ def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
 
 
 def load_node_stats() -> CoverageStats:
+    """Load the preferred frontend coverage artifact."""
     if NODE_LCOV_PATH.exists():
         return parse_lcov("node", NODE_LCOV_PATH)
     if NODE_SUMMARY_JSON_PATH.exists():
@@ -248,6 +260,7 @@ def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
 
 
 def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
+    """Evaluate component and combined coverage against a 100% target."""
     findings = _component_findings(stats)
     combined_covered, combined_total, combined_percent = _combined_coverage(stats)
     if combined_percent < 100.0:
@@ -286,6 +299,7 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
 
 def main() -> int:
+    """Run the coverage gate and write markdown and JSON artifacts."""
     args = _parse_args()
 
     stats: List[CoverageStats] = []

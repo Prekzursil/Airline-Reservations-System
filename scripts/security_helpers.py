@@ -1,3 +1,5 @@
+"""Shared validation and HTTPS helpers for repository quality scripts."""
+
 from __future__ import absolute_import, annotations, division
 
 import http.client
@@ -29,6 +31,8 @@ _ALLOWED_HTTPS_HOSTS: FrozenSet[str] = frozenset(
 
 
 class HTTPSHost(str, Enum):
+    """Allowlisted HTTPS hosts for quality-gate scripts."""
+
     GITHUB_API = "api.github.com"
     CODACY_API = "api.codacy.com"
     SENTRY = "sentry.io"
@@ -36,6 +40,8 @@ class HTTPSHost(str, Enum):
 
 
 class QualityArtifact(str, Enum):
+    """Known output artifact bundles written by quality scripts."""
+
     COVERAGE_100 = "coverage-100"
     CODACY_ZERO = "codacy-zero"
     DEEPSCAN_ZERO = "deepscan-zero"
@@ -47,12 +53,16 @@ class QualityArtifact(str, Enum):
 
 @dataclass(frozen=True)
 class HTTPSRequestTarget:
+    """Validated host and path pair for an HTTPS request."""
+
     host: str
     path: str
 
 
 @dataclass(frozen=True)
 class HTTPSResponsePayload:
+    """Normalized HTTPS response payload returned by helper requests."""
+
     host: str
     path: str
     status: int
@@ -76,6 +86,7 @@ class HTTPSRequestError(RuntimeError):
     """Structured HTTPS request error with status metadata for retry logic."""
 
     def __init__(self, status: int, reason: str, body: str):
+        """Store response metadata while keeping exception text concise."""
         self.status = status
         self.reason = reason
         self.body_preview = body[:400]
@@ -248,7 +259,6 @@ def normalize_https_url(
     - optional hostname allowlist,
     - optional hostname suffix allowlist.
     """
-
     parsed, hostname = _validate_https_url_shape(raw_url)
     _ensure_host_allowlist(
         hostname,
@@ -264,6 +274,7 @@ def normalize_https_url(
 
 
 def require_allowed_https_host(raw_host: str, *, allowed_hosts: Optional[Set[str]] = None) -> str:
+    """Validate and normalize an HTTPS host against the allowlist."""
     hostname = _normalize_host(raw_host)
     _reject_private_or_local_host(hostname)
 
@@ -298,6 +309,7 @@ def _validate_https_path_components(path: str, raw_path: str) -> None:
 
 
 def require_https_path(raw_path: str) -> str:
+    """Validate that a request target is a safe relative HTTPS path."""
     path = (raw_path or "").strip()
     _validate_https_path_prefix(path, raw_path)
     _validate_https_path_chars(path, raw_path)
@@ -306,6 +318,7 @@ def require_https_path(raw_path: str) -> str:
 
 
 def require_repo_slug(raw: str) -> Tuple[str, str]:
+    """Validate and split an owner/repository slug."""
     value = (raw or "").strip()
     if value.count("/") != 1:
         raise ValueError(f"Invalid repository slug: {raw!r}")
@@ -314,14 +327,17 @@ def require_repo_slug(raw: str) -> Tuple[str, str]:
 
 
 def require_repo_segment(raw: str, *, label: str) -> str:
+    """Validate a repository path segment such as owner or repo name."""
     return _require_identifier(raw, label=label, allowed_chars=_SAFE_REPO_SEGMENT_CHARS, min_len=1, max_len=100)
 
 
 def require_slug(raw: str, *, label: str) -> str:
+    """Validate a generic slug used by external quality services."""
     return _require_identifier(raw, label=label, allowed_chars=_SAFE_SLUG_CHARS, min_len=1, max_len=120)
 
 
 def require_sha(raw: str) -> str:
+    """Validate a Git commit SHA."""
     value = (raw or "").strip()
     if len(value) < 7 or len(value) > 40 or any(ch not in _HEX_CHARS for ch in value):
         raise ValueError(f"Invalid commit SHA: {raw!r}")
@@ -329,10 +345,12 @@ def require_sha(raw: str) -> str:
 
 
 def quote_segment(value: str) -> str:
+    """Quote a URL segment without preserving reserved characters."""
     return quote(value, safe="")
 
 
 def quote_path_segment(value: str, *, label: str) -> str:
+    """Validate and quote a safe single URL path segment."""
     checked = _require_identifier(
         value,
         label=label,
@@ -344,6 +362,7 @@ def quote_path_segment(value: str, *, label: str) -> str:
 
 
 def fixed_output_paths(out_dir: str, json_name: str, md_name: str) -> Tuple[Path, Path]:
+    """Build fixed artifact paths rooted under the current working directory."""
     root = Path.cwd().resolve()
     safe_dir = _validate_output_directory(out_dir)
     safe_json = _validate_output_filename(json_name, label="JSON filename")
@@ -365,6 +384,7 @@ def fixed_output_paths(out_dir: str, json_name: str, md_name: str) -> Tuple[Path
 
 
 def quality_artifact_paths(artifact: QualityArtifact) -> Tuple[Path, Path]:
+    """Return the JSON and markdown paths for a known quality artifact."""
     out_dir, json_name, md_name = _QUALITY_ARTIFACT_LAYOUT[artifact]
     return fixed_output_paths(out_dir, json_name, md_name)
 
@@ -374,6 +394,7 @@ def build_https_request_target(
     host: HTTPSHost,
     path: str,
 ) -> HTTPSRequestTarget:
+    """Build a validated HTTPS request target from host and path inputs."""
     safe_host = require_allowed_https_host(host.value)
     safe_path = require_https_path(path)
     return HTTPSRequestTarget(host=safe_host, path=safe_path)
@@ -487,6 +508,7 @@ def request_json_https(
     timeout: int = 30,
     allowed_hosts: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
+    """Perform a JSON HTTPS request using raw host and path inputs."""
     target = HTTPSRequestTarget(
         host=require_allowed_https_host(host, allowed_hosts=allowed_hosts),
         path=require_https_path(path),
@@ -510,6 +532,7 @@ def request_json_https_target(
     timeout: int = 30,
     allowed_hosts: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
+    """Perform a JSON HTTPS request using a prevalidated request target."""
     response = _request_https_payload(
         target=target,
         method=method,
@@ -536,6 +559,7 @@ def request_json_list_https(
     timeout: int = 30,
     allowed_hosts: Optional[Set[str]] = None,
 ) -> Tuple[List[Any], Dict[str, str]]:
+    """Perform a JSON-list HTTPS request using raw host and path inputs."""
     target = HTTPSRequestTarget(
         host=require_allowed_https_host(host, allowed_hosts=allowed_hosts),
         path=require_https_path(path),
@@ -557,6 +581,7 @@ def request_json_list_https_target(
     timeout: int = 30,
     allowed_hosts: Optional[Set[str]] = None,
 ) -> Tuple[List[Any], Dict[str, str]]:
+    """Perform a JSON-list HTTPS request using a prevalidated request target."""
     response = _request_https_payload(
         target=target,
         method=method,

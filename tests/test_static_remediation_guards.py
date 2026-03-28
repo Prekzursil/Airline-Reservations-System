@@ -1,3 +1,5 @@
+"""Regression guards for static-analysis-driven remediations."""
+
 from __future__ import absolute_import, division
 
 from pathlib import Path
@@ -7,7 +9,7 @@ import unittest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-class StaticRemediationGuardsTest(unittest.TestCase):
+class _StaticRemediationGuardsTest(unittest.TestCase):
     def test_booking_source_avoids_y2038_sensitive_time_apis(self) -> None:
         booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
 
@@ -51,13 +53,16 @@ class StaticRemediationGuardsTest(unittest.TestCase):
         self.assertIn("static std::atomic_uint64_t bookingSequence_;", booking_header)
         self.assertIn("std::atomic_uint64_t Booking::bookingSequence_{100};", booking_source)
 
-    def test_coverage_workflow_requires_cpp_artifacts(self) -> None:
-        workflow_text = (REPO_ROOT / ".github" / "workflows" / "coverage-100.yml").read_text(encoding="utf-8")
+    def test_quality_workflows_pin_shared_platform_contracts(self) -> None:
+        platform_text = (REPO_ROOT / ".github" / "workflows" / "quality-zero-platform.yml").read_text(
+            encoding="utf-8"
+        )
         codecov_text = (REPO_ROOT / ".github" / "workflows" / "codecov-analytics.yml").read_text(encoding="utf-8")
 
-        self.assertIn("--require-cpp", workflow_text)
-        self.assertIn("coverage/cpp/lcov.info", workflow_text)
-        self.assertIn("coverage/cpp/lcov.info", codecov_text)
+        self.assertIn("reusable-scanner-matrix.yml@", platform_text)
+        self.assertIn("Prekzursil/quality-zero-platform", platform_text)
+        self.assertIn("reusable-codecov-analytics.yml@", codecov_text)
+        self.assertIn("Prekzursil/quality-zero-platform", codecov_text)
 
 
 if __name__ == "__main__":

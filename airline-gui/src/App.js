@@ -6,6 +6,11 @@ import CustomerDetails from './components/CustomerDetails';
 import SwapSeatsForm from './components/SwapSeatsForm';
 import { fetchCustomers } from './services/apiService';
 
+/**
+ * Renders the airline reservation dashboard and coordinates cross-panel refreshes.
+ *
+ * @returns {JSX.Element} The application shell.
+ */
 function App() {
   const [customers, setCustomers] = useState([]);
   const [showCustomers, setShowCustomers] = useState(false);
@@ -14,63 +19,100 @@ function App() {
   const [searchCustomerId, setSearchCustomerId] = useState('');
   const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0);
   const [customerDetailsRefreshKey, setCustomerDetailsRefreshKey] = useState(0);
+  const [swapStatusMessage, setSwapStatusMessage] = useState('');
 
+  /**
+   * Loads the current customer list from the API.
+   *
+   * @returns {Promise<void>} A promise that settles after the refresh completes.
+   */
   const loadCustomers = async () => {
     try {
       setCustomerError('');
       const data = await fetchCustomers();
       setCustomers(data);
       setShowCustomers(true);
-    } catch (err) {
+    } catch {
       setCustomerError('Failed to load customers. Ensure API server is running.');
-      console.error(err);
       setShowCustomers(false);
     }
   };
 
+  /**
+   * Increments the booking refresh token shared across dependent views.
+   */
   const incrementBookingsRefreshKey = () => {
     setBookingsRefreshKey((prevKey) => prevKey + 1);
   };
 
+  /**
+   * Selects a customer from the list and mirrors that value into the search field.
+   *
+   * @param {string} customerId The selected customer identifier.
+   */
   const handleCustomerSelect = (customerId) => {
+    setSwapStatusMessage('');
     setSearchCustomerId(customerId);
     setSelectedCustomerId(customerId);
   };
 
+  /**
+   * Refreshes customer-dependent views after a new customer is created.
+   */
   const handleCustomerAdded = () => {
+    setSwapStatusMessage('');
     loadCustomers();
     incrementBookingsRefreshKey();
   };
 
+  /**
+   * Refreshes booking-driven views after downstream booking changes.
+   */
   const triggerBookingsRefresh = () => {
+    setSwapStatusMessage('');
     incrementBookingsRefreshKey();
   };
 
+  /**
+   * Loads the currently typed customer identifier into the detail pane.
+   */
   const handleSearchCustomer = () => {
+    setSwapStatusMessage('');
     setSelectedCustomerId(searchCustomerId);
   };
-  
+
+  /**
+   * Refreshes both customer details and booking lists after a booking mutation.
+   *
+   * @param {string} customerId The customer whose detail pane should be refreshed.
+   */
   const refreshCustomerDetails = (customerId) => {
+    setSwapStatusMessage('');
     setSelectedCustomerId(customerId);
     setCustomerDetailsRefreshKey((prevKey) => prevKey + 1);
     loadCustomers();
     incrementBookingsRefreshKey();
   };
 
+  /**
+   * Refreshes the booking panels after a seat swap and reports the outcome inline.
+   */
   const handleSeatsSwapped = () => {
     if (selectedCustomerId) {
       refreshCustomerDetails(selectedCustomerId);
     } else {
+      setSwapStatusMessage('');
       loadCustomers();
       incrementBookingsRefreshKey();
     }
-    alert("Seats swapped. Customer details (if viewing) and booking lists refreshed. You may need to re-select a flight to see seat map updates.");
+    setSwapStatusMessage(
+      'Seats swapped. Customer details and booking lists were refreshed. Re-select the flight if you need a fresh seat map.'
+    );
   };
 
   useEffect(() => {
     loadCustomers();
   }, []);
-
 
   return (
     <div className="App">
@@ -151,6 +193,7 @@ function App() {
           <FlightList onBookingListChanged={triggerBookingsRefresh} />
           <section style={{ marginTop: '20px', padding: '15px', border: '1px solid #eee' }}>
             <SwapSeatsForm onSeatsSwapped={handleSeatsSwapped} refreshTrigger={bookingsRefreshKey} />
+            {swapStatusMessage && <p aria-live="polite">{swapStatusMessage}</p>}
           </section>
         </div>
       </main>

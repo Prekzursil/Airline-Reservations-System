@@ -1,3 +1,5 @@
+"""Regression tests for repository coverage helper scripts."""
+
 from __future__ import absolute_import, division
 
 from io import StringIO
@@ -9,7 +11,7 @@ import unittest
 from scripts.quality import assert_coverage_100, normalize_lcov
 
 
-class NormalizeLcovTests(unittest.TestCase):
+class _NormalizeLcovTests(unittest.TestCase):
     def test_normalize_lcov_lines_strips_branch_records_only(self) -> None:
         raw = [
             "TN:",
@@ -74,7 +76,7 @@ class NormalizeLcovTests(unittest.TestCase):
         self.assertIn("Normalized LCOV: stripped 3 branch records", stderr.getvalue())
 
 
-class AssertCoverageParsingTests(unittest.TestCase):
+class _AssertCoverageParsingTests(unittest.TestCase):
     def test_include_lcov_line_skips_inline_and_block_exclusions(self) -> None:
         source_lines = (
             "// GCOVR_EXCL_START",

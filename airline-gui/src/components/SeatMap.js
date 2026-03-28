@@ -3,6 +3,15 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { createBooking, fetchCustomers, cancelBooking as apiCancelBooking } from '../services/apiService';
 
+/**
+ * Renders the seat layout for a flight and coordinates booking actions.
+ *
+ * @param {object} props Component props.
+ * @param {Array<object>} props.seats The current seat inventory for the selected flight.
+ * @param {string} props.flightNumber The selected flight identifier.
+ * @param {?Function} props.onBookingSuccess Optional callback invoked after booking mutations.
+ * @returns {JSX.Element} The rendered seat map.
+ */
 const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     const [selectedSeatId, setSelectedSeatId] = useState(null);
     const [bookingStatus, setBookingStatus] = useState('');
@@ -10,8 +19,14 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     const [customers, setCustomers] = useState([]);
     const [loadingCustomers, setLoadingCustomers] = useState(false);
     const [customerLoadingError, setCustomerLoadingError] = useState('');
+    const [pendingCancellationId, setPendingCancellationId] = useState(null);
 
     useEffect(() => {
+        /**
+         * Loads customers for the booking dropdown.
+         *
+         * @returns {Promise<void>} A promise that settles after the customer list finishes loading.
+         */
         const loadCustomers = async () => {
             setLoadingCustomers(true);
             try {
@@ -19,7 +34,6 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
                 const fetchedCustomers = await fetchCustomers();
                 setCustomers(fetchedCustomers || []);
             } catch (error) {
-                console.error('Failed to load customers for dropdown:', error);
                 setCustomerLoadingError('Could not load customers for selection.');
                 setCustomers([]);
             } finally {
@@ -44,7 +58,13 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
         }
     });
 
+    /**
+     * Handles seat selection and explains the current seat state to the user.
+     *
+     * @param {object} seat The clicked seat record.
+     */
     const handleSeatClick = (seat) => {
+        setPendingCancellationId(null);
         if (seat.isBooked) {
             let statusMsg = `Seat ${seat.seatId}: This seat is already booked.`;
             if (seat.bookedByCustomerId) {
@@ -58,23 +78,50 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
         setBookingStatus(`Selected seat: ${seat.seatId} (${seat.seatClass}, Price: $${seat.price})`);
     };
 
+    /**
+     * Starts the inline cancellation confirmation flow for a booked seat.
+     *
+     * @param {number|string} bookingIdToCancel The booking linked to the selected seat.
+     */
+    const requestSeatCancellation = (bookingIdToCancel) => {
+        setPendingCancellationId(bookingIdToCancel);
+        setBookingStatus(`Confirm cancellation for booking ${bookingIdToCancel}.`);
+    };
+
+    /**
+     * Clears the pending seat cancellation request.
+     */
+    const keepSeatBooking = () => {
+        setPendingCancellationId(null);
+        setBookingStatus('Cancellation kept.');
+    };
+
+    /**
+     * Cancels a seat booking after the inline confirmation step.
+     *
+     * @param {number|string} bookingIdToCancel The booking to cancel.
+     * @returns {Promise<void>} A promise that settles after the cancellation request completes.
+     */
     const handleCancelBookingFromSeat = async (bookingIdToCancel) => {
-        if (!globalThis.confirm(`Are you sure you want to cancel booking ${bookingIdToCancel} for this seat?`)) {
-            return;
-        }
         setBookingStatus(`Cancelling booking ${bookingIdToCancel}...`);
         try {
             const result = await apiCancelBooking(bookingIdToCancel);
+            setPendingCancellationId(null);
             setBookingStatus(result.message || `Booking ${bookingIdToCancel} cancellation processed.`);
             if (onBookingSuccess) {
                 onBookingSuccess(flightNumber);
             }
         } catch (err) {
+            setPendingCancellationId(null);
             setBookingStatus(`Failed to cancel booking ${bookingIdToCancel}: ${err.message}`);
-            console.error('Cancellation error from seat map:', err);
         }
     };
 
+    /**
+     * Creates a booking for the currently selected seat and customer.
+     *
+     * @returns {Promise<void>} A promise that settles after the booking request completes.
+     */
     const handleConfirmBooking = async () => {
         /* c8 ignore start - guarded by UI state; confirm button is only rendered/enabled when these are satisfied */
         if (!selectedSeatId) {
@@ -95,6 +142,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
         try {
             setBookingStatus('Processing booking...');
             const result = await createBooking(bookingData);
+            setPendingCancellationId(null);
             setBookingStatus(`Booking successful! ID: ${result.bookingId}. Seat: ${result.seatId} for Customer: ${result.customerId}`);
             setSelectedSeatId(null);
             setCustomerIdForBooking(null);
@@ -104,10 +152,15 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
             }
         } catch (error) {
             setBookingStatus(`Booking failed: ${error.message}`);
-            console.error('Booking error:', error);
         }
     };
 
+    /**
+     * Returns inline styles for a seat cell.
+     *
+     * @param {object} seat The seat being rendered.
+     * @returns {object} The seat container style.
+     */
     const getSeatStyle = (seat) => {
         let backgroundColor = 'lightgreen';
         if (seat.isBooked) {
@@ -135,6 +188,12 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
         };
     };
 
+    /**
+     * Returns the button style for the clickable seat label.
+     *
+     * @param {object} seat The seat being rendered.
+     * @returns {object} The seat button style.
+     */
     const getSeatButtonStyle = (seat) => ({
         border: 'none',
         background: 'transparent',
@@ -163,15 +222,38 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
                                     {seat.seatId}
                                 </button>
                                 {seat.isBooked && seat.bookingId && (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleCancelBookingFromSeat(seat.bookingId)}
-                                        style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
-                                        aria-label={`Cancel booking ${seat.bookingId}`}
-                                        title={`Cancel booking ${seat.bookingId}`}
-                                    >
-                                        Cancel
-                                    </button>
+                                    pendingCancellationId === seat.bookingId ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCancelBookingFromSeat(seat.bookingId)}
+                                                style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
+                                                aria-label={`Confirm cancellation for booking ${seat.bookingId}`}
+                                                title={`Confirm cancellation for booking ${seat.bookingId}`}
+                                            >
+                                                Confirm
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={keepSeatBooking}
+                                                style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
+                                                aria-label={`Keep booking ${seat.bookingId}`}
+                                                title={`Keep booking ${seat.bookingId}`}
+                                            >
+                                                Keep
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => requestSeatCancellation(seat.bookingId)}
+                                            style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
+                                            aria-label={`Cancel booking ${seat.bookingId}`}
+                                            title={`Cancel booking ${seat.bookingId}`}
+                                        >
+                                            Cancel
+                                        </button>
+                                    )
                                 )}
                             </div>
                         ))}

@@ -1,1 +1,1 @@
-
+"""Quality-gate helper scripts."""

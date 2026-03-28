@@ -1,3 +1,5 @@
+"""Regression tests for quality and security helper scripts."""
+
 from __future__ import annotations
 
 import json
@@ -37,7 +39,7 @@ _MISSING_VAR_COUNT_KEY = "_".join(("missing", "var", "count"))
 _STATUS_KEY = "status"
 
 
-class SecurityHelpersValidationTests(unittest.TestCase):
+class _SecurityHelpersValidationTests(unittest.TestCase):
     def test_require_allowed_https_host_accepts_known_hosts(self) -> None:
         self.assertEqual(helpers.require_allowed_https_host("api.github.com"), "api.github.com")
         self.assertEqual(helpers.require_allowed_https_host("SENTRY.IO."), "sentry.io")
@@ -134,7 +136,7 @@ class SecurityHelpersValidationTests(unittest.TestCase):
                 os.chdir(previous)
 
 
-class ScriptPathBuilderTests(unittest.TestCase):
+class _ScriptPathBuilderTests(unittest.TestCase):
     def test_codacy_path_builder_validates_inputs(self) -> None:
         path = codacy._build_issue_search_path("github", "Owner_1", "Repo-1")
         self.assertIn("/analysis/organizations/github/Owner_1/repositories/Repo-1/issues/search", path)
@@ -193,7 +195,7 @@ class ScriptPathBuilderTests(unittest.TestCase):
             required_checks._build_commit_api_path("owner/repo/extra", "a1b2c3d")
 
 
-class QualitySecretsScriptTests(unittest.TestCase):
+class _QualitySecretsScriptTests(unittest.TestCase):
     def test_quality_secrets_summary_uses_counts_only(self) -> None:
         with mock.patch.dict(
             os.environ,
@@ -262,7 +264,7 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 os.chdir(previous)
 
 
-class SonarZeroScriptTests(unittest.TestCase):
+class _SonarZeroScriptTests(unittest.TestCase):
     def test_sonar_query_builders_include_hotspot_scope(self) -> None:
         args = mock.Mock(
             branch="feature-hotspots",

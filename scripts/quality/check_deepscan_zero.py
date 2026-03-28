@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Assert that the DeepScan GitHub context completes successfully."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -208,6 +210,7 @@ def _run_deepscan_check(args: argparse.Namespace, token: str) -> Tuple[str, List
 
 
 def main() -> int:
+    """Run the DeepScan gate and write result artifacts."""
     args = _parse_args()
     token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
     if not token:

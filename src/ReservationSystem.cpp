@@ -246,7 +246,7 @@ void ReservationSystem::handleSearchCustomer() {
     }
     std::string id = getValidatedInput<std::string>("Enter Customer ID to search: ");
     const Customer* customer = findCustomerById(id);
-    if (customer) {
+    if (customer != nullptr) {
         (*m_cout_ptr) << "Bookings for " << customer->getName() << ":" << std::endl;
         bool foundBookings = false;
         for(const auto& booking : bookings) {
@@ -271,7 +271,7 @@ void ReservationSystem::handleCancelBooking() {
     std::string bookingIdToCancel = getValidatedInput<std::string>("Enter Booking ID to cancel: ");
     const auto* booking = findBookingById(bookingIdToCancel);
 
-    if (!booking) {
+    if (booking == nullptr) {
         (*m_cout_ptr) << "Booking with ID " << bookingIdToCancel << " not found." << std::endl;
         return;
     }
@@ -395,7 +395,7 @@ void ReservationSystem::handleAdminMenu() {
 void ReservationSystem::handleAddAirplane() {
     (*m_cout_ptr) << "\n--- Add New Airplane ---" << std::endl;
     std::string flightNum = getValidatedInput<std::string>("Enter flight number (e.g., FL303): ");
-    if (findAirplaneByFlightNumber(flightNum)) {
+    if (findAirplaneByFlightNumber(flightNum) != nullptr) {
         (*m_cout_ptr) << "An airplane with flight number " << flightNum << " already exists." << std::endl;
         return;
     }
@@ -429,19 +429,19 @@ Customer* ReservationSystem::addCustomerInternal(const std::string& name_param, 
 
 Booking* ReservationSystem::createBookingInternal(const std::string& customerId, const std::string& flightNumber, const std::string& seatId, std::string& errorMessage) {
     Customer* customer = findCustomerById(customerId);
-    if (!customer) {
+    if (customer == nullptr) {
         errorMessage = "Customer not found.";
         return nullptr;
     }
 
     Airplane* airplane = findAirplaneByFlightNumber(flightNumber);
-    if (!airplane) {
+    if (airplane == nullptr) {
         errorMessage = "Airplane not found.";
         return nullptr;
     }
 
     const Seat* seat = airplane->findSeat(seatId);
-    if (!seat) {
+    if (seat == nullptr) {
         errorMessage = "Seat not found on this flight.";
         return nullptr;
     }
@@ -468,7 +468,7 @@ Booking* ReservationSystem::createBookingInternal(const std::string& customerId,
 bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std::string& errorMessage) {
     Booking* booking = findBookingById(bookingId);
 
-    if (!booking) {
+    if (booking == nullptr) {
         errorMessage = "Booking with ID " + bookingId + " not found.";
         return false;
     }
@@ -480,10 +480,13 @@ bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std:
 
     Customer* customer = findCustomerById(booking->getCustomerId());
     Airplane* airplane = findAirplaneByFlightNumber(booking->getFlightNumber());
-    const Seat* seat = airplane ? airplane->findSeat(booking->getSeatId()) : nullptr;
+    const Seat* seat = nullptr;
+    if (airplane != nullptr) {
+        seat = airplane->findSeat(booking->getSeatId());
+    }
 
-    if (customer && airplane && seat) {
-        double refundAmount = seat->getPrice(); 
+    if (customer != nullptr && airplane != nullptr && seat != nullptr) {
+        double refundAmount = seat->getPrice();
         customer->addMoney(refundAmount);
         airplane->unbookSpecificSeat(seat->getSeatId()); // This updates bookedSeatsCount in Airplane
         booking->setStatus(BookingStatus::CANCELLED);
@@ -500,13 +503,13 @@ bool ReservationSystem::swapSeatsInternal(const std::string& bookingId1_str, con
     errorMessage.clear(); // Ensure errorMessage is in a good state
 
     Booking* booking1 = findBookingById(bookingId1_str);
-    if (!booking1 || booking1->getStatus() != BookingStatus::CONFIRMED) {
+    if (booking1 == nullptr || booking1->getStatus() != BookingStatus::CONFIRMED) {
         errorMessage = "First booking ID (" + bookingId1_str + ") not found or not confirmed.";
         return false;
     }
 
     Booking* booking2 = findBookingById(bookingId2_str);
-    if (!booking2 || booking2->getStatus() != BookingStatus::CONFIRMED) {
+    if (booking2 == nullptr || booking2->getStatus() != BookingStatus::CONFIRMED) {
         errorMessage = "Second booking ID (" + bookingId2_str + ") not found or not confirmed.";
         return false;
     }

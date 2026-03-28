@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Strip branch records from LCOV input while preserving line coverage."""
+
 from __future__ import absolute_import, annotations, division
 
 import sys
@@ -6,7 +8,9 @@ from typing import Iterable, TextIO, Tuple
 
 _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
 
+
 def normalize_lcov_lines(lines: Iterable[str]) -> Tuple[str, int]:
+    """Return LCOV text with branch records removed and count how many were stripped."""
     kept_lines = []
     stripped_count = 0
 
@@ -28,6 +32,7 @@ def main(
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
 ) -> int:
+    """Normalize LCOV from stdin to stdout and report stripped lines on stderr."""
     input_stream = stdin or sys.stdin
     output_stream = stdout or sys.stdout
     error_stream = stderr or sys.stderr

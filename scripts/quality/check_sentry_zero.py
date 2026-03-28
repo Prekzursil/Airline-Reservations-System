@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Assert that configured Sentry projects have zero unresolved issues."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -294,6 +296,7 @@ def _run_sentry_check(args: argparse.Namespace) -> Tuple[str, str, List[Dict[str
 
 
 def main() -> int:
+    """Run the Sentry zero gate and write result artifacts."""
     args = _parse_args()
 
     try:

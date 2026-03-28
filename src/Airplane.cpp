@@ -85,7 +85,7 @@ Seat* Airplane::findSeat(std::string_view seatId) {
 }
 
 bool Airplane::bookSpecificSeat(std::string_view seatId) {
-    if (Seat* seatToBook = findSeat(seatId); seatToBook && !seatToBook->getIsBooked() && seatToBook->bookSeat()) {
+    if (Seat* seatToBook = findSeat(seatId); seatToBook != nullptr && !seatToBook->getIsBooked() && seatToBook->bookSeat()) {
         ++bookedSeatsCount;
         return true;
     }
@@ -93,7 +93,7 @@ bool Airplane::bookSpecificSeat(std::string_view seatId) {
 }
 
 bool Airplane::unbookSpecificSeat(std::string_view seatId) {
-    if (Seat* seatToUnbook = findSeat(seatId); seatToUnbook && seatToUnbook->getIsBooked() && seatToUnbook->unbookSeat()) {
+    if (Seat* seatToUnbook = findSeat(seatId); seatToUnbook != nullptr && seatToUnbook->getIsBooked() && seatToUnbook->unbookSeat()) {
         --bookedSeatsCount;
         return true;
     }
@@ -162,7 +162,7 @@ std::vector<const Seat*> Airplane::getAvailableSeatsByClass(SeatClass sc) const 
 
 std::vector<const Seat*> Airplane::suggestLowerPriceSeats(const Customer* customer, double maxPrice) const {
     std::vector<const Seat*> suggestions;
-    if (!customer) {
+    if (customer == nullptr) {
         return suggestions;
     }
 

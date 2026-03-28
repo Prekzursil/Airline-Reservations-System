@@ -208,9 +208,11 @@ void handle_create_customer(ReservationSystem& airline_system, const httplib::Re
         const bool auto_generate = body.value("autoGenerate", false);
 
         Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
+
         respond_json(res, json(*new_customer), 201);
     } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400); }
 }
+
 void handle_create_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
     try {
         const json body = json::parse(req.body);

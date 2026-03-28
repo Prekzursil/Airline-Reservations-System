@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { addCustomer } from '../services/apiService';
 
+/**
+ * Renders the customer creation form.
+ *
+ * @param {object} props Component props.
+ * @param {?Function} props.onCustomerAdded Optional callback invoked after a successful customer creation.
+ * @returns {JSX.Element} The rendered customer form.
+ */
 const CustomerForm = ({ onCustomerAdded = null }) => {
     const [name, setName] = useState('');
     const [age, setAge] = useState('');
@@ -9,6 +16,12 @@ const CustomerForm = ({ onCustomerAdded = null }) => {
     const [autoGenerate, setAutoGenerate] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
 
+    /**
+     * Submits the customer creation request.
+     *
+     * @param {Event} event The form submission event.
+     * @returns {Promise<void>} A promise that settles after the request completes.
+     */
     const handleSubmit = async (event) => {
         event.preventDefault();
         setStatusMessage('Adding customer...');

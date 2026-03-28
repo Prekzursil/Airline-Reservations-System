@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Wait for required GitHub contexts and assert they all succeed."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -248,6 +250,7 @@ def _collect_payload(
 
 
 def main() -> int:
+    """Run the required-checks gate and write result artifacts."""
     args = _parse_args()
     token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
     required = [item.strip() for item in args.required_context if item.strip()]

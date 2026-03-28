@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Assert that SonarCloud reports zero open findings for the target scope."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -206,6 +208,7 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optiona
 
 
 def main() -> int:
+    """Run the Sonar zero gate and write result artifacts."""
     args = _parse_args()
     token = (args.token or os.environ.get("SONAR_TOKEN", "")).strip()
     try:

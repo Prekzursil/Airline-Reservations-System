@@ -3,6 +3,14 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { swapSeats, fetchBookings } from '../services/apiService';
 
+/**
+ * Renders the seat-swap form for two confirmed bookings.
+ *
+ * @param {object} props Component props.
+ * @param {?Function} props.onSeatsSwapped Optional callback invoked after a successful seat swap.
+ * @param {number|string} props.refreshTrigger Token used to reload the booking options.
+ * @returns {JSX.Element} The rendered swap form.
+ */
 const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
     const [allBookings, setAllBookings] = useState([]);
     const [selectedBooking1, setSelectedBooking1] = useState(null);
@@ -12,6 +20,11 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
     const [errorLoadingBookings, setErrorLoadingBookings] = useState('');
 
     useEffect(() => {
+        /**
+         * Loads the booking options used by the swap form.
+         *
+         * @returns {Promise<void>} A promise that settles after bookings are loaded.
+         */
         const loadBookings = async () => {
             setLoadingBookings(true);
             setErrorLoadingBookings('');
@@ -19,7 +32,6 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
                 const bookingsData = await fetchBookings();
                 setAllBookings(bookingsData || []);
             } catch (error) {
-                console.error('Failed to fetch bookings for swap form:', error);
                 setErrorLoadingBookings('Could not load bookings.');
                 setAllBookings([]);
             } finally {
@@ -36,6 +48,11 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
             label: `ID: ${booking.bookingId} (Cust: ${booking.customerId}, Flight: ${booking.flightNumber}, Seat: ${booking.seatId})`,
         }));
 
+    /**
+     * Validates the current booking selections before submitting the swap request.
+     *
+     * @returns {string} A validation message when the form is incomplete, otherwise an empty string.
+     */
     const validationMessage = () => {
         if (!selectedBooking1?.value || !selectedBooking2?.value) {
             return 'Please select both bookings.';
@@ -46,6 +63,12 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
         return '';
     };
 
+    /**
+     * Submits the seat swap request for the selected bookings.
+     *
+     * @param {Event} event The form submission event.
+     * @returns {Promise<void>} A promise that settles after the swap request completes.
+     */
     const handleSubmit = async (event) => {
         event.preventDefault();
         const message = validationMessage();

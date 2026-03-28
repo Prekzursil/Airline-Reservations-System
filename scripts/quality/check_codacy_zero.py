@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Assert that Codacy reports zero open issues for a repository or branch."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -34,6 +36,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def extract_total_open(payload: Any) -> Optional[int]:
+    """Extract the first recognizable issue-total field from a nested payload."""
     nodes: List[Any] = [payload]
     while nodes:
         current = nodes.pop()
@@ -145,6 +148,7 @@ def _run_codacy_check(args: argparse.Namespace, token: str) -> Tuple[Optional[in
 
 
 def main() -> int:
+    """Run the Codacy zero gate and write result artifacts."""
     args = _parse_args()
     token = _resolve_token(args.token)
     open_issues, findings, status = _run_codacy_check(args, token)
