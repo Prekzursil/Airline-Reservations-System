@@ -169,7 +169,8 @@ def test_request_json_https_success_and_error_paths(monkeypatch) -> None:
             recorded["host"] = host
             recorded["timeout"] = timeout
 
-        def request(self, method: str, path: str, body=None, headers=None):
+        @staticmethod
+        def request(method: str, path: str, body=None, headers=None):
             recorded["method"] = method
             recorded["path"] = path
             recorded["body"] = body.decode("utf-8") if body is not None else None
