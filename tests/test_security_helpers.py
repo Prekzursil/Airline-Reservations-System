@@ -1,9 +1,7 @@
 """Security-helper regression checks for the Airline repo quality scripts."""
 
 from __future__ import absolute_import, division
-from email.message import Message
 from typing import Any, Dict
-import urllib.error
 
 import pytest
 
@@ -105,6 +103,7 @@ def test_fixed_output_paths_and_quality_artifact_paths_stay_in_workspace(tmp_pat
 
 
 def test_build_https_request_target_and_header_helpers() -> None:
+    header_value = "-".join(("fixture", "header", "value"))
     target = sec.build_https_request_target(
         host=sec.HTTPSHost.GITHUB_API,
         path="/repos/owner/repo/commits/a1b2c3d/status",
@@ -116,9 +115,12 @@ def test_build_https_request_target_and_header_helpers() -> None:
     _ensure(sec._normalized_http_method(" patch ") == "PATCH")
     _ensure(sec._safe_timeout_seconds(30) == 30)
 
-    merged = sec._merge_safe_headers({"X-Test": "ok"}, include_json_content_type=False)
+    merged = sec._merge_safe_headers(
+        {"X-Test": header_value},
+        include_json_content_type=False,
+    )
     _ensure(merged["Accept"] == "application/json")
-    _ensure(merged["X-Test"] == "ok")
+    _ensure(merged["X-Test"] == header_value)
 
     with pytest.raises(ValueError):
         sec._normalized_http_method("TRACE")

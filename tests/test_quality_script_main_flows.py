@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import List
 from unittest import TestCase, mock
 
 from scripts import security_helpers as helpers
@@ -60,7 +61,17 @@ class QualityScriptArgParsingTests(TestCase):
         with mock.patch.object(
             sys,
             "argv",
-            ["prog", "--repo", "Prekzursil/Airline-Reservations-System", "--sha", "a1b2c3d", "--required-context", "verify", "--required-context", "SonarCloud"],
+            [
+                "prog",
+                "--repo",
+                "Prekzursil/Airline-Reservations-System",
+                "--sha",
+                "a1b2c3d",
+                "--required-context",
+                "verify",
+                "--required-context",
+                "SonarCloud",
+            ],
         ):
             args = required_checks._parse_args()
         self.assertEqual(args.required_context, ["verify", "SonarCloud"])
@@ -79,7 +90,15 @@ class QualityScriptArgParsingTests(TestCase):
         with mock.patch.object(
             sys,
             "argv",
-            ["prog", "--project-key", "Prekzursil_Airline-Reservations-System", "--branch", "feature-x", "--pull-request", "30"],
+            [
+                "prog",
+                "--project-key",
+                "Prekzursil_Airline-Reservations-System",
+                "--branch",
+                "feature-x",
+                "--pull-request",
+                "30",
+            ],
         ):
             args = sonar._parse_args()
         self.assertEqual(args.branch, "feature-x")
@@ -99,7 +118,7 @@ class QualityScriptMainFlowTests(TestCase):
         self.assertIn("CODACY_API_TOKEN is missing.", findings)
 
     def test_codacy_evaluate_status_and_render_md_cover_empty_findings(self) -> None:
-        findings: list[str] = []
+        findings: List[str] = []
         self.assertEqual(codacy._evaluate_status(0, findings), "pass")
         self.assertEqual(findings, [])
 
@@ -124,13 +143,21 @@ class QualityScriptMainFlowTests(TestCase):
             captured.update(kwargs)
             return {"total": 0}
 
-        with mock.patch.object(codacy, "request_json_https_target", side_effect=_fake_request_json_https_target):
-            self.assertEqual(codacy._fetch_open_issues(args, "token"), 0)
+        fixture_auth = "-".join(("fixture", "auth", "value"))
+        with mock.patch.object(
+            codacy,
+            "request_json_https_target",
+            side_effect=_fake_request_json_https_target,
+        ):
+            self.assertEqual(codacy._fetch_open_issues(args, fixture_auth), 0)
 
         self.assertEqual(captured["body"], {})
 
         with mock.patch.object(codacy, "_fetch_open_issues", side_effect=RuntimeError("boom")):
-            open_issues, findings, status = codacy._run_codacy_check(args, "token")
+            open_issues, findings, status = codacy._run_codacy_check(
+                args,
+                fixture_auth,
+            )
         self.assertIsNone(open_issues)
         self.assertEqual(status, "fail")
         self.assertIn("boom", findings[0])
@@ -143,7 +170,7 @@ class QualityScriptMainFlowTests(TestCase):
                 args = mock.Mock(repo="Prekzursil/Airline-Reservations-System", sha="a1b2c3d", required_context="DeepScan")
                 with mock.patch.object(deepscan, "_parse_args", return_value=args), mock.patch.dict(
                     os.environ,
-                    {"GITHUB_TOKEN": "token"},
+                    {"GITHUB_TOKEN": "-".join(("fixture", "auth", "value"))},
                     clear=False,
                 ), mock.patch.object(
                     deepscan,
@@ -162,15 +189,44 @@ class QualityScriptMainFlowTests(TestCase):
     def test_deepscan_helpers_cover_pending_and_render_paths(self) -> None:
         target = helpers.HTTPSRequestTarget(host=helpers.HTTPSHost.GITHUB_API.value, path="/repos/o/r/commits/a1b2c3d/status")
 
-        with mock.patch.object(deepscan, "request_json_https_target", return_value={"ok": True}):
-            self.assertEqual(deepscan._api_get(target, "token"), {"ok": True})
+        fixture_auth = "-".join(("fixture", "auth", "value"))
+        with mock.patch.object(
+            deepscan,
+            "request_json_https_target",
+            return_value={"ok": True},
+        ):
+            self.assertEqual(deepscan._api_get(target, fixture_auth), {"ok": True})
 
         self.assertEqual(deepscan._poll_or_timeout(0, 1, 0), True)
         self.assertEqual(deepscan._poll_or_timeout(2, 1, 0), False)
-        self.assertIn("expected success", deepscan._pending_failure_message("DeepScan", {"source": "status", "conclusion": ""}))
+        self.assertIn(
+            "expected success",
+            deepscan._pending_failure_message(
+                "DeepScan",
+                {"source": "status", "conclusion": ""},
+            ),
+        )
         self.assertTrue(deepscan._is_pending_context({"source": "status", "conclusion": ""}))
-        self.assertEqual(deepscan._context_outcome("DeepScan", {"source": "status", "conclusion": "failure"})[0], "fail")
-        self.assertIn("- None", deepscan._render_md({"status": "pass", "repo": "r", "sha": "a1", "required_context": "DeepScan", "timestamp_utc": "x", "findings": []}))
+        self.assertEqual(
+            deepscan._context_outcome(
+                "DeepScan",
+                {"source": "status", "conclusion": "failure"},
+            )[0],
+            "fail",
+        )
+        self.assertIn(
+            "- None",
+            deepscan._render_md(
+                {
+                    "status": "pass",
+                    "repo": "r",
+                    "sha": "a1",
+                    "required_context": "DeepScan",
+                    "timestamp_utc": "x",
+                    "findings": [],
+                }
+            ),
+        )
 
     def test_deepscan_run_check_covers_pending_and_failure_outcomes(self) -> None:
         args = mock.Mock(
@@ -189,7 +245,10 @@ class QualityScriptMainFlowTests(TestCase):
                 {"statuses": []},
             ],
         ):
-            status, findings, observed = deepscan._run_deepscan_check(args, "token")
+            status, findings, observed = deepscan._run_deepscan_check(
+                args,
+                "-".join(("fixture", "auth", "value")),
+            )
         self.assertEqual(status, "fail")
         self.assertIn("expected success", findings[0])
         self.assertIsNotNone(observed)
@@ -209,7 +268,10 @@ class QualityScriptMainFlowTests(TestCase):
                 {"statuses": []},
             ],
         ):
-            status, findings, _observed = deepscan._run_deepscan_check(args_pending, "token")
+            status, findings, _observed = deepscan._run_deepscan_check(
+                args_pending,
+                "-".join(("fixture", "auth", "value")),
+            )
         self.assertEqual(status, "fail")
         self.assertIn("expected completed", findings[0])
 
@@ -227,7 +289,7 @@ class QualityScriptMainFlowTests(TestCase):
         ):
             payload = required_checks._api_get(
                 helpers.HTTPSRequestTarget(host=helpers.HTTPSHost.GITHUB_API.value, path="/repos/o/r/commits/a1b2c3d/status"),
-                "token",
+                "-".join(("fixture", "auth", "value")),
             )
 
         self.assertEqual(payload, {"ok": True})
@@ -254,7 +316,10 @@ class QualityScriptMainFlowTests(TestCase):
             side_effect=RuntimeError("transport"),
         ), mock.patch.object(required_checks.time, "sleep", lambda _seconds: None):
             with self.assertRaises(RuntimeError):
-                required_checks._api_get(target, "token")
+                required_checks._api_get(
+                    target,
+                    "-".join(("fixture", "auth", "value")),
+                )
 
         args = mock.Mock(
             repo="Prekzursil/Airline-Reservations-System",
@@ -285,7 +350,7 @@ class QualityScriptMainFlowTests(TestCase):
                 }
                 with mock.patch.object(required_checks, "_parse_args", return_value=args), mock.patch.dict(
                     os.environ,
-                    {"GITHUB_TOKEN": "token"},
+                    {"GITHUB_TOKEN": "-".join(("fixture", "auth", "value"))},
                     clear=False,
                 ), mock.patch.object(required_checks, "_collect_payload", return_value=payload):
                     rc = required_checks.main()

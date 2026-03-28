@@ -6,6 +6,7 @@ from io import StringIO
 import json
 import os
 from pathlib import Path
+from typing import Dict
 import sys
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -164,7 +165,7 @@ class AssertCoverageParsingTests(unittest.TestCase):
 
     def test_parse_lcov_tracks_branch_totals_when_present(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            lcov_path = Path(temp_dir) / "sample.lcov"
+            lcov_path: Path = Path(temp_dir) / "sample.lcov"
             lcov_path.write_text(
                 "\n".join(
                     [
@@ -208,7 +209,7 @@ class AssertCoverageParsingTests(unittest.TestCase):
 
     def test_parse_istanbul_summary_falls_back_to_statements_when_lines_are_missing(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            summary_path = Path(temp_dir) / "coverage-summary.json"
+            summary_path: Path = Path(temp_dir) / "coverage-summary.json"
             summary_path.write_text(
                 '{"total":{"lines":{"covered":0,"total":0},"statements":{"covered":3,"total":3}}}',
                 encoding="utf-8",
@@ -221,7 +222,7 @@ class AssertCoverageParsingTests(unittest.TestCase):
 
     def test_parse_istanbul_final_counts_statement_hits(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            final_path = Path(temp_dir) / "coverage-final.json"
+            final_path: Path = Path(temp_dir) / "coverage-final.json"
             final_path.write_text(
                 '{"src/App.js":{"s":{"1":1,"2":0}},"src/Other.js":{"s":{"3":2}}}',
                 encoding="utf-8",
@@ -236,7 +237,7 @@ class AssertCoverageParsingTests(unittest.TestCase):
 
     def test_parse_istanbul_final_handles_non_dict_entries_and_branch_arrays(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            final_path = Path(temp_dir) / "coverage-final.json"
+            final_path: Path = Path(temp_dir) / "coverage-final.json"
             final_path.write_text(
                 json.dumps(
                     {
@@ -255,11 +256,11 @@ class AssertCoverageParsingTests(unittest.TestCase):
         self.assertEqual(stats.branch_covered, 1)
         self.assertEqual(stats.branch_total, 2)
 
-    def test_load_node_stats_prefers_summary_then_final_and_errors_when_missing(self) -> None:
+    def test_load_node_stats_prefers_summary_then_final(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            summary_path = root / "coverage-summary.json"
-            final_path = root / "coverage-final.json"
+            root: Path = Path(temp_dir)
+            summary_path: Path = root / "coverage-summary.json"
+            final_path: Path = root / "coverage-final.json"
             summary_path.write_text(
                 '{"total":{"lines":{"covered":2,"total":2}}}',
                 encoding="utf-8",
@@ -303,7 +304,12 @@ class AssertCoverageParsingTests(unittest.TestCase):
             self.assertEqual(stats.covered, 1)
             self.assertEqual(stats.total, 1)
 
-            final_path.unlink()
+    def test_load_node_stats_errors_when_all_node_artifacts_are_missing(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root: Path = Path(temp_dir)
+            summary_path: Path = root / "coverage-summary.json"
+            final_path: Path = root / "coverage-final.json"
+
             with patch.object(
                 assert_coverage_100,
                 "NODE_LCOV_PATH",
@@ -379,7 +385,7 @@ class AssertCoverageParsingTests(unittest.TestCase):
         self.assertIn("node branch coverage data missing from node.lcov", findings)
 
     def test_render_md_handles_empty_components_and_findings(self) -> None:
-        payload = {
+        payload: Dict[str, object] = {
             "status": "pass",
             "timestamp_utc": "2026-03-28T00:00:00+00:00",
             "branch_min_percent": None,

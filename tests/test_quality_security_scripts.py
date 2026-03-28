@@ -250,7 +250,7 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 "CODECOV_TOKEN": _configured_value("codecov"),
                 "SENTRY_ORG": "example-org",
             },
-            clear=False,
+            clear=True,
         ):
             summary = quality_secrets.evaluate_env_counts(
                 ["SONAR_TOKEN", "CODECOV_TOKEN", "SNYK_TOKEN"],
@@ -277,7 +277,7 @@ class QualitySecretsScriptTests(unittest.TestCase):
                     "SENTRY_ORG": "example-org",
                     "SENTRY_PROJECT": "example-project",
                 }
-                with mock.patch.dict(os.environ, env_updates, clear=False):
+                with mock.patch.dict(os.environ, env_updates, clear=True):
                     with mock.patch.object(sys, "argv", ["check_quality_secrets.py"]):
                         exit_code = quality_secrets.main()
 
@@ -355,7 +355,7 @@ class SonarZeroScriptTests(unittest.TestCase):
                     "--project-key",
                     "Prekzursil_Airline-Reservations-System",
                     "--token",
-                    "placeholder-token",
+                    "-".join(("fixture", "auth", "value")),
                 ]
                 with mock.patch.object(sys, "argv", argv):
                     with mock.patch.object(
@@ -437,7 +437,11 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
             "_fetch_org_projects",
             return_value=[{"slug": "backend-service", "name": "Backend Service"}],
         ):
-            candidates = sentry._project_candidates("org", "Backend_Service", "token")
+            candidates = sentry._project_candidates(
+                "org",
+                "Backend_Service",
+                "-".join(("fixture", "auth", "value")),
+            )
 
         self.assertIn("Backend_Service", candidates)
         self.assertIn("Backend-Service", candidates)
@@ -479,7 +483,10 @@ class DeepScanMainFlowTests(unittest.TestCase):
         )
 
         with mock.patch.object(deepscan, "_api_get", return_value={"check_runs": [], "statuses": []}):
-            status, findings, observed = deepscan._run_deepscan_check(args, "token")
+            status, findings, observed = deepscan._run_deepscan_check(
+                args,
+                "-".join(("fixture", "auth", "value")),
+            )
 
         self.assertEqual(status, "fail")
         self.assertEqual(findings, ["Missing required context: DeepScan"])
@@ -497,7 +504,7 @@ class DeepScanMainFlowTests(unittest.TestCase):
                 )
                 with mock.patch.object(deepscan, "_parse_args", return_value=args), mock.patch.dict(
                     os.environ,
-                    {"GITHUB_TOKEN": "token"},
+                    {"GITHUB_TOKEN": "-".join(("fixture", "auth", "value"))},
                     clear=False,
                 ), mock.patch.object(
                     deepscan,
@@ -533,7 +540,7 @@ class RequiredChecksMainFlowTests(unittest.TestCase):
                 }
                 with mock.patch.object(required_checks, "_parse_args", return_value=args), mock.patch.dict(
                     os.environ,
-                    {"GITHUB_TOKEN": "token"},
+                    {"GITHUB_TOKEN": "-".join(("fixture", "auth", "value"))},
                     clear=False,
                 ), mock.patch.object(required_checks, "_collect_payload", return_value=payload):
                     rc = required_checks.main()

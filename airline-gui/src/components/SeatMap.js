@@ -39,7 +39,7 @@ const resolveSeatBackgroundColor = (seat, selectedSeatId) => {
 const seatMapInternals = {
     applyBookingValidationError,
     resolveSeatBackgroundColor,
-    validateBookingSelection,
+    validateBookingSelection
 };
 
 const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
