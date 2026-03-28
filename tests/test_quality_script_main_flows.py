@@ -17,6 +17,8 @@ from scripts.quality import check_required_checks as required_checks
 from scripts.quality import check_sentry_zero as sentry
 from scripts.quality import check_sonar_zero as sonar
 
+_AUTH_TOKEN = "-".join(("fixture", "auth", "value"))
+
 
 class QualityScriptArgParsingTests(TestCase):
     """Argument parsing regression checks for the quality helper scripts."""
@@ -275,6 +277,45 @@ class QualityScriptMainFlowTests(TestCase):
         self.assertEqual(status, "fail")
         self.assertIn("expected completed", findings[0])
 
+    def test_deepscan_parse_args_and_main_requires_token(self) -> None:
+        with mock.patch.object(
+            sys,
+            "argv",
+            [
+                "prog",
+                "--repo",
+                "Prekzursil/Airline-Reservations-System",
+                "--sha",
+                "a1b2c3d",
+            ],
+        ):
+            args = deepscan._parse_args()
+        self.assertEqual(args.required_context, "DeepScan")
+
+        parsed = deepscan._collect_context_entries(
+            [{"name": "", "status": "completed", "conclusion": "success"}, {"name": "DeepScan", "status": "completed", "conclusion": "success"}],
+            name_field="name",
+            state_field="status",
+            conclusion_field="conclusion",
+            source="check_run",
+        )
+        self.assertEqual(parsed["DeepScan"]["conclusion"], "success")
+
+        args = mock.Mock(
+            repo="Prekzursil/Airline-Reservations-System",
+            sha="a1b2c3d",
+            required_context="DeepScan",
+            max_wait_seconds=0,
+            poll_interval_seconds=0,
+        )
+        with mock.patch.object(deepscan, "_parse_args", return_value=args), mock.patch.dict(
+            os.environ,
+            {},
+            clear=True,
+        ):
+            with self.assertRaises(SystemExit):
+                deepscan.main()
+
     def test_required_checks_api_get_retries_then_succeeds(self) -> None:
         calls = {"count": 0}
 
@@ -332,6 +373,39 @@ class QualityScriptMainFlowTests(TestCase):
             with self.assertRaises(SystemExit):
                 required_checks.main()
 
+    def test_required_checks_helpers_cover_rendered_failures_and_fetch_payloads(self) -> None:
+        rendered = required_checks._render_md(
+            {
+                "status": "fail",
+                "repo": "r",
+                "sha": "a1",
+                "timestamp_utc": "x",
+                "missing": ["verify"],
+                "failed": ["DeepScan: state=failure"],
+            }
+        )
+        self.assertIn("`verify`", rendered)
+        self.assertIn("DeepScan: state=failure", rendered)
+
+        with mock.patch.object(
+            required_checks,
+            "_api_get",
+            side_effect=[{"check_runs": []}, {"statuses": []}],
+        ):
+            check_runs, statuses = required_checks._fetch_check_payloads(
+                "Prekzursil/Airline-Reservations-System",
+                "a1b2c3d",
+                _AUTH_TOKEN,
+            )
+        self.assertEqual(check_runs, {"check_runs": []})
+        self.assertEqual(statuses, {"statuses": []})
+
+        self.assertTrue(
+            required_checks._has_check_runs_in_progress(
+                {"verify": {"source": "check_run", "state": "queued"}}
+            )
+        )
+
     def test_required_checks_main_writes_outputs_with_stubbed_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
@@ -370,7 +444,7 @@ class QualityScriptMainFlowTests(TestCase):
                 args = mock.Mock(
                     org="my-org",
                     project=["proj"],
-                    token="-".join(("fixture", "token")),
+                    token=_AUTH_TOKEN,
                 )
                 with mock.patch.object(sentry, "_parse_args", return_value=args), mock.patch.object(
                     sentry,
@@ -414,6 +488,42 @@ class QualityScriptMainFlowTests(TestCase):
         )
         self.assertIn("- None", rendered)
 
+    def test_sentry_helpers_cover_not_found_and_env_project_branches(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {"SENTRY_PROJECT": "backend"},
+            clear=True,
+        ):
+            self.assertEqual(
+                sentry._projects_from_args_or_env(mock.Mock(project=[])),
+                ["backend"],
+            )
+
+        findings: List[str] = []
+        sentry._append_project_fetch_failure(
+            "proj",
+            RuntimeError("404 Not Found"),
+            "org",
+            findings,
+        )
+        self.assertIn("not found in org org", findings[0])
+
+        with mock.patch.object(
+            sentry,
+            "_select_project_payload",
+            return_value=("proj", [{"id": 1}], {}, None),
+        ):
+            project_results, findings = sentry._evaluate_projects(
+                "org",
+                ["proj"],
+                _AUTH_TOKEN,
+            )
+        self.assertEqual(project_results[0]["unresolved"], 1)
+        self.assertTrue(
+            any("no X-Hits header" in item for item in findings),
+        )
+        self.assertTrue(any("expected 0" in item for item in findings))
+
     def test_sonar_main_writes_success_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
@@ -421,7 +531,7 @@ class QualityScriptMainFlowTests(TestCase):
             try:
                 args = mock.Mock(
                     project_key="Prekzursil_Airline-Reservations-System",
-                    token="-".join(("fixture", "token")),
+                    token=_AUTH_TOKEN,
                     branch="",
                     pull_request="",
                     expected_pr_sha="",
@@ -455,7 +565,7 @@ class QualityScriptMainFlowTests(TestCase):
 
         args = mock.Mock(
             project_key="Prekzursil_Airline-Reservations-System",
-            token="-".join(("fixture", "token")),
+            token=_AUTH_TOKEN,
             branch="",
             pull_request="",
             expected_pr_sha="",
@@ -467,3 +577,75 @@ class QualityScriptMainFlowTests(TestCase):
         ):
             rc = sonar.main()
         self.assertEqual(rc, 1)
+
+    def test_sonar_helpers_cover_pull_request_queries_and_non_ok_findings(self) -> None:
+        args = mock.Mock(
+            branch="",
+            expected_pr_sha="",
+            max_wait_seconds=180,
+            poll_interval_seconds=10,
+            project_key="Prekzursil_Airline-Reservations-System",
+            pull_request="30",
+        )
+        issues_query, gate_query, hotspots_query = sonar._build_queries(
+            args,
+            args.project_key,
+        )
+        self.assertEqual(issues_query["pullRequest"], "30")
+        self.assertEqual(gate_query["pullRequest"], "30")
+        self.assertEqual(hotspots_query["pullRequest"], "30")
+
+        findings = sonar._evaluate_findings(
+            open_issues=2,
+            unresolved_hotspots=0,
+            quality_gate="ERROR",
+        )
+        self.assertEqual(
+            findings,
+            [
+                "Sonar reports 2 open issues (expected 0).",
+                "Sonar quality gate status is ERROR (expected OK).",
+            ],
+        )
+
+    def test_sonar_run_check_waits_for_expected_sha_before_fetching_results(self) -> None:
+        args = mock.Mock(
+            project_key="Prekzursil_Airline-Reservations-System",
+            branch="",
+            pull_request="30",
+            expected_pr_sha="expected",
+            max_wait_seconds=5,
+            poll_interval_seconds=0,
+        )
+
+        with mock.patch.object(
+            sonar,
+            "_fetch_pr_analysis_sha",
+            side_effect=["stale", "expected"],
+        ), mock.patch.object(
+            sonar,
+            "_fetch_open_issues",
+            return_value=0,
+        ), mock.patch.object(
+            sonar,
+            "_fetch_unresolved_hotspots",
+            return_value=0,
+        ), mock.patch.object(
+            sonar,
+            "_fetch_quality_gate",
+            return_value="OK",
+        ), mock.patch.object(
+            sonar.time,
+            "time",
+            side_effect=[0, 1],
+        ), mock.patch.object(sonar.time, "sleep", lambda _seconds: None):
+            status, open_issues, unresolved_hotspots, quality_gate, findings = sonar._run_sonar_check(
+                args,
+                _AUTH_TOKEN,
+            )
+
+        self.assertEqual(status, "pass")
+        self.assertEqual(open_issues, 0)
+        self.assertEqual(unresolved_hotspots, 0)
+        self.assertEqual(quality_gate, "OK")
+        self.assertEqual(findings, [])

@@ -1,4 +1,4 @@
-/* jshint esversion: 11 */
+/* jshint esversion: 11, module: true */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SeatMap, { __internal } from './SeatMap';

@@ -220,6 +220,19 @@ class AssertCoverageParsingTests(unittest.TestCase):
         self.assertIsNone(assert_coverage_100._lookup_repo_source_lines("../src/example.cpp"))
         self.assertIsNone(assert_coverage_100._lookup_repo_source_lines("/abs/path/example.cpp"))
 
+    def test_lookup_repo_source_lines_trims_repo_root_prefix(self) -> None:
+        source_lines = ("int covered() { return 2; }",)
+        raw_path = f"{assert_coverage_100.REPO_ROOT.as_posix()}/src/example.cpp"
+
+        with patch.dict(
+            assert_coverage_100.REPO_SOURCE_LINES,
+            {"src/example.cpp": source_lines},
+            clear=True,
+        ):
+            resolved = assert_coverage_100._lookup_repo_source_lines(raw_path)
+
+        self.assertEqual(resolved, source_lines)
+
     def test_parse_istanbul_summary_falls_back_to_statements_when_lines_are_missing(self) -> None:
         with TemporaryDirectory() as temp_dir:
             summary_path: Path = Path(temp_dir) / "coverage-summary.json"
@@ -268,6 +281,18 @@ class AssertCoverageParsingTests(unittest.TestCase):
         self.assertEqual(stats.total, 1)
         self.assertEqual(stats.branch_covered, 1)
         self.assertEqual(stats.branch_total, 2)
+
+    def test_parse_istanbul_final_returns_empty_stats_for_non_dict_root(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            final_path: Path = Path(temp_dir) / "coverage-final.json"
+            _write_text(final_path, '["not-a-dict"]')
+
+            stats = assert_coverage_100.parse_istanbul_final("node", final_path)
+
+        self.assertEqual(stats.covered, 0)
+        self.assertEqual(stats.total, 0)
+        self.assertEqual(stats.branch_covered, 0)
+        self.assertEqual(stats.branch_total, 0)
 
     def test_load_node_stats_prefers_summary_then_final(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -338,6 +363,37 @@ class AssertCoverageParsingTests(unittest.TestCase):
             ):
                 with self.assertRaises(SystemExit):
                     assert_coverage_100.load_node_stats()
+
+    def test_load_node_stats_prefers_lcov_when_present(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root: Path = Path(temp_dir)
+            lcov_path: Path = root / "coverage.info"
+            summary_path: Path = root / "coverage-summary.json"
+            final_path: Path = root / "coverage-final.json"
+            _write_text(
+                lcov_path,
+                "TN:\nSF:src/example.cpp\nDA:1,1\nBRF:1\nBRH:1\nend_of_record\n",
+            )
+            _write_text(summary_path, '{"total":{"lines":{"covered":0,"total":0}}}')
+            _write_text(final_path, '{"src/App.js":{"s":{"1":0}}}')
+
+            with patch.object(assert_coverage_100, "NODE_LCOV_PATH", lcov_path), patch.object(
+                assert_coverage_100,
+                "NODE_SUMMARY_JSON_PATH",
+                summary_path,
+            ), patch.object(
+                assert_coverage_100,
+                "NODE_FINAL_JSON_PATH",
+                final_path,
+            ), patch.dict(
+                assert_coverage_100.REPO_SOURCE_LINES,
+                {"src/example.cpp": ("int covered() { return 1; }",)},
+                clear=True,
+            ):
+                stats = assert_coverage_100.load_node_stats()
+
+        self.assertEqual(stats.covered, 1)
+        self.assertEqual(stats.total, 1)
 
     def test_evaluate_reports_component_and_combined_failures(self) -> None:
         failing = assert_coverage_100.CoverageStats(name="node", path="node.lcov", covered=9, total=10)
@@ -484,6 +540,45 @@ class AssertCoverageParsingTests(unittest.TestCase):
                 os.chdir(previous)
 
         self.assertEqual(rc, 0)
+
+    def test_main_runs_via_runpy_with_require_cpp(self) -> None:
+        import runpy
+
+        with TemporaryDirectory() as temp_dir:
+            previous = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                coverage_root: Path = Path("airline-gui") / "coverage"
+                _mkdir(coverage_root)
+                _write_text(
+                    coverage_root / "coverage-summary.json",
+                    '{"total":{"lines":{"covered":1,"total":1},"branches":{"covered":1,"total":1}}}',
+                )
+                cpp_coverage_root: Path = Path("coverage") / "cpp"
+                _mkdir(cpp_coverage_root)
+                _write_text(
+                    cpp_coverage_root / "lcov.info",
+                    "TN:\nSF:src/example.cpp\nDA:1,1\nBRF:1\nBRH:1\nend_of_record\n",
+                )
+
+                with patch.object(
+                    assert_coverage_100,
+                    "REPO_SOURCE_LINES",
+                    {"src/example.cpp": ("int covered() { return 1; }",)},
+                ), patch.object(
+                    sys,
+                    "argv",
+                    ["assert_coverage_100.py", "--require-cpp"],
+                ):
+                    with self.assertRaises(SystemExit) as exc:
+                        runpy.run_path(
+                            str(Path(assert_coverage_100.__file__)),
+                            run_name="__main__",
+                        )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(exc.exception.code, 0)
 
 
 if __name__ == "__main__":

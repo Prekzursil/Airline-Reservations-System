@@ -319,3 +319,60 @@ def test_request_json_list_https_and_target_cover_http_error_status(monkeypatch)
             host="api.github.com",
             path="/repos/owner/repo/status",
         )
+
+
+def test_identifier_https_and_output_helpers_cover_remaining_validation_branches() -> None:
+    with pytest.raises(ValueError, match="Invalid owner"):
+        sec.require_repo_segment("", label="owner")
+    with pytest.raises(ValueError, match="Invalid slug"):
+        sec.require_slug("bad slug", label="slug")
+
+    with pytest.raises(ValueError, match="URL is missing a hostname"):
+        sec.normalize_https_url("https:///missing-host")
+    with pytest.raises(ValueError, match="URL credentials are not allowed"):
+        sec.normalize_https_url("https://user:pass@api.github.com/repos")
+
+    _ensure(sec._normalize_suffix_allowlist(None) == set())
+    _ensure(sec._is_hostname_allowed_by_suffix("api.github.com", {"github.com"}) is True)
+
+    with pytest.raises(ValueError, match="Output directory must be relative"):
+        sec._validate_output_directory("////")
+    with pytest.raises(ValueError, match="HTTPS path must not include a URL scheme"):
+        sec.require_https_path("/repos/https://example")
+
+
+def test_connection_and_request_wrappers_cover_remaining_runtime_branches(monkeypatch) -> None:
+    monkeypatch.setattr(sec.http.client, "HTTPSConnection", None)
+    with pytest.raises(RuntimeError, match="HTTPSConnection is unavailable"):
+        sec._https_connection()
+
+    response = sec.HTTPSResponsePayload(
+        host="api.github.com",
+        path="/repos/owner/repo",
+        status=200,
+        reason="OK",
+        body='{"ok":true}',
+        headers={},
+    )
+    monkeypatch.setattr(sec, "_request_https_payload", lambda **_kwargs: response)
+    payload = sec.request_json_https(
+        host="api.github.com",
+        path="/repos/owner/repo",
+    )
+    _ensure(payload == {"ok": True})
+
+    list_response = sec.HTTPSResponsePayload(
+        host="api.github.com",
+        path="/repos/owner/repo/status",
+        status=200,
+        reason="OK",
+        body='[{"state":"success"}]',
+        headers={"x-hits": "1"},
+    )
+    monkeypatch.setattr(sec, "_request_https_payload", lambda **_kwargs: list_response)
+    payload, headers = sec.request_json_list_https(
+        host="api.github.com",
+        path="/repos/owner/repo/status",
+    )
+    _ensure(payload == [{"state": "success"}])
+    _ensure(headers == {"x-hits": "1"})
