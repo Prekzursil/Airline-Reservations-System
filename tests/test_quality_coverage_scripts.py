@@ -15,6 +15,19 @@ import unittest
 from scripts.quality import assert_coverage_100, normalize_lcov
 
 
+def _write_text(path: Path, content: str) -> None:
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(content)
+
+
+def _mkdir(path: Path) -> None:
+    os.makedirs(path, exist_ok=True)
+
+
+def _unlink(path: Path) -> None:
+    os.remove(path)
+
+
 class NormalizeLcovTests(unittest.TestCase):
     """Behavioral checks for the LCOV normalization helper."""
 
@@ -166,7 +179,8 @@ class AssertCoverageParsingTests(unittest.TestCase):
     def test_parse_lcov_tracks_branch_totals_when_present(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lcov_path: Path = Path(temp_dir) / "sample.lcov"
-            lcov_path.write_text(
+            _write_text(
+                lcov_path,
                 "\n".join(
                     [
                         "TN:",
@@ -180,7 +194,6 @@ class AssertCoverageParsingTests(unittest.TestCase):
                         "",
                     ]
                 ),
-                encoding="utf-8",
             )
 
             with patch.dict(
@@ -210,9 +223,9 @@ class AssertCoverageParsingTests(unittest.TestCase):
     def test_parse_istanbul_summary_falls_back_to_statements_when_lines_are_missing(self) -> None:
         with TemporaryDirectory() as temp_dir:
             summary_path: Path = Path(temp_dir) / "coverage-summary.json"
-            summary_path.write_text(
+            _write_text(
+                summary_path,
                 '{"total":{"lines":{"covered":0,"total":0},"statements":{"covered":3,"total":3}}}',
-                encoding="utf-8",
             )
 
             stats = assert_coverage_100.parse_istanbul_summary("node", summary_path)
@@ -223,9 +236,9 @@ class AssertCoverageParsingTests(unittest.TestCase):
     def test_parse_istanbul_final_counts_statement_hits(self) -> None:
         with TemporaryDirectory() as temp_dir:
             final_path: Path = Path(temp_dir) / "coverage-final.json"
-            final_path.write_text(
+            _write_text(
+                final_path,
                 '{"src/App.js":{"s":{"1":1,"2":0}},"src/Other.js":{"s":{"3":2}}}',
-                encoding="utf-8",
             )
 
             stats = assert_coverage_100.parse_istanbul_final("node", final_path)
@@ -238,7 +251,8 @@ class AssertCoverageParsingTests(unittest.TestCase):
     def test_parse_istanbul_final_handles_non_dict_entries_and_branch_arrays(self) -> None:
         with TemporaryDirectory() as temp_dir:
             final_path: Path = Path(temp_dir) / "coverage-final.json"
-            final_path.write_text(
+            _write_text(
+                final_path,
                 json.dumps(
                     {
                         "skip": "string-entry",
@@ -246,7 +260,6 @@ class AssertCoverageParsingTests(unittest.TestCase):
                         "src/Other.js": {"s": "bad", "b": {"1": "bad"}},
                     }
                 ),
-                encoding="utf-8",
             )
 
             stats = assert_coverage_100.parse_istanbul_final("node", final_path)
@@ -261,11 +274,11 @@ class AssertCoverageParsingTests(unittest.TestCase):
             root: Path = Path(temp_dir)
             summary_path: Path = root / "coverage-summary.json"
             final_path: Path = root / "coverage-final.json"
-            summary_path.write_text(
+            _write_text(
+                summary_path,
                 '{"total":{"lines":{"covered":2,"total":2}}}',
-                encoding="utf-8",
             )
-            final_path.write_text('{"src/App.js":{"s":{"1":1}}}', encoding="utf-8")
+            _write_text(final_path, '{"src/App.js":{"s":{"1":1}}}')
 
             with patch.object(
                 assert_coverage_100,
@@ -285,7 +298,7 @@ class AssertCoverageParsingTests(unittest.TestCase):
             self.assertEqual(stats.covered, 2)
             self.assertEqual(stats.total, 2)
 
-            summary_path.unlink()
+            _unlink(summary_path)
             with patch.object(
                 assert_coverage_100,
                 "NODE_LCOV_PATH",
@@ -404,10 +417,10 @@ class AssertCoverageParsingTests(unittest.TestCase):
             os.chdir(temp_dir)
             try:
                 coverage_root: Path = Path("airline-gui") / "coverage"
-                coverage_root.mkdir(parents=True, exist_ok=True)
-                (coverage_root / "coverage-summary.json").write_text(
+                _mkdir(coverage_root)
+                _write_text(
+                    coverage_root / "coverage-summary.json",
                     '{"total":{"lines":{"covered":1,"total":1}}}',
-                    encoding="utf-8",
                 )
 
                 with patch("sys.argv", ["assert_coverage_100.py", "--require-cpp"]):
@@ -422,8 +435,9 @@ class AssertCoverageParsingTests(unittest.TestCase):
             os.chdir(temp_dir)
             try:
                 coverage_root: Path = Path("airline-gui") / "coverage"
-                coverage_root.mkdir(parents=True, exist_ok=True)
-                (coverage_root / "lcov.info").write_text(
+                _mkdir(coverage_root)
+                _write_text(
+                    coverage_root / "lcov.info",
                     "\n".join(
                         [
                             "TN:",
@@ -436,7 +450,6 @@ class AssertCoverageParsingTests(unittest.TestCase):
                             "",
                         ]
                     ),
-                    encoding="utf-8",
                 )
 
                 with patch.object(sys, "argv", ["assert_coverage_100.py", "--branch-min-percent", "100"]):
@@ -452,16 +465,16 @@ class AssertCoverageParsingTests(unittest.TestCase):
             os.chdir(temp_dir)
             try:
                 coverage_root: Path = Path("airline-gui") / "coverage"
-                coverage_root.mkdir(parents=True, exist_ok=True)
-                (coverage_root / "coverage-summary.json").write_text(
+                _mkdir(coverage_root)
+                _write_text(
+                    coverage_root / "coverage-summary.json",
                     '{"total":{"lines":{"covered":1,"total":1},"branches":{"covered":1,"total":1}}}',
-                    encoding="utf-8",
                 )
                 cpp_coverage_root: Path = Path("coverage") / "cpp"
-                cpp_coverage_root.mkdir(parents=True, exist_ok=True)
-                (cpp_coverage_root / "lcov.info").write_text(
+                _mkdir(cpp_coverage_root)
+                _write_text(
+                    cpp_coverage_root / "lcov.info",
                     "TN:\nSF:src/example.cpp\nDA:1,1\nBRF:1\nBRH:1\nend_of_record\n",
-                    encoding="utf-8",
                 )
 
                 with patch.object(assert_coverage_100, "REPO_SOURCE_LINES", {"src/example.cpp": ("int covered() { return 1; }",)}):

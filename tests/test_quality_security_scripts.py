@@ -413,7 +413,7 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
             finally:
                 os.chdir(previous)
 
-    def test_sentry_helpers_cover_project_resolution_and_main(self) -> None:
+    def test_sentry_helpers_cover_project_resolution(self) -> None:
         self.assertEqual(sentry._hits_from_headers({"x-hits": "2"}), 2)
         self.assertIsNone(sentry._hits_from_headers({"x-hits": "bad"}))
         self.assertEqual(
@@ -446,6 +446,7 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
         self.assertIn("Backend_Service", candidates)
         self.assertIn("Backend-Service", candidates)
 
+    def test_sentry_main_writes_pass_payload(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)
@@ -453,7 +454,7 @@ class CodacyAndSentryMainFlowTests(unittest.TestCase):
                 args = mock.Mock(
                     org="my-org",
                     project=["proj"],
-                    token="-".join(("fixture", "token")),
+                    token="-".join(("fixture", "auth", "value")),
                 )
                 with mock.patch.object(
                     sentry,

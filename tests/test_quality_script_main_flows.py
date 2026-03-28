@@ -397,7 +397,7 @@ class QualityScriptMainFlowTests(TestCase):
                 "No Sentry projects configured.",
             ],
         )
-        findings: list[str] = []
+        findings: List[str] = []
         self.assertEqual(sentry._unresolved_count("proj", [], {}, findings), 0)
         self.assertEqual(findings, [])
         findings = []
