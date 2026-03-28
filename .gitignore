@@ -17,6 +17,10 @@ run_tests_executable
 coverage.info
 coverage_report/
 coverage-100/
+.venv-gcovr/
+build-linux-cov/
+coverage/
+.coverage
 
 # React specific (inside airline-gui)
 airline-gui/node_modules/
@@ -24,6 +28,10 @@ airline-gui/build/
 airline-gui/.pnp
 airline-gui/.pnp.js
 airline-gui/coverage/ # if Jest coverage is run
+
+# QLTY local analysis artifacts
+.qlty/*
+!.qlty/qlty.toml
 
 # Python runtime/cache artifacts
 __pycache__/

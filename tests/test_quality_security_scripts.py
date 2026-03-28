@@ -151,11 +151,11 @@ class ScriptPathBuilderTests(unittest.TestCase):
         args = mock.Mock(provider="github", owner="Owner_1", repo="Repo-1", branch="feature/zero")
         captured: dict[str, object] = {}
 
-        def _fake_request_json_https_target(*, target, method, headers, body):
+        def _fake_request_json_https_target(*, target, options):
             captured["target"] = target
-            captured["method"] = method
-            captured["headers"] = headers
-            captured["body"] = body
+            captured["method"] = options.method
+            captured["headers"] = options.headers
+            captured["body"] = options.body
             return {"total": 0}
 
         with mock.patch.object(codacy, "request_json_https_target", side_effect=_fake_request_json_https_target):
@@ -202,7 +202,7 @@ class QualitySecretsScriptTests(unittest.TestCase):
                 "CODECOV_TOKEN": _configured_value("codecov"),
                 "SENTRY_ORG": "example-org",
             },
-            clear=False,
+            clear=True,
         ):
             summary = quality_secrets.evaluate_env_counts(
                 ["SONAR_TOKEN", "CODECOV_TOKEN", "SNYK_TOKEN"],
@@ -229,7 +229,7 @@ class QualitySecretsScriptTests(unittest.TestCase):
                     "SENTRY_ORG": "example-org",
                     "SENTRY_PROJECT": "example-project",
                 }
-                with mock.patch.dict(os.environ, env_updates, clear=False):
+                with mock.patch.dict(os.environ, env_updates, clear=True):
                     with mock.patch.object(sys, "argv", ["check_quality_secrets.py"]):
                         exit_code = quality_secrets.main()
 

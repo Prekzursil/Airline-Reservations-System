@@ -86,6 +86,7 @@ if(WIN32)
 endif()
 
 enable_testing()
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 add_executable(
   run_tests_executable
@@ -129,24 +130,22 @@ endif()
 add_test(
   NAME airline_cli_smoke_exit
   COMMAND
-    bash
-    ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
-    $<TARGET_FILE:airline_reservation_system>
-    ${CMAKE_SOURCE_DIR}/tests/cli_exit_input.txt
-    "Welcome to the Airline Reservation System!"
-    "Exiting system. Goodbye!"
-    "Thank you for using the Airline Reservation System."
+    ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tests/test_run_cli_scenario.py
+    cli_exit
 )
 
 add_test(
   NAME airline_cli_smoke_menu_flow
   COMMAND
-    bash
-    ${CMAKE_SOURCE_DIR}/tests/run_cli_scenario.sh
-    $<TARGET_FILE:airline_reservation_system>
-    ${CMAKE_SOURCE_DIR}/tests/cli_menu_flow_input.txt
-    "Customer Coverage User with ID CUST0003 added successfully."
-    "Booking successful! Booking ID:"
-    "Airplane FL303 added successfully."
+    ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tests/test_run_cli_scenario.py
+    cli_menu_flow
 )
-set_tests_properties(airline_cli_smoke_exit airline_cli_smoke_menu_flow PROPERTIES TIMEOUT 120)
+set_tests_properties(
+  airline_cli_smoke_exit
+  airline_cli_smoke_menu_flow
+  PROPERTIES
+    TIMEOUT 120
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:airline_reservation_system>
+)

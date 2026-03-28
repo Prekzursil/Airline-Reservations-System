@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SeatMap from './SeatMap';
+import SeatMap, { bookingRequestForSelection, seatBackgroundColor, selectionStatusForSeat } from './SeatMap';
 import {
   cancelBooking,
   createBooking,
@@ -181,6 +181,42 @@ describe('SeatMap', () => {
     await userEvent.keyboard(' ');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('exposes defensive booking validation for missing customer selection', () => {
+    expect(
+      bookingRequestForSelection(null, null, 'FL-320')
+    ).toEqual({ status: 'Please select a seat first.' });
+
+    expect(
+      bookingRequestForSelection('1B', null, 'FL-320')
+    ).toEqual({ status: 'Please select a Customer for booking.' });
+
+    expect(
+      bookingRequestForSelection('1B', { value: 'C1' }, 'FL-320')
+    ).toEqual({
+      bookingData: {
+        customerId: 'C1',
+        flightNumber: 'FL-320',
+        seatId: '1B'
+      }
+    });
+  });
+
+  it('exposes seat presentation helpers for the remaining booking states', () => {
+    expect(
+      seatBackgroundColor({ seatId: '1A', seatClass: 'Business', isBooked: false }, null)
+    ).toBe('lightblue');
+    expect(
+      seatBackgroundColor({ seatId: '1B', seatClass: 'Economy', isBooked: false }, null)
+    ).toBe('lightgreen');
+
+    expect(
+      selectionStatusForSeat({ seatId: '2C', seatClass: 'Economy', price: 95, isBooked: true })
+    ).toEqual({
+      selectedSeatId: null,
+      status: 'Seat 2C: This seat is already booked.'
+    });
   });
 
 });

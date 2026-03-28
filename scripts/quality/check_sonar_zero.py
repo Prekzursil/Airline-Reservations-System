@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
+    HTTPSRequestOptions,
     QualityArtifact,
     build_https_request_target,
     quality_artifact_paths,
@@ -85,69 +86,53 @@ def _build_queries(args: argparse.Namespace, project_key: str) -> Tuple[Dict[str
     return issues_query, gate_query, hotspots_query
 
 
-def _fetch_open_issues(auth: str, issues_query: Dict[str, str]) -> int:
+def _request_sonar_payload(auth: str, path: str) -> Dict[str, Any]:
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
-        path="/api/issues/search?" + urllib.parse.urlencode(issues_query),
+        path=path,
     )
-    issues_payload = request_json_https_target(
+    return request_json_https_target(
         target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
+        options=HTTPSRequestOptions(
+            method="GET",
+            headers={
+                "Authorization": auth,
+                "User-Agent": "airline-sonar-zero-gate",
+            },
+        ),
     )
-    paging = issues_payload.get("paging") or {}
+
+
+def _paged_total(payload: Dict[str, Any]) -> int:
+    paging = payload.get("paging") or {}
     return int(paging.get("total") or 0)
 
 
+def _fetch_open_issues(auth: str, issues_query: Dict[str, str]) -> int:
+    return _paged_total(_request_sonar_payload(auth, "/api/issues/search?" + urllib.parse.urlencode(issues_query)))
+
+
 def _fetch_quality_gate(auth: str, gate_query: Dict[str, str]) -> str:
-    target = build_https_request_target(
-        host=HTTPSHost.SONARCLOUD,
-        path="/api/qualitygates/project_status?" + urllib.parse.urlencode(gate_query),
-    )
-    gate_payload = request_json_https_target(
-        target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
+    gate_payload = _request_sonar_payload(
+        auth,
+        "/api/qualitygates/project_status?" + urllib.parse.urlencode(gate_query),
     )
     project_status = gate_payload.get("projectStatus") or {}
     return str(project_status.get("status") or "UNKNOWN")
 
 
 def _fetch_unresolved_hotspots(auth: str, hotspots_query: Dict[str, str]) -> int:
-    target = build_https_request_target(
-        host=HTTPSHost.SONARCLOUD,
-        path="/api/hotspots/search?" + urllib.parse.urlencode(hotspots_query),
+    hotspots_payload = _request_sonar_payload(
+        auth,
+        "/api/hotspots/search?" + urllib.parse.urlencode(hotspots_query),
     )
-    hotspots_payload = request_json_https_target(
-        target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
-    )
-    paging = hotspots_payload.get("paging") or {}
-    return int(paging.get("total") or 0)
+    return _paged_total(hotspots_payload)
 
 
 def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> str:
-    target = build_https_request_target(
-        host=HTTPSHost.SONARCLOUD,
-        path="/api/project_pull_requests/list?" + urllib.parse.urlencode({"project": project_key}),
-    )
-    payload = request_json_https_target(
-        target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
+    payload = _request_sonar_payload(
+        auth,
+        "/api/project_pull_requests/list?" + urllib.parse.urlencode({"project": project_key}),
     )
     for item in payload.get("pullRequests") or []:
         if str(item.get("key") or "") == pull_request:
@@ -235,5 +220,5 @@ def main() -> int:
     return 0 if status == "pass" else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     raise SystemExit(main())

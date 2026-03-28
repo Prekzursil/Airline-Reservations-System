@@ -388,7 +388,9 @@ void ReservationSystem::handleAdminMenu() {
             break;
         case 0:
             return;
-        default: return; // GCOVR_EXCL_LINE
+        default:
+            (*m_cout_ptr) << "Invalid admin choice. Returning to main menu." << std::endl;
+            return;
     }
 }
 
