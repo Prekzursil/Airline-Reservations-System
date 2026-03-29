@@ -149,10 +149,8 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
                     payload = json.load(payload_file)
                 self.assertTrue(payload["details_omitted"])
 
-    def test_codacy_helpers_and_main_cover_success_failure_and_token_resolution(
-        self,
-    ) -> None:
-        """Cover Codacy helper paths for success, failure, and CLI report output."""
+    def test_codacy_helpers_cover_total_parsing_and_token_resolution(self) -> None:
+        """Cover Codacy total parsing and environment token fallback."""
         nested_total = {"outer": [{"hits": 3}]}
         self.assertEqual(codacy.extract_total_open(nested_total), 3)
         self.assertIsNone(codacy.extract_total_open({"results": []}))
@@ -160,6 +158,8 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"CODACY_API_TOKEN": "env-token"}, clear=True):
             self.assertEqual(RESOLVE_CODACY_TOKEN(""), "env-token")
 
+    def test_run_codacy_check_covers_missing_token_success_and_failure(self) -> None:
+        """Cover the Codacy runner for missing-token, pass, and exception branches."""
         args = Namespace(
             provider="gh",
             owner="Prekzursil",
@@ -184,6 +184,8 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         self.assertEqual(status, "fail")
         self.assertIn("boom", findings[0])
 
+    def test_codacy_main_writes_pass_artifacts(self) -> None:
+        """Write Codacy gate artifacts for the passing CLI path."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             out_json = temp_path / "codacy.json"

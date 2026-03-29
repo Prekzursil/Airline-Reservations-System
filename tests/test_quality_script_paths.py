@@ -339,8 +339,8 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         self.assertIsNone(parsers._lookup_repo_source_lines("/abs/path.cpp"))
         self.assertEqual(parsers._safe_int("bad"), 0)
 
-    def test_parser_helper_branches_cover_empty_inputs_and_repo_prefixes(self) -> None:
-        """Exercise parser helper branches for empty inputs and repo-prefixed paths."""
+    def test_parser_helper_branches_cover_empty_inputs_and_escape_paths(self) -> None:
+        """Exercise parser helper branches for empty inputs and escaped lookups."""
         self.assertEqual(
             parsers.CoverageStats(
                 name="empty",
@@ -362,6 +362,8 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 ("int handleReservation();",),
             )
 
+    def test_parser_helper_branches_cover_repo_prefixed_paths(self) -> None:
+        """Resolve repo-prefixed paths against cached repo source lines."""
         repo_relative = "src/sample.cpp"
         sample_lines = ("int main() {", "return 0;", "}")
         repo_prefixed = parsers.REPO_ROOT.as_posix().rstrip("/") + "/" + repo_relative
@@ -379,6 +381,8 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 sample_lines,
             )
 
+    def test_parser_helper_branches_cover_bad_final_payloads(self) -> None:
+        """Return empty coverage stats when Istanbul final payloads are malformed."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             not_dict_path = Path(temp_path / "not-dict.json")
