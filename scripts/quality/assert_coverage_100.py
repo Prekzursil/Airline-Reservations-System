@@ -17,6 +17,18 @@ NODE_LCOV_PATH = Path("airline-gui/coverage/lcov.info")
 NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
 NODE_FINAL_JSON_PATH = Path("airline-gui/coverage/coverage-final.json")
 CPP_LCOV_PATH = Path("coverage/cpp/lcov.info")
+SOURCE_SUFFIXES = {
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".c",
+    ".cc",
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+}
 NON_EXECUTABLE_LCOV_TOKENS = {"", "{", "}", "};"}
 INLINE_EXCLUSION_MARKERS = ("GCOVR_EXCL_LINE", "LCOV_EXCL_LINE")
 EXCLUSION_START_MARKERS = ("GCOVR_EXCL_START", "LCOV_EXCL_START")
@@ -59,16 +71,25 @@ class LcovState:
 
 
 REPO_SOURCE_LINES = {
-    path.relative_to(REPO_ROOT).as_posix(): tuple(path.read_text(encoding="utf-8").splitlines())
+    path.relative_to(REPO_ROOT).as_posix(): tuple(
+        path.read_text(encoding="utf-8").splitlines()
+    )
     for path in REPO_ROOT.rglob("*")
     if path.is_file()
-    and path.suffix in {".cpp", ".h", ".hpp", ".c", ".cc", ".py", ".js", ".jsx", ".ts", ".tsx"}
+    and path.suffix in SOURCE_SUFFIXES
 }
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assert 100% coverage for known project components.")
-    parser.add_argument("--require-cpp", action="store_true", help="Fail if C++ lcov report is missing.")
+    """Parse command-line arguments for the coverage gate."""
+    parser = argparse.ArgumentParser(
+        description="Assert 100% coverage for known project components."
+    )
+    parser.add_argument(
+        "--require-cpp",
+        action="store_true",
+        help="Fail if C++ lcov report is missing.",
+    )
     return parser.parse_args()
 
 
@@ -81,10 +102,16 @@ def parse_lcov(name: str, path: Path) -> CoverageStats:
 
     _flush_lcov_record(state)
 
-    return CoverageStats(name=name, path=str(path), covered=state.covered, total=state.total)
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=state.covered,
+        total=state.total,
+    )
 
 
 def _process_lcov_line(state: LcovState, line: str) -> None:
+    """Update the LCOV accumulator with one normalized input line."""
     if line.startswith("SF:"):
         _flush_lcov_record(state)
         state.source_lines = _lookup_repo_source_lines(line.split(":", 1)[1])
@@ -107,7 +134,10 @@ def _process_lcov_line(state: LcovState, line: str) -> None:
 
 
 def _flush_lcov_record(state: LcovState) -> None:
-    if not ((state.record_lines or {}) or state.fallback_total or state.fallback_covered):
+    """Commit the current LCOV record totals into the aggregate state."""
+    has_record_lines = bool(state.record_lines)
+    has_fallback_totals = state.fallback_total > 0 or state.fallback_covered > 0
+    if not has_record_lines and not has_fallback_totals:
         return
 
     if state.record_lines:
@@ -122,7 +152,12 @@ def _flush_lcov_record(state: LcovState) -> None:
     state.fallback_covered = 0
 
 
-def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...] | None, line: str) -> None:
+def _record_lcov_line(
+    record_lines: Dict[int, int],
+    source_lines: Tuple[str, ...] | None,
+    line: str,
+) -> None:
+    """Store the best hit count seen for an executable LCOV line."""
     line_number_text, hit_count_text, *_ = line[3:].split(",")
     line_number = _safe_int(line_number_text)
     hit_count = _safe_int(hit_count_text)
@@ -131,6 +166,7 @@ def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...
 
 
 def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -> bool:
+    """Return whether an LCOV line should count toward executable coverage."""
     if source_lines is None or line_number <= 0:
         return True
 
@@ -146,6 +182,7 @@ def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -
 
 @lru_cache(maxsize=None)
 def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
+    """Return line numbers excluded by inline or block LCOV markers."""
     excluded = set()
     in_excluded_block = False
 
@@ -162,13 +199,16 @@ def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
             in_excluded_block = False
             continue
 
-        if in_excluded_block or any(marker in source_line for marker in INLINE_EXCLUSION_MARKERS):
+        if in_excluded_block or any(
+            marker in source_line for marker in INLINE_EXCLUSION_MARKERS
+        ):
             excluded.add(line_number)
 
     return frozenset(excluded)
 
 
 def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
+    """Resolve a report path to cached repository source lines."""
     normalized = raw_path_text.replace("\\", "/")
     repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
     if normalized.startswith(repo_prefix):
@@ -201,7 +241,11 @@ def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
     total = _safe_int(lines.get("total"))
 
     if total <= 0:
-        statements = total_node.get("statements", {}) if isinstance(total_node, dict) else {}
+        statements = (
+            total_node.get("statements", {})
+            if isinstance(total_node, dict)
+            else {}
+        )
         covered = _safe_int(statements.get("covered"))
         total = _safe_int(statements.get("total"))
 
@@ -248,14 +292,21 @@ def _component_findings(stats: List[CoverageStats]) -> List[str]:
     for item in stats:
         if item.percent >= 100.0:
             continue
-        findings.append(f"{item.name} coverage below 100%: {item.percent:.2f}% ({item.covered}/{item.total})")
+        findings.append(
+            f"{item.name} coverage below 100%: "
+            f"{item.percent:.2f}% ({item.covered}/{item.total})"
+        )
     return findings
 
 
 def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     combined_total = sum(item.total for item in stats)
     combined_covered = sum(item.covered for item in stats)
-    combined_percent = 100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
+    combined_percent = (
+        100.0
+        if combined_total <= 0
+        else (combined_covered / combined_total) * 100.0
+    )
     return combined_covered, combined_total, combined_percent
 
 
@@ -264,7 +315,10 @@ def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
     findings = _component_findings(stats)
     combined_covered, combined_total, combined_percent = _combined_coverage(stats)
     if combined_percent < 100.0:
-        findings.append(f"combined coverage below 100%: {combined_percent:.2f}% ({combined_covered}/{combined_total})")
+        findings.append(
+            "combined coverage below 100%: "
+            f"{combined_percent:.2f}% ({combined_covered}/{combined_total})"
+        )
 
     status = "pass" if not findings else "fail"
     return status, findings
@@ -282,7 +336,8 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
     for item in payload.get("components", []):
         lines.append(
-            f"- `{item['name']}`: `{item['percent']:.2f}%` ({item['covered']}/{item['total']}) from `{item['path']}`"
+            f"- `{item['name']}`: `{item['percent']:.2f}%` "
+            f"({item['covered']}/{item['total']}) from `{item['path']}`"
         )
 
     if not payload.get("components"):
@@ -331,7 +386,10 @@ def main() -> int:
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.COVERAGE_100)
-    out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 

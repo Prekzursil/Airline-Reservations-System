@@ -210,7 +210,13 @@ void handle_create_customer(ReservationSystem& airline_system, const httplib::Re
         Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
 
         respond_json(res, json(*new_customer), 201);
-    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing customer data: " + std::string(error.what())}}, 400); }
+    } catch (const json::exception& error) {
+        respond_json(
+            res,
+            json{{"error", "Error processing customer data: " + std::string(error.what())}},
+            400
+        );
+    }
 }
 
 void handle_create_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
@@ -228,7 +234,13 @@ void handle_create_booking(ReservationSystem& airline_system, const httplib::Req
         }
 
         respond_json(res, json{{"error", error_message}}, booking_error_status(error_message));
-    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing booking data: " + std::string(error.what())}}, 400); }
+    } catch (const json::exception& error) {
+        respond_json(
+            res,
+            json{{"error", "Error processing booking data: " + std::string(error.what())}},
+            400
+        );
+    }
 }
 
 void handle_cancel_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
@@ -254,7 +266,13 @@ void handle_swap_booking_seats(ReservationSystem& airline_system, const httplib:
         }
 
         respond_json(res, json{{"message", error_message}});
-    } catch (const json::exception& error) { respond_json(res, json{{"error", "Error processing seat swap request: " + std::string(error.what())}}, 400); }
+    } catch (const json::exception& error) {
+        respond_json(
+            res,
+            json{{"error", "Error processing seat swap request: " + std::string(error.what())}},
+            400
+        );
+    }
 }
 
 void register_routes(httplib::Server& server, ReservationSystem& airline_system) {

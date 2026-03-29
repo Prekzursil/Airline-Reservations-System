@@ -37,6 +37,7 @@ def _configured_value(label: str) -> str:
 _MISSING_SECRET_COUNT_KEY = "_".join(("missing", "secret", "count"))
 _MISSING_VAR_COUNT_KEY = "_".join(("missing", "var", "count"))
 _STATUS_KEY = "status"
+_SONAR_PROJECT_KEY = "_".join(("Prekzursil", "Airline-Reservations-System"))
 
 
 class _SecurityHelpersValidationTests(unittest.TestCase):
@@ -271,7 +272,7 @@ class _SonarZeroScriptTests(unittest.TestCase):
             expected_pr_sha="",
             max_wait_seconds=180,
             poll_interval_seconds=10,
-            project_key="Prekzursil_Airline-Reservations-System",
+            project_key=_SONAR_PROJECT_KEY,
             pull_request="",
         )
 
@@ -296,7 +297,7 @@ class _SonarZeroScriptTests(unittest.TestCase):
                 argv = [
                     "check_sonar_zero.py",
                     "--project-key",
-                    "Prekzursil_Airline-Reservations-System",
+                    _SONAR_PROJECT_KEY,
                     "--token",
                     "placeholder-token",
                 ]

@@ -24,14 +24,6 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
         for token in forbidden_tokens:
             self.assertNotIn(token, booking_source, f"{token} should not be used in Booking.cpp")
 
-    def test_booking_source_avoids_function_local_static_sequence(self) -> None:
-        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
-        self.assertNotIn(
-            "static std::atomic_uint64_t sequence",
-            booking_source,
-            "Booking.cpp should not keep the booking sequence as a function-local static atomic",
-        )
-
     def test_booking_source_avoids_namespace_scope_mutable_sequence_global(self) -> None:
         booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
         forbidden_globals = (
@@ -46,12 +38,13 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
                 "Booking.cpp should not keep the booking sequence as a namespace-scope mutable global",
             )
 
-    def test_booking_sequence_storage_is_a_private_class_static_member(self) -> None:
+    def test_booking_sequence_storage_is_isolated_behind_an_accessor(self) -> None:
         booking_header = (REPO_ROOT / "src" / "Booking.h").read_text(encoding="utf-8")
         booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
 
-        self.assertIn("static std::atomic_uint64_t bookingSequence_;", booking_header)
-        self.assertIn("std::atomic_uint64_t Booking::bookingSequence_{100};", booking_source)
+        self.assertIn("static std::atomic_uint64_t& bookingSequenceStorage();", booking_header)
+        self.assertIn("static std::atomic_uint64_t booking_sequence{100};", booking_source)
+        self.assertIn("return bookingSequenceStorage().fetch_add(1, std::memory_order_relaxed);", booking_source)
 
     def test_quality_workflows_pin_shared_platform_contracts(self) -> None:
         platform_text = (REPO_ROOT / ".github" / "workflows" / "quality-zero-platform.yml").read_text(

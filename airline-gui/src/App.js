@@ -6,6 +6,108 @@ import CustomerDetails from './components/CustomerDetails';
 import SwapSeatsForm from './components/SwapSeatsForm';
 import { fetchCustomers } from './services/apiService';
 
+const customerPanelStyle = { flex: 1, border: '1px solid #ccc', padding: '15px' };
+const bookingPanelStyle = { flex: 2, border: '1px solid #ccc', padding: '15px' };
+const mainLayoutStyle = { padding: '20px', display: 'flex', gap: '20px' };
+const customerSectionStyle = { marginBottom: '20px' };
+const customerButtonStyle = {
+  cursor: 'pointer',
+  border: 'none',
+  background: 'transparent',
+  padding: 0,
+  font: 'inherit',
+  color: 'inherit',
+  textAlign: 'left',
+};
+
+function CustomerListSection({
+  customerError,
+  customers,
+  loadCustomers,
+  selectedCustomerId,
+  showCustomers,
+  onCustomerSelect,
+}) {
+  return (
+    <section style={customerSectionStyle}>
+      <button type="button" onClick={loadCustomers} style={{ marginRight: '10px' }}>
+        {showCustomers ? 'Refresh Customer List' : 'Show Customer List'}
+      </button>
+      {customerError && <p aria-live="polite" style={{ color: 'red' }}>{customerError}</p>}
+      {showCustomers && customers.length > 0 && (
+        <div>
+          <h3>All Customers:</h3>
+          <ul>
+            {customers.map((cust) => (
+              <li key={cust.personId}>
+                <button
+                  type="button"
+                  onClick={() => onCustomerSelect(cust.personId)}
+                  aria-pressed={selectedCustomerId === cust.personId}
+                  aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
+                  style={customerButtonStyle}
+                >
+                  {cust.name} (ID: {cust.personId})
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {showCustomers && customers.length === 0 && !customerError && <p>No customers found.</p>}
+    </section>
+  );
+}
+
+function CustomerSearchSection({
+  customerDetailsRefreshKey,
+  onBookingCancelled,
+  onSearchCustomer,
+  searchCustomerId,
+  selectedCustomerId,
+  setSearchCustomerId,
+}) {
+  return (
+    <section>
+      <h3>View Specific Customer Details</h3>
+      <label htmlFor="searchCustomerIdInput" style={{ marginRight: '10px' }}>
+        Customer ID
+      </label>
+      <input
+        id="searchCustomerIdInput"
+        type="text"
+        value={searchCustomerId}
+        onChange={(event) => setSearchCustomerId(event.target.value)}
+        placeholder="Enter Customer ID"
+        style={{ marginRight: '10px' }}
+      />
+      <button type="button" onClick={onSearchCustomer}>Search Customer</button>
+      {selectedCustomerId && (
+        <div id="customer-details-panel">
+          <CustomerDetails
+            customerId={selectedCustomerId}
+            onBookingCancelled={onBookingCancelled}
+            refreshTrigger={customerDetailsRefreshKey}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BookingManagementSection({ bookingsRefreshKey, onSeatsSwapped, swapStatusMessage, triggerBookingsRefresh }) {
+  return (
+    <div style={bookingPanelStyle}>
+      <h2>Flight & Booking Management</h2>
+      <FlightList onBookingListChanged={triggerBookingsRefresh} />
+      <section style={{ marginTop: '20px', padding: '15px', border: '1px solid #eee' }}>
+        <SwapSeatsForm onSeatsSwapped={onSeatsSwapped} refreshTrigger={bookingsRefreshKey} />
+        {swapStatusMessage && <p aria-live="polite">{swapStatusMessage}</p>}
+      </section>
+    </div>
+  );
+}
+
 /**
  * Renders the airline reservation dashboard and coordinates cross-panel refreshes.
  *
@@ -119,83 +221,35 @@ function App() {
       <header className="App-header">
         <h1>Airline Reservation System GUI</h1>
       </header>
-      <main style={{ padding: '20px', display: 'flex', gap: '20px' }}>
-        <div style={{ flex: 1, border: '1px solid #ccc', padding: '15px' }}>
+      <main style={mainLayoutStyle}>
+        <div style={customerPanelStyle}>
           <h2>Customer Management</h2>
-          <section style={{ marginBottom: '20px' }}>
+          <section style={customerSectionStyle}>
             <CustomerForm onCustomerAdded={handleCustomerAdded} />
           </section>
-
-          <section style={{ marginBottom: '20px' }}>
-            <button type="button" onClick={loadCustomers} style={{marginRight: '10px'}}>
-              {showCustomers ? 'Refresh Customer List' : 'Show Customer List'}
-            </button>
-            {customerError && <p aria-live="polite" style={{color: 'red'}}>{customerError}</p>}
-            {showCustomers && customers.length > 0 && (
-              <div>
-                <h3>All Customers:</h3>
-                <ul>
-                  {customers.map((cust) => (
-                    <li key={cust.personId}>
-                      <button
-                        type="button"
-                        onClick={() => handleCustomerSelect(cust.personId)}
-                        aria-pressed={selectedCustomerId === cust.personId}
-                        aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
-                        style={{
-                          cursor: 'pointer',
-                          border: 'none',
-                          background: 'transparent',
-                          padding: 0,
-                          font: 'inherit',
-                          color: 'inherit',
-                          textAlign: 'left',
-                        }}
-                      >
-                        {cust.name} (ID: {cust.personId})
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {showCustomers && customers.length === 0 && !customerError && <p>No customers found.</p>}
-          </section>
-
-          <section>
-            <h3>View Specific Customer Details</h3>
-            <label htmlFor="searchCustomerIdInput" style={{ marginRight: '10px' }}>
-              Customer ID
-            </label>
-            <input
-              id="searchCustomerIdInput"
-              type="text"
-              value={searchCustomerId}
-              onChange={(e) => setSearchCustomerId(e.target.value)}
-              placeholder="Enter Customer ID"
-              style={{ marginRight: '10px' }}
-            />
-            <button type="button" onClick={handleSearchCustomer}>Search Customer</button>
-            {selectedCustomerId && (
-              <div id="customer-details-panel">
-                <CustomerDetails
-                  customerId={selectedCustomerId}
-                  onBookingCancelled={refreshCustomerDetails}
-                  refreshTrigger={customerDetailsRefreshKey}
-                />
-              </div>
-            )}
-          </section>
+          <CustomerListSection
+            customerError={customerError}
+            customers={customers}
+            loadCustomers={loadCustomers}
+            selectedCustomerId={selectedCustomerId}
+            showCustomers={showCustomers}
+            onCustomerSelect={handleCustomerSelect}
+          />
+          <CustomerSearchSection
+            customerDetailsRefreshKey={customerDetailsRefreshKey}
+            onBookingCancelled={refreshCustomerDetails}
+            onSearchCustomer={handleSearchCustomer}
+            searchCustomerId={searchCustomerId}
+            selectedCustomerId={selectedCustomerId}
+            setSearchCustomerId={setSearchCustomerId}
+          />
         </div>
-        
-        <div style={{ flex: 2, border: '1px solid #ccc', padding: '15px' }}>
-          <h2>Flight & Booking Management</h2>
-          <FlightList onBookingListChanged={triggerBookingsRefresh} />
-          <section style={{ marginTop: '20px', padding: '15px', border: '1px solid #eee' }}>
-            <SwapSeatsForm onSeatsSwapped={handleSeatsSwapped} refreshTrigger={bookingsRefreshKey} />
-            {swapStatusMessage && <p aria-live="polite">{swapStatusMessage}</p>}
-          </section>
-        </div>
+        <BookingManagementSection
+          bookingsRefreshKey={bookingsRefreshKey}
+          onSeatsSwapped={handleSeatsSwapped}
+          swapStatusMessage={swapStatusMessage}
+          triggerBookingsRefresh={triggerBookingsRefresh}
+        />
       </main>
     </div>
   );

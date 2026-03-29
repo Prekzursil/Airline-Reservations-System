@@ -2,6 +2,69 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { addCustomer } from '../services/apiService';
 
+function CustomerField({ id, label, onChange, step = null, type, value }) {
+    return (
+        <div>
+            <label htmlFor={id}>{label}</label>
+            <input
+                id={id}
+                type={type}
+                value={value}
+                onChange={onChange}
+                step={step || undefined}
+                required
+            />
+        </div>
+    );
+}
+
+CustomerField.propTypes = {
+    id: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    onChange: PropTypes.func.isRequired,
+    step: PropTypes.string,
+    type: PropTypes.string.isRequired,
+    value: PropTypes.string.isRequired,
+};
+
+function ManualCustomerFields({ age, money, name, setAge, setMoney, setName }) {
+    return (
+        <>
+            <CustomerField
+                id="customerName"
+                label="Name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+            />
+            <CustomerField
+                id="customerAge"
+                label="Age"
+                type="number"
+                value={age}
+                onChange={(event) => setAge(event.target.value)}
+            />
+            <CustomerField
+                id="customerMoney"
+                label="Money"
+                type="number"
+                value={money}
+                step="0.01"
+                onChange={(event) => setMoney(event.target.value)}
+            />
+        </>
+    );
+}
+
+ManualCustomerFields.propTypes = {
+    age: PropTypes.string.isRequired,
+    money: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    setAge: PropTypes.func.isRequired,
+    setMoney: PropTypes.func.isRequired,
+    setName: PropTypes.func.isRequired,
+};
+
 /**
  * Renders the customer creation form.
  *
@@ -59,20 +122,14 @@ const CustomerForm = ({ onCustomerAdded = null }) => {
                     </label>
                 </div>
                 {!autoGenerate && (
-                    <>
-                        <div>
-                            <label htmlFor="customerName">Name</label>
-                            <input id="customerName" type="text" value={name} onChange={(event) => setName(event.target.value)} required />
-                        </div>
-                        <div>
-                            <label htmlFor="customerAge">Age</label>
-                            <input id="customerAge" type="number" value={age} onChange={(event) => setAge(event.target.value)} required />
-                        </div>
-                        <div>
-                            <label htmlFor="customerMoney">Money</label>
-                            <input id="customerMoney" type="number" step="0.01" value={money} onChange={(event) => setMoney(event.target.value)} required />
-                        </div>
-                    </>
+                    <ManualCustomerFields
+                        age={age}
+                        money={money}
+                        name={name}
+                        setAge={setAge}
+                        setMoney={setMoney}
+                        setName={setName}
+                    />
                 )}
                 <button type="submit" style={{ marginTop: '10px' }}>
                     Add Customer

@@ -58,8 +58,6 @@ const baseSeats = [
 describe('SeatMap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -80,7 +78,7 @@ describe('SeatMap', () => {
   });
 
   it('shows loading customers indicator while customer list is still being fetched', async () => {
-    let resolveCustomers;
+    let resolveCustomers = () => {};
     const customersPromise = new Promise((resolve) => {
       resolveCustomers = resolve;
     });

@@ -25,8 +25,8 @@ private:
     std::string seatId;     // Link to Seat
     std::chrono::system_clock::time_point bookingDate; // Or std::string for simplicity
     BookingStatus status;
-    static std::atomic_uint64_t bookingSequence_;
 
+    static std::atomic_uint64_t& bookingSequenceStorage();
     static std::uint64_t nextBookingSequence();
     std::string generateBookingId() const; // Helper to create a unique ID
 

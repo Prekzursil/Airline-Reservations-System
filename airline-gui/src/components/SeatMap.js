@@ -3,6 +3,170 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { createBooking, fetchCustomers, cancelBooking as apiCancelBooking } from '../services/apiService';
 
+const compactButtonStyle = { fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' };
+const legendChipStyle = { padding: '2px 5px', margin: '0 5px' };
+
+function SeatCancellationControls({
+    bookingId,
+    keepSeatBooking,
+    onConfirmCancellation,
+    pendingCancellationId,
+    requestSeatCancellation,
+}) {
+    if (!bookingId) {
+        return null;
+    }
+
+    if (pendingCancellationId === bookingId) {
+        return (
+            <>
+                <button
+                    type="button"
+                    onClick={() => onConfirmCancellation(bookingId)}
+                    style={compactButtonStyle}
+                    aria-label={`Confirm cancellation for booking ${bookingId}`}
+                    title={`Confirm cancellation for booking ${bookingId}`}
+                >
+                    Confirm
+                </button>
+                <button
+                    type="button"
+                    onClick={keepSeatBooking}
+                    style={compactButtonStyle}
+                    aria-label={`Keep booking ${bookingId}`}
+                    title={`Keep booking ${bookingId}`}
+                >
+                    Keep
+                </button>
+            </>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={() => requestSeatCancellation(bookingId)}
+            style={compactButtonStyle}
+            aria-label={`Cancel booking ${bookingId}`}
+            title={`Cancel booking ${bookingId}`}
+        >
+            Cancel
+        </button>
+    );
+}
+
+SeatCancellationControls.propTypes = {
+    bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    keepSeatBooking: PropTypes.func.isRequired,
+    onConfirmCancellation: PropTypes.func.isRequired,
+    pendingCancellationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    requestSeatCancellation: PropTypes.func.isRequired,
+};
+
+function SeatGrid({ getSeatButtonStyle, getSeatStyle, handleSeatClick, keepSeatBooking, onConfirmCancellation, pendingCancellationId, requestSeatCancellation, rows, selectedSeatId }) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {rows.map((row) => (
+                <div key={row[0]?.seatId || 'seat-row'} style={{ display: 'flex' }}>
+                    {row.map((seat) => (
+                        <div key={seat.seatId} style={getSeatStyle(seat)}>
+                            <button
+                                type="button"
+                                onClick={() => handleSeatClick(seat)}
+                                style={getSeatButtonStyle(seat)}
+                                aria-label={`Seat ${seat.seatId}`}
+                                aria-pressed={selectedSeatId === seat.seatId}
+                            >
+                                {seat.seatId}
+                            </button>
+                            {seat.isBooked && (
+                                <SeatCancellationControls
+                                    bookingId={seat.bookingId}
+                                    keepSeatBooking={keepSeatBooking}
+                                    onConfirmCancellation={onConfirmCancellation}
+                                    pendingCancellationId={pendingCancellationId}
+                                    requestSeatCancellation={requestSeatCancellation}
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+SeatGrid.propTypes = {
+    getSeatButtonStyle: PropTypes.func.isRequired,
+    getSeatStyle: PropTypes.func.isRequired,
+    handleSeatClick: PropTypes.func.isRequired,
+    keepSeatBooking: PropTypes.func.isRequired,
+    onConfirmCancellation: PropTypes.func.isRequired,
+    pendingCancellationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    requestSeatCancellation: PropTypes.func.isRequired,
+    rows: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.shape({
+        seatId: PropTypes.string.isRequired,
+        seatClass: PropTypes.string.isRequired,
+        price: PropTypes.number.isRequired,
+        isBooked: PropTypes.bool.isRequired,
+        bookedByCustomerId: PropTypes.string,
+        bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    }).isRequired)).isRequired,
+    selectedSeatId: PropTypes.string,
+};
+
+function BookingCustomerSelector({
+    customerIdForBooking,
+    customers,
+    loadingCustomers,
+    onConfirmBooking,
+    onSelectCustomer,
+    selectedSeatId,
+}) {
+    return (
+        <div style={{ marginTop: '10px' }}>
+            <label htmlFor="customerSelectBooking" style={{ marginRight: '10px' }}>Select Customer:</label>
+            {loadingCustomers ? (
+                <span>Loading customers...</span>
+            ) : (
+                <Select
+                    inputId="customerSelectBooking"
+                    value={customerIdForBooking}
+                    onChange={onSelectCustomer}
+                    options={customers.map((cust) => ({ value: cust.personId, label: `${cust.name} (ID: ${cust.personId})` }))}
+                    isClearable
+                    isSearchable
+                    placeholder="Select or type to search Customer..."
+                    isDisabled={customers.length === 0}
+                    styles={{ container: (base) => ({ ...base, width: '300px', marginRight: '10px', display: 'inline-block' }) }}
+                />
+            )}
+            <button
+                type="button"
+                onClick={onConfirmBooking}
+                disabled={!customerIdForBooking?.value || loadingCustomers}
+            >
+                Confirm Booking for {selectedSeatId}
+            </button>
+        </div>
+    );
+}
+
+BookingCustomerSelector.propTypes = {
+    customerIdForBooking: PropTypes.shape({
+        value: PropTypes.string,
+        label: PropTypes.string,
+    }),
+    customers: PropTypes.arrayOf(PropTypes.shape({
+        personId: PropTypes.string.isRequired,
+        name: PropTypes.string.isRequired,
+    })).isRequired,
+    loadingCustomers: PropTypes.bool.isRequired,
+    onConfirmBooking: PropTypes.func.isRequired,
+    onSelectCustomer: PropTypes.func.isRequired,
+    selectedSeatId: PropTypes.string.isRequired,
+};
+
 /**
  * Renders the seat layout for a flight and coordinates booking actions.
  *
@@ -33,7 +197,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
                 setCustomerLoadingError('');
                 const fetchedCustomers = await fetchCustomers();
                 setCustomers(fetchedCustomers || []);
-            } catch (error) {
+            } catch {
                 setCustomerLoadingError('Could not load customers for selection.');
                 setCustomers([]);
             } finally {
@@ -207,94 +371,35 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
     return (
         <div>
             <h4>Seat Map for {flightNumber}</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                {rows.map((row) => (
-                    <div key={row[0]?.seatId || 'seat-row'} style={{ display: 'flex' }}>
-                        {row.map((seat) => (
-                            <div key={seat.seatId} style={getSeatStyle(seat)}>
-                                <button
-                                    type="button"
-                                    onClick={() => handleSeatClick(seat)}
-                                    style={getSeatButtonStyle(seat)}
-                                    aria-label={`Seat ${seat.seatId}`}
-                                    aria-pressed={selectedSeatId === seat.seatId}
-                                >
-                                    {seat.seatId}
-                                </button>
-                                {seat.isBooked && seat.bookingId && (
-                                    pendingCancellationId === seat.bookingId ? (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleCancelBookingFromSeat(seat.bookingId)}
-                                                style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
-                                                aria-label={`Confirm cancellation for booking ${seat.bookingId}`}
-                                                title={`Confirm cancellation for booking ${seat.bookingId}`}
-                                            >
-                                                Confirm
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={keepSeatBooking}
-                                                style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
-                                                aria-label={`Keep booking ${seat.bookingId}`}
-                                                title={`Keep booking ${seat.bookingId}`}
-                                            >
-                                                Keep
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => requestSeatCancellation(seat.bookingId)}
-                                            style={{ fontSize: '0.6em', padding: '1px 3px', marginTop: '3px', cursor: 'pointer' }}
-                                            aria-label={`Cancel booking ${seat.bookingId}`}
-                                            title={`Cancel booking ${seat.bookingId}`}
-                                        >
-                                            Cancel
-                                        </button>
-                                    )
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                ))}
-            </div>
+            <SeatGrid
+                getSeatButtonStyle={getSeatButtonStyle}
+                getSeatStyle={getSeatStyle}
+                handleSeatClick={handleSeatClick}
+                keepSeatBooking={keepSeatBooking}
+                onConfirmCancellation={handleCancelBookingFromSeat}
+                pendingCancellationId={pendingCancellationId}
+                requestSeatCancellation={requestSeatCancellation}
+                rows={rows}
+                selectedSeatId={selectedSeatId}
+            />
             {bookingStatus && <p aria-live="polite">{bookingStatus}</p>}
             {customerLoadingError && <p aria-live="polite" style={{ color: 'red' }}>{customerLoadingError}</p>}
             {selectedSeatId && (
-                <div style={{ marginTop: '10px' }}>
-                    <label htmlFor="customerSelectBooking" style={{ marginRight: '10px' }}>Select Customer:</label>
-                    {loadingCustomers ? (
-                        <span>Loading customers...</span>
-                    ) : (
-                        <Select
-                            inputId="customerSelectBooking"
-                            value={customerIdForBooking}
-                            onChange={setCustomerIdForBooking}
-                            options={customers.map((cust) => ({ value: cust.personId, label: `${cust.name} (ID: ${cust.personId})` }))}
-                            isClearable
-                            isSearchable
-                            placeholder="Select or type to search Customer..."
-                            isDisabled={customers.length === 0 && !customerLoadingError}
-                            styles={{ container: (base) => ({ ...base, width: '300px', marginRight: '10px', display: 'inline-block' }) }}
-                        />
-                    )}
-                    <button
-                        type="button"
-                        onClick={handleConfirmBooking}
-                        disabled={!customerIdForBooking?.value || loadingCustomers}
-                    >
-                        Confirm Booking for {selectedSeatId}
-                    </button>
-                </div>
+                <BookingCustomerSelector
+                    customerIdForBooking={customerIdForBooking}
+                    customers={customers}
+                    loadingCustomers={loadingCustomers}
+                    onConfirmBooking={handleConfirmBooking}
+                    onSelectCustomer={setCustomerIdForBooking}
+                    selectedSeatId={selectedSeatId}
+                />
             )}
             <div style={{ marginTop: '10px' }}>
                 <span style={{ marginRight: '5px' }}>Legend:</span>
-                <span style={{ backgroundColor: 'lightgreen', padding: '2px 5px', margin: '0 5px' }}>Available Economy</span>
-                <span style={{ backgroundColor: 'lightblue', padding: '2px 5px', margin: '0 5px' }}>Available Business</span>
-                <span style={{ backgroundColor: 'lightcoral', padding: '2px 5px', margin: '0 5px' }}>Booked</span>
-                <span style={{ backgroundColor: 'yellow', padding: '2px 5px', margin: '0 5px' }}>Selected</span>
+                <span style={{ ...legendChipStyle, backgroundColor: 'lightgreen' }}>Available Economy</span>
+                <span style={{ ...legendChipStyle, backgroundColor: 'lightblue' }}>Available Business</span>
+                <span style={{ ...legendChipStyle, backgroundColor: 'lightcoral' }}>Booked</span>
+                <span style={{ ...legendChipStyle, backgroundColor: 'yellow' }}>Selected</span>
             </div>
         </div>
     );

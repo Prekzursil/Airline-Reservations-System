@@ -69,7 +69,6 @@ describe('apiService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     globalThis.fetch = vi.fn();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {

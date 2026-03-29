@@ -3,6 +3,36 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { swapSeats, fetchBookings } from '../services/apiService';
 
+function BookingSelectField({ disabled, inputId, onChange, options, placeholder, value }) {
+    return (
+        <Select
+            inputId={inputId}
+            value={value}
+            onChange={onChange}
+            options={options}
+            isClearable
+            isSearchable
+            placeholder={placeholder}
+            isDisabled={disabled}
+        />
+    );
+}
+
+BookingSelectField.propTypes = {
+    disabled: PropTypes.bool.isRequired,
+    inputId: PropTypes.string.isRequired,
+    onChange: PropTypes.func.isRequired,
+    options: PropTypes.arrayOf(PropTypes.shape({
+        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+        label: PropTypes.string.isRequired,
+    }).isRequired).isRequired,
+    placeholder: PropTypes.string.isRequired,
+    value: PropTypes.shape({
+        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        label: PropTypes.string,
+    }),
+};
+
 /**
  * Renders the seat-swap form for two confirmed bookings.
  *
@@ -31,7 +61,7 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
             try {
                 const bookingsData = await fetchBookings();
                 setAllBookings(bookingsData || []);
-            } catch (error) {
+            } catch {
                 setErrorLoadingBookings('Could not load bookings.');
                 setAllBookings([]);
             } finally {
@@ -100,28 +130,24 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
             <form onSubmit={handleSubmit} style={{ opacity: loadingBookings || allBookings.length === 0 ? 0.5 : 1 }}>
                 <div style={{ marginBottom: '10px' }}>
                     <label htmlFor="booking1SelectSwap" style={{ display: 'block', marginBottom: '4px' }}>Select First Booking:</label>
-                    <Select
+                    <BookingSelectField
+                        disabled={loadingBookings || bookingOptions.length === 0}
                         inputId="booking1SelectSwap"
-                        value={selectedBooking1}
                         onChange={setSelectedBooking1}
                         options={bookingOptions.filter((opt) => opt.value !== selectedBooking2?.value)}
-                        isClearable
-                        isSearchable
                         placeholder="Select Booking 1..."
-                        isDisabled={loadingBookings || bookingOptions.length === 0}
+                        value={selectedBooking1}
                     />
                 </div>
                 <div style={{ marginBottom: '10px' }}>
                     <label htmlFor="booking2SelectSwap" style={{ display: 'block', marginBottom: '4px' }}>Select Second Booking:</label>
-                    <Select
+                    <BookingSelectField
+                        disabled={loadingBookings || bookingOptions.length === 0}
                         inputId="booking2SelectSwap"
-                        value={selectedBooking2}
                         onChange={setSelectedBooking2}
                         options={bookingOptions.filter((opt) => opt.value !== selectedBooking1?.value)}
-                        isClearable
-                        isSearchable
                         placeholder="Select Booking 2..."
-                        isDisabled={loadingBookings || bookingOptions.length === 0}
+                        value={selectedBooking2}
                     />
                 </div>
                 <button type="submit" style={{ marginTop: '10px' }} disabled={loadingBookings || !selectedBooking1 || !selectedBooking2}>

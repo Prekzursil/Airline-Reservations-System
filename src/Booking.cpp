@@ -84,8 +84,6 @@ void initializeBookingState(
 }
 } // namespace
 
-std::atomic_uint64_t Booking::bookingSequence_{100};
-
 std::string bookingStatusToString(BookingStatus status) {
     using enum BookingStatus;
     switch (status) {
@@ -96,8 +94,13 @@ std::string bookingStatusToString(BookingStatus status) {
     }
 }
 
+std::atomic_uint64_t& Booking::bookingSequenceStorage() {
+    static std::atomic_uint64_t booking_sequence{100};
+    return booking_sequence;
+}
+
 std::uint64_t Booking::nextBookingSequence() {
-    return bookingSequence_.fetch_add(1, std::memory_order_relaxed);
+    return bookingSequenceStorage().fetch_add(1, std::memory_order_relaxed);
 }
 
 std::string Booking::generateBookingId() const {

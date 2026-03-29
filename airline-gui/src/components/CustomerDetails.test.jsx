@@ -10,7 +10,6 @@ vi.mock('../services/apiService', () => ({
 describe('CustomerDetails', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
