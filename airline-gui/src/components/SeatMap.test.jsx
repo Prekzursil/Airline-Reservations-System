@@ -78,7 +78,7 @@ describe('SeatMap', () => {
   });
 
   it('shows loading customers indicator while customer list is still being fetched', async () => {
-    let resolveCustomers;
+    let resolveCustomers = () => undefined;
     const customersPromise = new Promise((resolve) => {
       resolveCustomers = resolve;
     });

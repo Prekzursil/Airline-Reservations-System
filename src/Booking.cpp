@@ -95,6 +95,7 @@ std::string bookingStatusToString(BookingStatus status) {
 }
 
 std::atomic_uint64_t& Booking::bookingSequenceStorage() {
+    static std::atomic_uint64_t bookingSequence{100};
     return bookingSequence;
 }
 

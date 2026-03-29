@@ -26,10 +26,17 @@ _PENDING_STATES = {"pending", ""}
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assert DeepScan GitHub context is green for a commit.")
+    """Parse CLI arguments for the DeepScan zero gate."""
+    parser = argparse.ArgumentParser(
+        description="Assert DeepScan GitHub context is green for a commit."
+    )
     parser.add_argument("--repo", required=True, help="owner/repo")
     parser.add_argument("--sha", required=True, help="commit SHA")
-    parser.add_argument("--required-context", default="DeepScan", help="Required DeepScan context name")
+    parser.add_argument(
+        "--required-context",
+        default="DeepScan",
+        help="Required DeepScan context name",
+    )
     parser.add_argument(
         "--max-wait-seconds",
         type=int,
@@ -46,6 +53,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _build_commit_api_path(repo: str, sha: str) -> str:
+    """Build the base commit API path for the target repository and SHA."""
     owner, name = require_repo_slug(repo)
     checked_sha = require_sha(sha)
 
@@ -56,6 +64,7 @@ def _build_commit_api_path(repo: str, sha: str) -> str:
 
 
 def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRequestTarget:
+    """Build a GitHub API request target for a commit-scoped resource."""
     return build_https_request_target(
         host=HTTPSHost.GITHUB_API,
         path=f"{_build_commit_api_path(repo, sha)}{resource_path}",
@@ -63,6 +72,7 @@ def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRe
 
 
 def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
+    """Fetch a JSON document from the GitHub API."""
     return request_json_https_target(
         target=target,
         method="GET",
@@ -76,10 +86,12 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
 
 
 def _context_name(value: Any) -> str:
+    """Normalize a check context name into a trimmed string."""
     return str(value or "").strip()
 
 
 def _build_context_entry(*, state: Any, conclusion: Any, source: str) -> Dict[str, str]:
+    """Create a normalized context payload."""
     return {
         "state": str(state or ""),
         "conclusion": str(conclusion or ""),
@@ -95,6 +107,7 @@ def _collect_context_entries(
     conclusion_field: Optional[str],
     source: str,
 ) -> Dict[str, Dict[str, str]]:
+    """Collect normalized context entries from a GitHub checks payload."""
     contexts: Dict[str, Dict[str, str]] = {}
     for item in items:
         name = _context_name(item.get(name_field))
@@ -102,13 +115,31 @@ def _collect_context_entries(
             continue
         state = item.get(state_field)
         conclusion = state if conclusion_field is None else item.get(conclusion_field)
-        contexts[name] = _build_context_entry(state=state, conclusion=conclusion, source=source)
+        contexts[name] = _build_context_entry(
+            state=state,
+            conclusion=conclusion,
+            source=source,
+        )
     return contexts
 
 
-def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+def _collect_contexts(
+    check_runs_payload: Dict[str, Any],
+    status_payload: Dict[str, Any],
+) -> Dict[str, Dict[str, str]]:
+    """Collect check-run and status contexts keyed by their display name."""
+    check_run_items = [
+        item
+        for item in check_runs_payload.get("check_runs", []) or []
+        if isinstance(item, dict)
+    ]
+    status_items = [
+        item
+        for item in status_payload.get("statuses", []) or []
+        if isinstance(item, dict)
+    ]
     contexts = _collect_context_entries(
-        [item for item in check_runs_payload.get("check_runs", []) or [] if isinstance(item, dict)],
+        check_run_items,
         name_field="name",
         state_field="status",
         conclusion_field="conclusion",
@@ -116,7 +147,7 @@ def _collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[s
     )
     contexts.update(
         _collect_context_entries(
-            [item for item in status_payload.get("statuses", []) or [] if isinstance(item, dict)],
+            status_items,
             name_field="context",
             state_field="state",
             conclusion_field=None,
