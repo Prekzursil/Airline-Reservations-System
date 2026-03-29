@@ -26,6 +26,9 @@ struct TransparentStringHash {
         return operator()(std::string_view{value});
     }
 };
+
+using TransparentStringSet =
+    std::unordered_set<std::string, TransparentStringHash, std::equal_to<>>;
 } // namespace
 
 class BookingTestAccess {
@@ -127,8 +130,8 @@ TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndUniqueNumericSuffix) {
     }
 
     const std::regex booking_id_pattern(R"(^BK\d+-\d+$)");
-    std::unordered_set<std::string, TransparentStringHash, std::equal_to<>> unique_ids;
-    std::unordered_set<std::string, TransparentStringHash, std::equal_to<>> unique_suffixes;
+    TransparentStringSet unique_ids;
+    TransparentStringSet unique_suffixes;
     for (const std::string& booking_id : generated_ids) {
         ASSERT_TRUE(std::regex_match(booking_id, booking_id_pattern)) << booking_id;
         EXPECT_TRUE(unique_ids.insert(booking_id).second) << booking_id;
