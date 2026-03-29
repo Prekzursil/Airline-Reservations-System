@@ -28,6 +28,7 @@ RUN_CODACY_CHECK = vars(codacy)["_run_codacy_check"]
 PARSE_CODACY_ARGS = vars(codacy)["_parse_args"]
 RENDER_CODACY_MD = vars(codacy)["_render_md"]
 EVALUATE_CODACY_STATUS = vars(codacy)["_evaluate_status"]
+CODECOV_ANALYTICS = "Codecov Analytics"
 
 
 @contextlib.contextmanager
@@ -49,7 +50,7 @@ class GitHubContextSupportTests(unittest.TestCase):
         check_runs_payload = {
             "check_runs": [
                 {
-                    "name": "Codecov Analytics",
+                    "name": CODECOV_ANALYTICS,
                     "status": "completed",
                     "conclusion": "success",
                 },
@@ -65,12 +66,12 @@ class GitHubContextSupportTests(unittest.TestCase):
         }
 
         contexts = github_contexts.collect_contexts(check_runs_payload, status_payload)
-        self.assertEqual(contexts["Codecov Analytics"]["source"], "check_run")
+        self.assertEqual(contexts[CODECOV_ANALYTICS]["source"], "check_run")
         self.assertEqual(contexts["DeepScan"]["conclusion"], "success")
         self.assertTrue(required_checks_support.has_check_runs_in_progress(contexts))
 
         status, missing, failed = required_checks_support.evaluate_required_contexts(
-            ["Codecov Analytics", "DeepScan", "Semgrep Zero", "Missing"],
+            [CODECOV_ANALYTICS, "DeepScan", "Semgrep Zero", "Missing"],
             contexts,
         )
         self.assertEqual(status, "fail")
@@ -83,25 +84,25 @@ class GitHubContextSupportTests(unittest.TestCase):
             [
                 {"name": "  ", "status": "completed", "conclusion": "success"},
                 {
-                    "name": "Codecov Analytics",
+                    "name": CODECOV_ANALYTICS,
                     "status": "queued",
                     "conclusion": "neutral",
                 },
             ],
             github_contexts.CHECK_RUN_SPEC,
         )
-        self.assertEqual(list(entries.keys()), ["Codecov Analytics"])
+        self.assertEqual(list(entries.keys()), [CODECOV_ANALYTICS])
         self.assertEqual(
             EVALUATE_CHECK_RUN(
-                "Codecov Analytics", {"state": "queued", "conclusion": "success"}
+                CODECOV_ANALYTICS, {"state": "queued", "conclusion": "success"}
             ),
-            "Codecov Analytics: status=queued",
+            f"{CODECOV_ANALYTICS}: status=queued",
         )
         self.assertEqual(
             EVALUATE_CHECK_RUN(
-                "Codecov Analytics", {"state": "completed", "conclusion": "failure"}
+                CODECOV_ANALYTICS, {"state": "completed", "conclusion": "failure"}
             ),
-            "Codecov Analytics: conclusion=failure",
+            f"{CODECOV_ANALYTICS}: conclusion=failure",
         )
 
 
