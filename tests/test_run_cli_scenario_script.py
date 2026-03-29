@@ -1,4 +1,8 @@
+from __future__ import absolute_import, division
+
 import importlib.util
+import io
+import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -27,13 +31,17 @@ class RunCliScenarioScriptTests(unittest.TestCase):
 
     def test_resolve_binary_uses_current_working_directory_allowlist(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            binary_dir: Path = Path(temp_dir)
-            binary_path: Path = binary_dir / "airline_reservation_system"
-            binary_path.write_text("", encoding="utf-8")
+            binary_dir = Path(temp_dir)
+            binary_path = binary_dir / "airline_reservation_system"
+            with io.open(os.fspath(binary_path), "w", encoding="utf-8"):
+                pass
 
-            resolved = Path(run_cli_scenario._resolve_binary(binary_dir))
+            resolved = run_cli_scenario._resolve_binary(binary_dir)
 
-        self.assertEqual(resolved.resolve(), binary_path.resolve())
+        self.assertEqual(
+            os.path.realpath(resolved),
+            os.path.realpath(os.fspath(binary_path)),
+        )
 
 
 if __name__ == "__main__":

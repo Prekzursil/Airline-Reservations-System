@@ -7,10 +7,12 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import List
 from unittest import mock
 
 from scripts.quality import coverage_parsers as parsers
 from scripts.quality import normalize_lcov
+
 
 @contextlib.contextmanager
 def _temporary_cwd(path: Path):
@@ -259,7 +261,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         )
 
     def test_handle_da_line_ignores_inactive_records(self) -> None:
-        kept_lines: list[str] = []
+        kept_lines: List[str] = []
         record = normalize_lcov._RecordState()
         normalize_lcov._handle_da_line("DA:7,1", kept_lines=kept_lines, record=record)
 
@@ -344,4 +346,3 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
 
         self.assertEqual((not_dict_stats.covered, not_dict_stats.total), (0, 0))
         self.assertEqual((bad_statement_stats.covered, bad_statement_stats.total), (0, 0))
-

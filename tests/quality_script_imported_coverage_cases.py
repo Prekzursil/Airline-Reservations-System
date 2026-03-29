@@ -1,4 +1,7 @@
+from __future__ import absolute_import, division
+
 import contextlib
+import io
 import json
 import os
 import sys
@@ -6,6 +9,7 @@ import tempfile
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from typing import List
 from unittest import mock
 
 from scripts import security_helpers as helpers
@@ -93,9 +97,8 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            with (
-                _temporary_cwd(temp_path),
-                mock.patch.dict(
+            with _temporary_cwd(temp_path):
+                with mock.patch.dict(
                     os.environ,
                     {
                         "SONAR_TOKEN": "x",
@@ -106,15 +109,15 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
                         "SENTRY_PROJECT": "proj",
                     },
                     clear=True,
-                ),
-                mock.patch.object(sys, "argv", ["check_quality_secrets.py"]),
-            ):
-                self.assertEqual(quality_secrets.main(), 0)
-                out_json, _ = helpers.quality_artifact_paths(
-                    helpers.QualityArtifact.QUALITY_SECRETS
-                )
-                payload = json.loads(out_json.read_text(encoding="utf-8"))
-                self.assertTrue(payload["details_omitted"])
+                ):
+                    with mock.patch.object(sys, "argv", ["check_quality_secrets.py"]):
+                        self.assertEqual(quality_secrets.main(), 0)
+                        out_json, _ = helpers.quality_artifact_paths(
+                            helpers.QualityArtifact.QUALITY_SECRETS
+                        )
+                        with io.open(os.fspath(out_json), encoding="utf-8") as payload_file:
+                            payload = json.load(payload_file)
+                        self.assertTrue(payload["details_omitted"])
 
     def test_codacy_helpers_and_main_cover_success_failure_and_token_resolution(self) -> None:
         nested_total = {"outer": [{"hits": 3}]}
@@ -160,7 +163,8 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             ):
                 self.assertEqual(codacy.main(), 0)
 
-            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            with io.open(os.fspath(out_json), encoding="utf-8") as payload_file:
+                payload = json.load(payload_file)
             self.assertEqual(payload["status"], "pass")
             self.assertEqual(payload["open_issues"], 0)
 
@@ -206,7 +210,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             ),
         )
 
-        findings: list[str] = []
+        findings: List[str] = []
         self.assertEqual(codacy._evaluate_status(None, findings), "fail")
         self.assertIn("parseable total issue count", findings[0])
 

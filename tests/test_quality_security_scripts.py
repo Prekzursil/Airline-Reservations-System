@@ -300,7 +300,7 @@ class _QualitySecretsScriptTests(unittest.TestCase):
                 "CODECOV_TOKEN": _configured_value("codecov"),
                 "SENTRY_ORG": "example-org",
             },
-            clear=False,
+            clear=True,
         ):
             summary = quality_secrets.evaluate_env_counts(
                 ["SONAR_TOKEN", "CODECOV_TOKEN", "SNYK_TOKEN"],
@@ -331,7 +331,7 @@ class _QualitySecretsScriptTests(unittest.TestCase):
                 with mock.patch.dict(
                     os.environ,
                     env_updates,
-                    clear=False,
+                    clear=True,
                 ), mock.patch.object(
                     sys,
                     "argv",
