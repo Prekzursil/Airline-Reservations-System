@@ -162,6 +162,7 @@ def _collect_contexts(
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
+    """Render the DeepScan gate result as markdown."""
     lines = [
         "# DeepScan Zero Gate",
         "",
@@ -181,6 +182,7 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
 
 def _poll_or_timeout(now: float, deadline: float, poll_seconds: int) -> bool:
+    """Sleep for the poll interval until the deadline is reached."""
     if now < deadline:
         time.sleep(max(poll_seconds, 1))
         return True
@@ -188,6 +190,7 @@ def _poll_or_timeout(now: float, deadline: float, poll_seconds: int) -> bool:
 
 
 def _pending_failure_message(required_context: str, observed: Dict[str, str]) -> str:
+    """Describe why a still-pending context failed to settle in time."""
     source = observed.get("source")
     state = observed.get("state")
     conclusion = observed.get("conclusion")
@@ -197,6 +200,7 @@ def _pending_failure_message(required_context: str, observed: Dict[str, str]) ->
 
 
 def _is_pending_context(observed: Dict[str, str]) -> bool:
+    """Return whether the observed context is still pending completion."""
     source = observed.get("source")
     if source == "check_run":
         return observed.get("state") != "completed"
@@ -207,6 +211,7 @@ def _context_outcome(
     required_context: str,
     observed: Dict[str, str],
 ) -> Tuple[str, Optional[str]]:
+    """Translate a settled context into a pass/fail result tuple."""
     source = observed.get("source")
     conclusion = observed.get("conclusion")
     if source == "check_run":
@@ -225,6 +230,7 @@ def _run_deepscan_check(
     args: argparse.Namespace,
     token: str,
 ) -> Tuple[str, List[str], Optional[Dict[str, str]]]:
+    """Poll GitHub until the required DeepScan context settles."""
     check_runs_target = _build_commit_api_target(
         args.repo,
         args.sha,

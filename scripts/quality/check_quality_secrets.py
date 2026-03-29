@@ -25,6 +25,7 @@ DEFAULT_REQUIRED_VARS = [
 
 
 def _parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the quality-secrets preflight."""
     parser = argparse.ArgumentParser(
         description="Validate required quality-gate secrets/variables are configured."
     )
@@ -44,6 +45,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _dedupe(items: List[str]) -> List[str]:
+    """Preserve input order while removing blank and duplicate items."""
     seen: Set[str] = set()
     out: List[str] = []
     for item in items:
@@ -56,10 +58,12 @@ def _dedupe(items: List[str]) -> List[str]:
 
 
 def _is_configured(name: str) -> bool:
+    """Return whether the named environment variable is present."""
     return name in os.environ
 
 
 def _partition_presence(required: List[str]) -> Dict[str, List[str]]:
+    """Split required environment variable names into present and missing lists."""
     missing = [name for name in required if not _is_configured(name)]
     present = [name for name in required if name not in missing]
     return {
@@ -104,6 +108,7 @@ def evaluate_env_counts(
 
 
 def _render_md(*, timestamp_utc: str) -> str:
+    """Render the sanitized quality-secrets report as markdown."""
     lines = [
         "# Quality Secrets Preflight",
         "",
