@@ -8,7 +8,6 @@
 
 namespace {
 constexpr std::int64_t kSecondsPerDay = 24LL * 60LL * 60LL;
-std::atomic_uint64_t bookingSequenceState{100};
 
 struct CivilDateTime {
     int year;
@@ -83,6 +82,11 @@ void initializeBookingState(
     bookingDateOut = std::chrono::system_clock::now();
     statusOut = BookingStatus::PENDING;
 }
+
+std::atomic_uint64_t& bookingSequenceState() {
+    static auto* const bookingSequence = new std::atomic_uint64_t{100};
+    return *bookingSequence;
+}
 } // namespace
 
 std::string bookingStatusToString(BookingStatus status) {
@@ -96,7 +100,7 @@ std::string bookingStatusToString(BookingStatus status) {
 }
 
 std::atomic_uint64_t& Booking::bookingSequenceStorage() {
-    return bookingSequenceState;
+    return bookingSequenceState();
 }
 
 std::uint64_t Booking::nextBookingSequence() {

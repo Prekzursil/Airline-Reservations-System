@@ -44,9 +44,9 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
 
         self.assertIn("static std::atomic_uint64_t& bookingSequenceStorage();", booking_header)
         self.assertNotIn("static inline std::atomic_uint64_t bookingSequence{100};", booking_header)
-        self.assertIn("std::atomic_uint64_t bookingSequenceState{100};", booking_source)
-        self.assertNotIn("static std::atomic_uint64_t bookingSequence{100};", booking_source)
-        self.assertIn("return bookingSequenceState;", booking_source)
+        self.assertIn("std::atomic_uint64_t& Booking::bookingSequenceStorage()", booking_source)
+        self.assertIn("static auto* const bookingSequence = new std::atomic_uint64_t{100};", booking_source)
+        self.assertIn("return bookingSequenceState();", booking_source)
         self.assertIn("return bookingSequenceStorage().fetch_add(1, std::memory_order_relaxed);", booking_source)
 
     def test_quality_workflows_pin_shared_platform_contracts(self) -> None:
