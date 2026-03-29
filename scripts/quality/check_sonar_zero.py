@@ -21,32 +21,59 @@ from scripts.security_helpers import (
     require_slug,
 )
 
+QueryDict = Dict[str, str]
+SonarQueries = Tuple[QueryDict, QueryDict, QueryDict]
+SonarResult = Tuple[str, Optional[int], Optional[int], Optional[str], List[str]]
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assert SonarCloud has zero open issues and a passing quality gate.")
+    """Parse command-line arguments for the Sonar zero gate."""
+    parser = argparse.ArgumentParser(
+        description="Assert SonarCloud has zero open issues and a passing quality gate."
+    )
     parser.add_argument("--project-key", required=True, help="Sonar project key")
-    parser.add_argument("--token", default="", help="Sonar token (falls back to SONAR_TOKEN env)")
+    parser.add_argument(
+        "--token",
+        default="",
+        help="Sonar token (falls back to SONAR_TOKEN env)",
+    )
     parser.add_argument("--branch", default="", help="Optional branch scope")
     parser.add_argument("--pull-request", default="", help="Optional PR scope")
-    parser.add_argument("--expected-pr-sha", default="", help="Expected analyzed PR head SHA")
-    parser.add_argument("--max-wait-seconds", type=int, default=180, help="Maximum seconds to wait for Sonar PR analysis to catch up")
-    parser.add_argument("--poll-interval-seconds", type=int, default=10, help="Seconds between Sonar PR analysis polls")
+    parser.add_argument(
+        "--expected-pr-sha",
+        default="",
+        help="Expected analyzed PR head SHA",
+    )
+    parser.add_argument(
+        "--max-wait-seconds",
+        type=int,
+        default=180,
+        help="Maximum seconds to wait for Sonar PR analysis to catch up",
+    )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        type=int,
+        default=10,
+        help="Seconds between Sonar PR analysis polls",
+    )
     return parser.parse_args()
 
 
 def _auth_header(token: str) -> str:
+    """Build the Sonar basic-auth header from a token."""
     raw = f"{token}:".encode("utf-8")
     return "Basic " + base64.b64encode(raw).decode("ascii")
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
+    """Render the Sonar gate outcome as Markdown."""
     lines = [
         "# Sonar Zero Gate",
         "",
         f"- Status: `{payload['status']}`",
         f"- Project: `{payload['project_key']}`",
         f"- Open issues: `{payload.get('open_issues')}`",
-        f"- Unresolved security hotspots: `{payload.get('unresolved_security_hotspots')}`",
+        "- Unresolved security hotspots: "
+        f"`{payload.get('unresolved_security_hotspots')}`",
         f"- Quality gate: `{payload.get('quality_gate')}`",
         f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
         "",
@@ -60,14 +87,15 @@ def _render_md(payload: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _build_queries(args: argparse.Namespace, project_key: str) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
-    issues_query: Dict[str, str] = {
+def _build_queries(args: argparse.Namespace, project_key: str) -> SonarQueries:
+    """Build Sonar query dictionaries for issues, quality gate, and hotspots."""
+    issues_query: QueryDict = {
         "componentKeys": project_key,
         "resolved": "false",
         "ps": "1",
     }
-    gate_query: Dict[str, str] = {"projectKey": project_key}
-    hotspots_query: Dict[str, str] = {
+    gate_query: QueryDict = {"projectKey": project_key}
+    hotspots_query: QueryDict = {
         "projectKey": project_key,
         "status": "TO_REVIEW",
         "ps": "1",
@@ -87,7 +115,8 @@ def _build_queries(args: argparse.Namespace, project_key: str) -> Tuple[Dict[str
     return issues_query, gate_query, hotspots_query
 
 
-def _fetch_open_issues(auth: str, issues_query: Dict[str, str]) -> int:
+def _fetch_open_issues(auth: str, issues_query: QueryDict) -> int:
+    """Fetch the open-issue count for the target Sonar scope."""
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
         path="/api/issues/search?" + urllib.parse.urlencode(issues_query),
@@ -104,7 +133,8 @@ def _fetch_open_issues(auth: str, issues_query: Dict[str, str]) -> int:
     return int(paging.get("total") or 0)
 
 
-def _fetch_quality_gate(auth: str, gate_query: Dict[str, str]) -> str:
+def _fetch_quality_gate(auth: str, gate_query: QueryDict) -> str:
+    """Fetch the Sonar quality gate status for the target scope."""
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
         path="/api/qualitygates/project_status?" + urllib.parse.urlencode(gate_query),
@@ -121,7 +151,8 @@ def _fetch_quality_gate(auth: str, gate_query: Dict[str, str]) -> str:
     return str(project_status.get("status") or "UNKNOWN")
 
 
-def _fetch_unresolved_hotspots(auth: str, hotspots_query: Dict[str, str]) -> int:
+def _fetch_unresolved_hotspots(auth: str, hotspots_query: QueryDict) -> int:
+    """Fetch the unresolved hotspot count for the target Sonar scope."""
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
         path="/api/hotspots/search?" + urllib.parse.urlencode(hotspots_query),
@@ -139,9 +170,13 @@ def _fetch_unresolved_hotspots(auth: str, hotspots_query: Dict[str, str]) -> int
 
 
 def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> str:
+    """Return the Sonar-analyzed commit SHA for a pull request scope."""
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
-        path="/api/project_pull_requests/list?" + urllib.parse.urlencode({"project": project_key}),
+        path=(
+            "/api/project_pull_requests/list?"
+            + urllib.parse.urlencode({"project": project_key})
+        ),
     )
     payload = request_json_https_target(
         target=target,
@@ -158,18 +193,27 @@ def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> st
     return ""
 
 
-def _evaluate_findings(open_issues: int, unresolved_hotspots: int, quality_gate: str) -> List[str]:
+def _evaluate_findings(
+    open_issues: int,
+    unresolved_hotspots: int,
+    quality_gate: str,
+) -> List[str]:
+    """Convert Sonar counts and gate state into human-readable findings."""
     findings: List[str] = []
     if open_issues != 0:
         findings.append(f"Sonar reports {open_issues} open issues (expected 0).")
     if unresolved_hotspots != 0:
-        findings.append(f"Sonar reports {unresolved_hotspots} unresolved security hotspots (expected 0).")
+        findings.append(
+            "Sonar reports "
+            f"{unresolved_hotspots} unresolved security hotspots (expected 0)."
+        )
     if quality_gate != "OK":
         findings.append(f"Sonar quality gate status is {quality_gate} (expected OK).")
     return findings
 
 
-def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optional[int], Optional[int], Optional[str], List[str]]:
+def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
+    """Run the Sonar gate check and return the computed result tuple."""
     if not token:
         return "fail", None, None, None, ["SONAR_TOKEN is missing."]
 
@@ -190,7 +234,10 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> Tuple[str, Optiona
                     None,
                     None,
                     [
-                        "Sonar PR analysis did not reach the expected head SHA before timeout.",
+                        (
+                            "Sonar PR analysis did not reach the expected "
+                            "head SHA before timeout."
+                        ),
                         f"Expected SHA: {expected_pr_sha}",
                         f"Observed SHA: {observed_sha or 'missing'}",
                     ],
@@ -212,8 +259,14 @@ def main() -> int:
     args = _parse_args()
     token = (args.token or os.environ.get("SONAR_TOKEN", "")).strip()
     try:
-        status, open_issues, unresolved_hotspots, quality_gate, findings = _run_sonar_check(args, token)
-    except (RuntimeError, ValueError) as exc:  # pragma: no cover - network/runtime surface
+        (
+            status,
+            open_issues,
+            unresolved_hotspots,
+            quality_gate,
+            findings,
+        ) = _run_sonar_check(args, token)
+    except (RuntimeError, ValueError) as exc:  # pragma: no cover - network surface
         status = "fail"
         open_issues = None
         unresolved_hotspots = None
@@ -231,7 +284,10 @@ def main() -> int:
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.SONAR_ZERO)
-    out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 
