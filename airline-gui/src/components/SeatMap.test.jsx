@@ -14,13 +14,15 @@ vi.mock('../services/apiService', () => ({
 }));
 
 vi.mock('react-select', () => ({
-  default: ({ id, inputId, options = [], value, onChange, placeholder, isDisabled }) => {
+  default: ({ id, inputId, options = [], value, onChange, placeholder, isDisabled, styles }) => {
     const controlId = inputId || id || 'react-select';
+    const computedStyle = styles?.container ? styles.container({}) : undefined;
     return (
       <select
         aria-label={controlId}
         data-testid={controlId}
         disabled={isDisabled}
+        style={computedStyle}
         value={value?.value ?? ''}
         onChange={(event) => {
           const next = options.find((opt) => String(opt.value) === event.target.value) || null;
@@ -55,6 +57,17 @@ const baseSeats = [
   }
 ];
 
+const seatsWithBookedSeatMissingBookingId = [
+  {
+    seatId: '2A',
+    seatClass: 'Business',
+    price: 280,
+    isBooked: true,
+    bookedByCustomerId: 'C-MISSING'
+  },
+  ...baseSeats
+];
+
 describe('SeatMap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -67,6 +80,16 @@ describe('SeatMap', () => {
   it('renders fallback when no seats are provided', () => {
     render(<SeatMap seats={[]} flightNumber="FL-EMPTY" />);
     expect(screen.getByText('No seat information available for this flight.')).toBeInTheDocument();
+  });
+
+  it('omits cancellation controls when a booked seat is missing its booking id', async () => {
+    fetchCustomers.mockResolvedValue([{ personId: 'C1', name: 'Alice' }]);
+
+    render(<SeatMap seats={seatsWithBookedSeatMissingBookingId} flightNumber="FL-101" />);
+
+    fireEvent.click(await screen.findByText('2A'));
+    expect(screen.getByText('Seat 2A: Booked by Customer ID C-MISSING.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Cancel booking/i })).toHaveLength(1);
   });
 
   it('shows customer-load error when fetchCustomers fails', async () => {
@@ -146,7 +169,10 @@ describe('SeatMap', () => {
     fireEvent.click(await screen.findByText('1B'));
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Confirm Booking for 1B' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking for 1B' }));
+    expect(
+      await screen.findByText('Please select a Customer for booking.')
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('customerSelectBooking'), { target: { value: 'C1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking for 1B' }));

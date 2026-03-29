@@ -22,6 +22,11 @@ sys.modules[MODULE_SPEC.name] = run_cli_scenario
 MODULE_SPEC.loader.exec_module(run_cli_scenario)
 
 
+def _write_empty_binary(path: Path) -> None:
+    with open(os.fspath(path), "wb") as handle:
+        handle.write(b"")
+
+
 class RunCliScenarioScriptTests(unittest.TestCase):
     """Exercise the allowlisted resolver helpers exposed by the CLI scenario module."""
 
@@ -46,7 +51,7 @@ class RunCliScenarioScriptTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "airline_reservation_system"
-            binary_path.touch()
+            _write_empty_binary(binary_path)
 
             resolved = run_cli_scenario._resolve_binary(binary_dir)
 

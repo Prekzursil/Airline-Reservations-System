@@ -196,11 +196,7 @@ function SeatRow({
         );
     });
 
-    return (
-        <div key={row[0]?.seatId || 'seat-row'} style={{ display: 'flex' }}>
-            {seatCells}
-        </div>
-    );
+    return <div style={{ display: 'flex' }}>{seatCells}</div>;
 }
 
 SeatRow.propTypes = {
@@ -231,9 +227,9 @@ SeatRow.propTypes = {
 function SeatGrid({ getSeatButtonStyle, getSeatStyle, handleSeatClick, keepSeatBooking, onConfirmCancellation, pendingCancellationId, requestSeatCancellation, rows, selectedSeatId }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {rows.map((row) => (
+            {rows.map((row, rowIndex) => (
                 <SeatRow
-                    key={row[0]?.seatId || 'seat-row'}
+                    key={`seat-row-${rowIndex}`}
                     getSeatButtonStyle={getSeatButtonStyle}
                     getSeatStyle={getSeatStyle}
                     handleSeatClick={handleSeatClick}
@@ -310,7 +306,7 @@ function BookingCustomerSelector({
             <button
                 type="button"
                 onClick={onConfirmBooking}
-                disabled={!customerIdForBooking?.value || loadingCustomers}
+                disabled={loadingCustomers}
             >
                 Confirm Booking for {selectedSeatId}
             </button>

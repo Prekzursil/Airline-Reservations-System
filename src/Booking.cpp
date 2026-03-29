@@ -20,8 +20,7 @@ struct CivilDateTime {
 
 std::int64_t floorDiv(std::int64_t dividend, std::int64_t divisor) {
     std::int64_t quotient = dividend / divisor;
-    if (const auto remainder = dividend % divisor;
-        remainder != 0 && ((remainder < 0) != (divisor < 0))) {
+    if (const auto remainder = dividend % divisor; remainder < 0) {
         --quotient;
     }
     return quotient;
