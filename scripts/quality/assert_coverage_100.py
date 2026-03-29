@@ -17,6 +17,8 @@ REPO_SOURCE_LINES = coverage_parsers.REPO_SOURCE_LINES
 _include_lcov_line = coverage_parsers.include_lcov_line
 _lookup_repo_source_lines = coverage_parsers.lookup_repo_source_lines
 parse_lcov = coverage_parsers.parse_lcov
+parse_istanbul_summary = coverage_parsers.parse_istanbul_summary
+parse_istanbul_final = coverage_parsers.parse_istanbul_final
 
 NODE_LCOV_PATH = Path("airline-gui/coverage/lcov.info")
 NODE_SUMMARY_JSON_PATH = Path("airline-gui/coverage/coverage-summary.json")
@@ -35,56 +37,6 @@ def _parse_args() -> argparse.Namespace:
         help="Fail if C++ lcov report is missing.",
     )
     return parser.parse_args()
-
-
-def _safe_int(value: Any) -> int:
-    """Convert a value to an integer, returning zero on invalid input."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return 0
-
-
-def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
-    """Parse aggregate line coverage from Istanbul summary JSON."""
-    data = json.loads(path.read_text(encoding="utf-8"))
-    total_node = data.get("total", {})
-    lines = total_node.get("lines", {}) if isinstance(total_node, dict) else {}
-    covered = _safe_int(lines.get("covered"))
-    total = _safe_int(lines.get("total"))
-
-    if total <= 0:
-        statements = (
-            total_node.get("statements", {})
-            if isinstance(total_node, dict)
-            else {}
-        )
-        covered = _safe_int(statements.get("covered"))
-        total = _safe_int(statements.get("total"))
-
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
-
-
-def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
-    """Parse aggregate statement coverage from Istanbul final JSON."""
-    data = json.loads(path.read_text(encoding="utf-8"))
-    covered = 0
-    total = 0
-
-    if not isinstance(data, dict):
-        return CoverageStats(name=name, path=str(path), covered=0, total=0)
-
-    for file_cov in data.values():
-        if not isinstance(file_cov, dict):
-            continue
-        statements = file_cov.get("s", {})
-        if not isinstance(statements, dict):
-            continue
-        total += len(statements)
-        covered += sum(1 for count in statements.values() if _safe_int(count) > 0)
-
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
-
 
 def load_node_stats() -> CoverageStats:
     """Load the preferred frontend coverage artifact."""

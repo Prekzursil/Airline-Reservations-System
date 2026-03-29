@@ -7,26 +7,18 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Set, Tuple
 from urllib.parse import urlparse, urlunparse
 
+from scripts import security_shared as _security_shared
 from scripts.security_shared import (
     HTTPSHost,
-    HTTPSRequestError,
     HTTPSRequestOptions,
     HTTPSRequestTarget,
-    HTTPSResponsePayload,
     Headers,
     IdentifierRules,
     QualityArtifact,
-    _ALLOWED_HTTPS_HOSTS,
-    _HEX_CHARS,
-    _HOST_CHARS,
-    _JSON_CONTENT_TYPE,
-    _QUALITY_ARTIFACT_LAYOUT,
-    _SAFE_HEADER_NAME_CHARS,
-    _SAFE_OUTPUT_NAME_CHARS,
-    _SAFE_PATH_SEGMENT_CHARS,
-    _SAFE_REPO_SEGMENT_CHARS,
-    _SAFE_SLUG_CHARS,
 )
+
+HTTPSRequestError = _security_shared.HTTPSRequestError
+HTTPSResponsePayload = _security_shared.HTTPSResponsePayload
 
 
 def _validation_module():
