@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Wait for required GitHub contexts and assert they all succeed."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -6,12 +8,12 @@ import json
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
-    HTTPSRequestOptions,
     HTTPSRequestError,
+    HTTPSRequestOptions,
     HTTPSRequestTarget,
     QualityArtifact,
     build_https_request_target,
@@ -29,16 +31,27 @@ from scripts.quality.required_checks_support import (
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Wait for required GitHub check contexts and assert they are successful.")
+    """Parse CLI arguments for the required-checks gate."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Wait for required GitHub check contexts and assert they are successful."
+        )
+    )
     parser.add_argument("--repo", required=True, help="owner/repo")
     parser.add_argument("--sha", required=True, help="commit SHA")
-    parser.add_argument("--required-context", action="append", default=[], help="Required context name")
+    parser.add_argument(
+        "--required-context",
+        action="append",
+        default=[],
+        help="Required context name",
+    )
     parser.add_argument("--timeout-seconds", type=int, default=900)
     parser.add_argument("--poll-seconds", type=int, default=20)
     return parser.parse_args()
 
 
 def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
+    """Fetch JSON from GitHub with short retry handling for transient failures."""
     retries = 4
     delay_seconds = 2
     for attempt in range(1, retries + 1):
@@ -58,7 +71,10 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
         except HTTPSRequestError as exc:
             retryable = exc.status in {429, 500, 502, 503, 504}
             if not retryable or attempt == retries:
-                raise RuntimeError(f"GitHub API request failed: HTTP {exc.status}; body={exc.body_preview[:300]}") from exc
+                raise RuntimeError(
+                    "GitHub API request failed: "
+                    f"HTTP {exc.status}; body={exc.body_preview[:300]}"
+                ) from exc
         except RuntimeError as exc:
             if attempt == retries:
                 raise RuntimeError(f"GitHub API request failed: {exc}") from exc
@@ -66,7 +82,11 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
         time.sleep(delay_seconds)
         delay_seconds *= 2
 
+    raise RuntimeError("GitHub API request exhausted retries")
+
+
 def _render_md(payload: Dict[str, Any]) -> str:
+    """Render the required-context gate result as markdown."""
     lines = [
         "# Quality Zero Gate - Required Contexts",
         "",
@@ -94,24 +114,37 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
 
 def _build_commit_api_path(repo: str, sha: str) -> str:
+    """Build the GitHub API path prefix for the target commit."""
     owner, name = require_repo_slug(repo)
     checked_sha = require_sha(sha)
+    return (
+        f"/repos/{quote_segment(owner)}/{quote_segment(name)}/"
+        f"commits/{quote_segment(checked_sha)}"
+    )
 
-    owner_q = quote_segment(owner)
-    name_q = quote_segment(name)
-    sha_q = quote_segment(checked_sha)
-    return f"/repos/{owner_q}/{name_q}/commits/{sha_q}"
 
-
-def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRequestTarget:
+def _build_commit_api_target(
+    repo: str,
+    sha: str,
+    resource_path: str,
+) -> HTTPSRequestTarget:
+    """Build a commit-scoped GitHub API request target."""
     return build_https_request_target(
         host=HTTPSHost.GITHUB_API,
         path=f"{_build_commit_api_path(repo, sha)}{resource_path}",
     )
 
 
-def _fetch_check_payloads(repo: str, sha: str, token: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    check_runs = _api_get(_build_commit_api_target(repo, sha, "/check-runs?per_page=100"), token)
+def _fetch_check_payloads(
+    repo: str,
+    sha: str,
+    token: str,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Fetch the check-run and status payloads for a commit."""
+    check_runs = _api_get(
+        _build_commit_api_target(repo, sha, "/check-runs?per_page=100"),
+        token,
+    )
     statuses = _api_get(_build_commit_api_target(repo, sha, "/status"), token)
     return check_runs, statuses
 
@@ -121,8 +154,9 @@ def _collect_payload(
     required: List[str],
     token: str,
 ) -> Dict[str, Any]:
+    """Poll GitHub until required contexts either pass or settle in a failed state."""
     deadline = time.time() + max(args.timeout_seconds, 1)
-    final_payload: Optional[Dict[str, Any]] = None
+    final_payload: Dict[str, Any] | None = None
 
     while time.time() <= deadline:
         check_runs, statuses = _fetch_check_payloads(args.repo, args.sha, token)
@@ -153,8 +187,12 @@ def _collect_payload(
 
 
 def main() -> int:
+    """Run the required-checks gate and write result artifacts."""
     args = _parse_args()
-    token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
+    token = (
+        os.environ.get("GITHUB_TOKEN", "")
+        or os.environ.get("GH_TOKEN", "")
+    ).strip()
     required = [item.strip() for item in args.required_context if item.strip()]
 
     if not required:
@@ -165,12 +203,14 @@ def main() -> int:
     final_payload = _collect_payload(args, required, token)
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.REQUIRED_CHECKS)
-    out_json.write_text(json.dumps(final_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(final_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(final_payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
-
     return 0 if final_payload["status"] == "pass" else 1
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
+if __name__ == "__main__":
     raise SystemExit(main())

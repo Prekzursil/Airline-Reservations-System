@@ -69,7 +69,6 @@ describe('apiService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     globalThis.fetch = vi.fn();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -197,8 +196,14 @@ describe('apiService', () => {
   });
 
   it('rejects invalid API path inputs via normalizeApiPath guard', () => {
+    expect(() => __internal.normalizeApiPath('')).toThrow('Invalid API path');
     expect(() => __internal.normalizeApiPath('airplanes')).toThrow('Invalid API path');
     expect(() => __internal.normalizeApiPath('//airplanes')).toThrow('Invalid API path');
+  });
+
+  it('normalizes relative API base paths and rejects falsy values', () => {
+    expect(__internal.normalizeRelativeBasePath(null)).toBe('');
+    expect(__internal.normalizeRelativeBasePath('internal-api/')).toBe('/internal-api');
   });
 
   it('rejects unsafe path segment inputs', () => {

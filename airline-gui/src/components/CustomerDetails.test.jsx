@@ -10,8 +10,6 @@ vi.mock('../services/apiService', () => ({
 describe('CustomerDetails', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -105,8 +103,7 @@ describe('CustomerDetails', () => {
     ).toBeInTheDocument();
   });
 
-  it('does not cancel booking when confirmation is rejected', async () => {
-    globalThis.confirm.mockReturnValue(false);
+  it('does not cancel booking when the inline confirmation is dismissed', async () => {
     fetchCustomerDetails.mockResolvedValue({
       personId: 'C3',
       name: 'Chris',
@@ -118,9 +115,11 @@ describe('CustomerDetails', () => {
     render(<CustomerDetails customerId="C3" />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 21' }));
+    expect(screen.getByText('Confirm cancellation for booking 21.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep booking 21' }));
 
     expect(cancelBooking).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Cancelling booking 21.../)).not.toBeInTheDocument();
+    expect(screen.getByText('Cancellation kept.')).toBeInTheDocument();
   });
 
   it('cancels booking successfully and triggers refresh callback', async () => {
@@ -137,6 +136,7 @@ describe('CustomerDetails', () => {
     render(<CustomerDetails customerId="C4" onBookingCancelled={onBookingCancelled} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 31' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 31' }));
 
     expect(await screen.findByText('Booking 31 cancelled')).toBeInTheDocument();
     expect(cancelBooking).toHaveBeenCalledWith(31);
@@ -156,6 +156,7 @@ describe('CustomerDetails', () => {
     render(<CustomerDetails customerId="C4B" />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 32' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 32' }));
 
     expect(await screen.findByText('Booking 32 cancellation processed.')).toBeInTheDocument();
   });
@@ -173,6 +174,7 @@ describe('CustomerDetails', () => {
     render(<CustomerDetails customerId="C5" />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel booking 41' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 41' }));
 
     await waitFor(() => {
       expect(screen.getByText('Failed to cancel booking 41: Cancellation blocked')).toBeInTheDocument();

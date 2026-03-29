@@ -1,7 +1,7 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "Booking.h"
-#include <atomic>
 #include <cstdint>
+#include <functional>
 #include <format>
 #include <sstream>
 #include <string_view>
@@ -82,9 +82,26 @@ void initializeBookingState(
     bookingDateOut = std::chrono::system_clock::now();
     statusOut = BookingStatus::PENDING;
 }
-} // namespace
 
-std::atomic_uint64_t Booking::bookingSequence_{100};
+std::uint64_t bookingSuffixToken(
+    const std::chrono::system_clock::time_point timePoint,
+    std::string_view customerId,
+    std::string_view flightNumber,
+    std::string_view seatId
+) {
+    const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+        timePoint.time_since_epoch()
+    ).count();
+    const auto customerHash = std::hash<std::string_view>{}(customerId);
+    const auto flightHash = std::hash<std::string_view>{}(flightNumber);
+    const auto seatHash = std::hash<std::string_view>{}(seatId);
+
+    return static_cast<std::uint64_t>(microseconds)
+        ^ (customerHash << 1U)
+        ^ (flightHash << 7U)
+        ^ (seatHash << 13U);
+}
+} // namespace
 
 std::string bookingStatusToString(BookingStatus status) {
     using enum BookingStatus;
@@ -96,17 +113,14 @@ std::string bookingStatusToString(BookingStatus status) {
     }
 }
 
-std::uint64_t Booking::nextBookingSequence() {
-    return bookingSequence_.fetch_add(1, std::memory_order_relaxed);
-}
-
 std::string Booking::generateBookingId() const {
-    const auto now = std::chrono::system_clock::now();
-    const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    const auto sequence = nextBookingSequence();
+    const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+        bookingDate.time_since_epoch()
+    ).count();
+    const auto suffix = bookingSuffixToken(bookingDate, customerId, flightNumber, seatId);
 
     std::ostringstream stream;
-    stream << "BK" << microseconds << '-' << sequence;
+    stream << "BK" << microseconds << '-' << suffix;
     return stream.str();
 }
 

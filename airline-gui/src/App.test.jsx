@@ -46,9 +46,6 @@ vi.mock('./components/SwapSeatsForm', () => ({
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(globalThis, 'alert').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -124,9 +121,11 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mock Swap Seats' }));
     await waitFor(() => expect(fetchCustomers).toHaveBeenCalledTimes(3));
     expect(screen.getByTestId('refresh-trigger')).toHaveTextContent('3');
-    expect(globalThis.alert).toHaveBeenCalledWith(
-      'Seats swapped. Customer details (if viewing) and booking lists refreshed. You may need to re-select a flight to see seat map updates.'
-    );
+    expect(
+      screen.getByText(
+        'Seats swapped. Customer details and booking lists were refreshed. Re-select the flight if you need a fresh seat map.'
+      )
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Alice (ID: C1)'));
     expect(screen.getByText('Mock CustomerDetails for C1')).toBeInTheDocument();

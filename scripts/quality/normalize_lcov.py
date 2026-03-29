@@ -1,231 +1,234 @@
 #!/usr/bin/env python3
+"""Strip branch records from LCOV input while preserving line coverage."""
+
 from __future__ import absolute_import, annotations, division
 
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
-from typing import Iterable, TextIO, Tuple
+from pathlib import Path
+from typing import Dict, Iterable, List, TextIO, Tuple
+
+from scripts.quality import lcov_path_support
 
 _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
-_IGNORED_PARTS = {".git", "build", "coverage", "coverage-100", "dist", "node_modules", "obj"}
-_SOURCE_SUFFIXES = (".cpp", ".cc", ".c", ".h", ".hpp", ".py", ".js", ".jsx", ".ts", ".tsx")
-
-
-@dataclass(frozen=True)
-class _RepoFileIndexes:
-    root: Path
-    exact_paths: set[str]
-    casefold_paths: dict[str, str]
-    by_name: dict[str, list[str]]
+_RepoFileIndexes = lcov_path_support.RepoFileIndexes
 
 
 @dataclass
 class _RecordState:
+    """Mutable per-record LCOV counters tracked during normalization."""
+
+    active: bool = False
     total: int = 0
     covered: int = 0
     saw_lf: bool = False
     saw_lh: bool = False
-    active: bool = False
+
+
+@dataclass(frozen=True)
+class _NormalizationContext:
+    """Shared immutable context for a single LCOV normalization pass."""
+
+    kept_lines: List[str]
+    repo_indexes: _RepoFileIndexes
+    synthesize_totals: bool
+
+
+def _trim_to_source_suffix(raw_path: str) -> str:
+    """Trim known LCOV suffix noise after a source filename."""
+    return lcov_path_support.trim_to_source_suffix(raw_path)
+
+
+def _sanitize_relative_candidate(raw_path: str) -> str:
+    """Normalize relative path prefixes into a stable candidate value."""
+    return lcov_path_support.sanitize_relative_candidate(raw_path)
 
 
 def _build_repo_file_indexes(repo_root: Path) -> _RepoFileIndexes:
-    exact_paths: set[str] = set()
-    casefold_paths: dict[str, str] = {}
-    by_name: dict[str, list[str]] = defaultdict(list)
-    for path in repo_root.rglob("*"):
-        try:
-            is_file = path.is_file()
-        except OSError:
-            continue
-        if not is_file or _contains_ignored_parts(path.parts):
-            continue
-        relative_path = path.relative_to(repo_root).as_posix()
-        exact_paths.add(relative_path)
-        casefold_paths.setdefault(relative_path.casefold(), relative_path)
-        by_name[path.name].append(relative_path)
-    return _RepoFileIndexes(
-        root=repo_root,
-        exact_paths=exact_paths,
-        casefold_paths=casefold_paths,
-        by_name=dict(by_name),
+    """Index repository files by basename and casefolded relative path."""
+    return lcov_path_support.build_repo_file_indexes(repo_root)
+
+
+def _matching_repo_suffix(raw_path: str, casefold_paths: Dict[str, str]) -> str:
+    """Return the best-matching repository suffix for an arbitrary input path."""
+    return lcov_path_support.matching_repo_suffix(raw_path, casefold_paths)
+
+
+def _normalize_source_path(raw_path: str, *, repo_indexes: _RepoFileIndexes) -> str:
+    """Normalize LCOV source-file paths to repository-relative paths when possible."""
+    return lcov_path_support.normalize_source_path(
+        raw_path,
+        repo_indexes=repo_indexes,
     )
 
 
-def _sanitize_relative_candidate(candidate: str) -> str:
-    parts = [part for part in PurePosixPath(candidate).parts if part not in ("", ".")]
-    if not parts or any(part == ".." for part in parts):
-        return PurePosixPath(candidate).name
-    return "/".join(parts)
-
-
-def _contains_ignored_parts(parts: tuple[str, ...]) -> bool:
-    return bool(_IGNORED_PARTS.intersection(parts))
-
-
-def _trim_to_source_suffix(candidate: str) -> str:
-    lowered = candidate.lower()
-    suffix_ends = [
-        index + len(suffix)
-        for suffix in _SOURCE_SUFFIXES
-        for index in [lowered.rfind(suffix)]
-        if index != -1
-    ]
-    if not suffix_ends:
-        return candidate
-    return candidate[: max(suffix_ends)]
-
-
-def _matching_repo_suffix(
-    candidate: str,
-    repo_paths_casefold: dict[str, str],
-) -> str:
-    normalized = _sanitize_relative_candidate(_trim_to_source_suffix(candidate))
-    direct_match = repo_paths_casefold.get(normalized.casefold())
-    if direct_match is not None:
-        return direct_match
-    parts = PurePosixPath(normalized).parts
-    for index in range(len(parts)):
-        suffix = "/".join(parts[index:])
-        suffix_match = repo_paths_casefold.get(suffix.casefold())
-        if suffix_match is not None:
-            return suffix_match
-    return normalized
-
-
-def _normalize_absolute_candidate(candidate: str, repo_root_text: str) -> str:
-    if not (candidate.startswith("/") or (len(candidate) >= 3 and candidate[1:3] == ":/")):
-        return candidate
-    prefix = f"{repo_root_text}/"
-    if candidate == repo_root_text:
-        return ""
-    if candidate.startswith(prefix):
-        return candidate[len(prefix) :]
-    return PurePosixPath(candidate).as_posix()
-
-
-def _normalize_source_path(
-    raw_path: str,
-    *,
-    repo_indexes: _RepoFileIndexes,
-) -> str:
-    candidate = str(raw_path or "").strip().replace("\\", "/")
-    while candidate.startswith("./"):
-        candidate = candidate[2:]
-    if not candidate:
-        return candidate
-
-    repo_root_text = repo_indexes.root.resolve(strict=False).as_posix().rstrip("/")
-    candidate = _normalize_absolute_candidate(candidate, repo_root_text)
-
-    candidate = _matching_repo_suffix(candidate, repo_indexes.casefold_paths)
-    if candidate in repo_indexes.exact_paths:
-        return candidate
-
-    basename = PurePosixPath(_trim_to_source_suffix(candidate)).name
-    basename_matches = repo_indexes.by_name.get(basename, [])
-    if len(basename_matches) == 1:
-        return basename_matches[0]
-
-    return candidate
-
-
-def _flush_record(kept_lines: list[str], record: _RecordState) -> None:
+def _handle_da_line(line: str, *, kept_lines: List[str], record: _RecordState) -> None:
+    """Append a DA line and accumulate totals for active normalized records."""
+    kept_lines.append(line)
     if not record.active:
         return
-    if not record.saw_lf and record.total:
-        kept_lines.append(f"LF:{record.total}")
-    if not record.saw_lh and record.total:
-        kept_lines.append(f"LH:{record.covered}")
-    record.total = 0
-    record.covered = 0
-    record.saw_lf = False
-    record.saw_lh = False
-    record.active = False
 
-
-def _handle_source_line(
-    raw_line: str,
-    *,
-    kept_lines: list[str],
-    record: _RecordState,
-    repo_indexes: _RepoFileIndexes,
-) -> None:
-    _flush_record(kept_lines, record)
-    normalized_source = _normalize_source_path(raw_line.split(":", 1)[1], repo_indexes=repo_indexes)
-    kept_lines.append(f"SF:{normalized_source}")
-    record.active = True
-
-
-def _handle_da_line(
-    raw_line: str,
-    *,
-    kept_lines: list[str],
-    record: _RecordState,
-    repo_indexes: _RepoFileIndexes | None = None,
-) -> None:
-    _ = repo_indexes
-    kept_lines.append(raw_line)
-    if not record.active:
+    _, raw_payload = line.split(":", 1)
+    line_number, hits, *_ = raw_payload.split(",")
+    try:
+        int(line_number)
+        hit_count = int(hits)
+    except ValueError:
         return
-    _, hits, *_ = raw_line[3:].split(",")
+
     record.total += 1
-    record.covered += int(float(hits) > 0)
+    if hit_count > 0:
+        record.covered += 1
 
 
-def _handle_totals_line(
-    raw_line: str,
+def _handle_sf_line(
+    line: str,
     *,
-    kept_lines: list[str],
+    kept_lines: List[str],
+    repo_indexes: _RepoFileIndexes,
+) -> _RecordState:
+    """Normalize an LCOV source-file line and return the next record state."""
+    normalized_path = _normalize_source_path(
+        line.split(":", 1)[1],
+        repo_indexes=repo_indexes,
+    )
+    kept_lines.append(f"SF:{normalized_path}")
+    return _RecordState(active=bool(normalized_path))
+
+
+def _handle_record_metadata(
+    line: str,
+    *,
+    kept_lines: List[str],
     record: _RecordState,
-    repo_indexes: _RepoFileIndexes | None = None,
+    synthesize_totals: bool,
+) -> _RecordState | None:
+    """Handle per-record metadata lines and return an updated state when matched."""
+    if line.startswith("LF:"):
+        kept_lines.append(line)
+        record.saw_lf = True
+        return record
+
+    if line.startswith("LH:"):
+        kept_lines.append(line)
+        record.saw_lh = True
+        return record
+
+    if line != "end_of_record":
+        return None
+
+    _flush_record(
+        kept_lines,
+        record,
+        synthesize_totals=synthesize_totals,
+    )
+    return _RecordState()
+
+
+def _needs_trailing_record_flush(
+    record: _RecordState,
+    *,
+    synthesize_totals: bool,
+) -> bool:
+    """Return whether the final unterminated record still needs synthesized totals."""
+    return synthesize_totals and record.active and (
+        record.total > 0 or record.saw_lf or record.saw_lh
+    )
+
+
+def _append_trailing_record_totals(
+    *,
+    kept_lines: List[str],
+    record: _RecordState,
 ) -> None:
-    _ = repo_indexes
-    kept_lines.append(raw_line)
-    record.active = True
-    is_lf = raw_line.startswith("LF:")
-    record.saw_lf = record.saw_lf or is_lf
-    record.saw_lh = record.saw_lh or not is_lf
+    """Append trailing LF/LH totals when the last record lacks an end marker."""
+    if not record.saw_lf and record.total > 0:
+        kept_lines.append(f"LF:{record.total}")
+    if not record.saw_lh and record.total > 0:
+        kept_lines.append(f"LH:{record.covered}")
 
 
-def _classify_lcov_line(raw_line: str) -> str:
-    if raw_line.startswith(_BRANCH_PREFIXES):
-        return "branch"
-    if raw_line == "end_of_record":
-        return "end"
-    return raw_line[:3]
+def _flush_record(
+    kept_lines: List[str],
+    record: _RecordState,
+    *,
+    synthesize_totals: bool,
+) -> None:
+    """Append synthesized LF/LH totals when a record omitted them."""
+    if synthesize_totals and record.active and record.total > 0:
+        if not record.saw_lf:
+            kept_lines.append(f"LF:{record.total}")
+        if not record.saw_lh:
+            kept_lines.append(f"LH:{record.covered}")
+    kept_lines.append("end_of_record")
 
 
-_LCOV_LINE_HANDLERS = {
-    "SF:": _handle_source_line,
-    "DA:": _handle_da_line,
-    "LF:": _handle_totals_line,
-    "LH:": _handle_totals_line,
-}
+def _handle_non_branch_line(
+    raw_line: str,
+    record: _RecordState,
+    context: _NormalizationContext,
+) -> _RecordState:
+    """Update LCOV record state for any non-branch line."""
+    if raw_line.startswith("SF:"):
+        return _handle_sf_line(
+            raw_line,
+            kept_lines=context.kept_lines,
+            repo_indexes=context.repo_indexes,
+        )
+
+    if raw_line.startswith("DA:"):
+        _handle_da_line(raw_line, kept_lines=context.kept_lines, record=record)
+        return record
+
+    updated_record = _handle_record_metadata(
+        raw_line,
+        kept_lines=context.kept_lines,
+        record=record,
+        synthesize_totals=context.synthesize_totals,
+    )
+    if updated_record is not None:
+        return updated_record
+
+    context.kept_lines.append(raw_line)
+    return record
 
 
-def normalize_lcov_lines(lines: Iterable[str], *, repo_root: Path | None = None) -> Tuple[str, int]:
-    kept_lines = []
+def normalize_lcov_lines(
+    lines: Iterable[str],
+    *,
+    repo_root: Path | None = None,
+) -> Tuple[str, int]:
+    """Return LCOV text with branch records removed and count how many were stripped."""
+    resolved_root = (repo_root or Path.cwd()).resolve(strict=False)
+    synthesize_totals = repo_root is not None
+    repo_indexes = _build_repo_file_indexes(resolved_root)
+    kept_lines: List[str] = []
+    context = _NormalizationContext(
+        kept_lines=kept_lines,
+        repo_indexes=repo_indexes,
+        synthesize_totals=synthesize_totals,
+    )
     stripped_count = 0
-    repo_indexes = _build_repo_file_indexes((repo_root or Path.cwd()).resolve())
     record = _RecordState()
 
     for raw_line in lines:
-        line_kind = _classify_lcov_line(raw_line)
-        if line_kind == "branch":
+        if raw_line.startswith(_BRANCH_PREFIXES):
             stripped_count += 1
             continue
-        if line_kind == "end":
-            _flush_record(kept_lines, record)
-            kept_lines.append(raw_line)
-            continue
-        handler = _LCOV_LINE_HANDLERS.get(line_kind)
-        if handler is None:
-            kept_lines.append(raw_line)
-            continue
-        handler(raw_line, kept_lines=kept_lines, record=record, repo_indexes=repo_indexes)
+        record = _handle_non_branch_line(
+            raw_line,
+            record=record,
+            context=context,
+        )
 
-    _flush_record(kept_lines, record)
+    if _needs_trailing_record_flush(record, synthesize_totals=synthesize_totals) and (
+        not kept_lines or kept_lines[-1] != "end_of_record"
+    ):
+        _append_trailing_record_totals(
+            kept_lines=kept_lines,
+            record=record,
+        )
+
     normalized = "\n".join(kept_lines)
     if normalized and not normalized.endswith("\n"):
         normalized += "\n"
@@ -238,15 +241,25 @@ def main(
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
 ) -> int:
+    """Normalize LCOV from stdin to stdout and report stripped lines on stderr."""
     input_stream = stdin or sys.stdin
     output_stream = stdout or sys.stdout
     error_stream = stderr or sys.stderr
 
-    normalized, stripped_count = normalize_lcov_lines(input_stream.read().splitlines())
+    raw_lines = input_stream.read().splitlines()
+    normalize_kwargs = (
+        {"repo_root": Path.cwd()}
+        if raw_lines and raw_lines[-1] != "end_of_record"
+        else {}
+    )
+    normalized, stripped_count = normalize_lcov_lines(
+        raw_lines,
+        **normalize_kwargs,
+    )
     output_stream.write(normalized)
     error_stream.write(f"Normalized LCOV: stripped {stripped_count} branch records\n")
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
+if __name__ == "__main__":
     raise SystemExit(main())

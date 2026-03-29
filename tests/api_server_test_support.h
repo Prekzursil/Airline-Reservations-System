@@ -10,29 +10,29 @@ constexpr int kTestPortCount = 32;
 class ScopedStreamRedirect {
 public:
     ScopedStreamRedirect(std::ostream& stream, const std::ostream& target)
-        : stream_(stream), original_(stream.rdbuf(target.rdbuf())) {}
+        : stream_(&stream), original_(stream.rdbuf(target.rdbuf())) {}
 
     ~ScopedStreamRedirect() {
-        stream_.rdbuf(original_);
+        stream_->rdbuf(original_);
     }
 
     ScopedStreamRedirect(const ScopedStreamRedirect&) = delete;
     ScopedStreamRedirect& operator=(const ScopedStreamRedirect&) = delete;
 
 private:
-    std::ostream& stream_;
+    std::ostream* stream_;
     std::streambuf* original_;
 };
 
 class ScopedServerShutdown {
 public:
     ScopedServerShutdown(httplib::Server& server, std::jthread& server_thread)
-        : server_(server), server_thread_(server_thread) {}
+        : server_(&server), server_thread_(&server_thread) {}
 
     ~ScopedServerShutdown() {
-        server_.stop();
-        if (server_thread_.joinable()) {
-            server_thread_.join();
+        server_->stop();
+        if (server_thread_->joinable()) {
+            server_thread_->join();
         }
     }
 
@@ -40,8 +40,8 @@ public:
     ScopedServerShutdown& operator=(const ScopedServerShutdown&) = delete;
 
 private:
-    httplib::Server& server_;
-    std::jthread& server_thread_;
+    httplib::Server* server_;
+    std::jthread* server_thread_;
 };
 
 bool wait_for_status(const int port, const std::string& path, const int expected_status) {

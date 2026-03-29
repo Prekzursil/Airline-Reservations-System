@@ -1,3 +1,5 @@
+"""Cover path-normalization helpers used by quality and coverage scripts."""
+
 from __future__ import absolute_import, division
 
 import contextlib
@@ -7,13 +9,16 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import List
 from unittest import mock
 
 from scripts.quality import coverage_parsers as parsers
 from scripts.quality import normalize_lcov
 
+
 @contextlib.contextmanager
 def _temporary_cwd(path: Path):
+    """Temporarily switch the process working directory for a test scope."""
     previous = Path.cwd()
     os.chdir(path)
     try:
@@ -24,6 +29,7 @@ def _temporary_cwd(path: Path):
 
 @contextlib.contextmanager
 def _normalize_lcov_fixture():
+    """Build a temporary repo tree that exercises LCOV normalization branches."""
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_root = Path(temp_dir)
         source_dir = Path(repo_root / "src")
@@ -47,6 +53,7 @@ def _normalize_lcov_fixture():
         original_is_file = Path.is_file
 
         def _patched_is_file(path: Path) -> bool:
+            """Simulate an unreadable file while leaving other lookups unchanged."""
             if path.name == "ignored.py":
                 raise OSError("access denied")
             return original_is_file(path)
@@ -59,6 +66,7 @@ def _normalize_lcov_fixture():
 
 @contextlib.contextmanager
 def _coverage_parser_fixture():
+    """Create temporary coverage artifacts for parser fallback coverage tests."""
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         lcov_path = Path(temp_path / "coverage.lcov")
@@ -108,7 +116,12 @@ def _coverage_parser_fixture():
 
 
 class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
-    def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(self) -> None:
+    """Exercise path and coverage helpers that feed the repo quality gates."""
+
+    def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(
+        self,
+    ) -> None:
+        """Cover candidate sanitization and unreadable-file handling in repo indexes."""
         with _normalize_lcov_fixture() as (_, repo_indexes):
             repo_file_index = repo_indexes.by_name
 
@@ -134,6 +147,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
             )
 
     def test_matching_repo_suffix_handles_exact_and_trimmed_paths(self) -> None:
+        """Match normalized suffixes for direct, trimmed, and parent-relative paths."""
         with _normalize_lcov_fixture() as (_, repo_indexes):
             self.assertEqual(
                 normalize_lcov._matching_repo_suffix(
@@ -143,15 +157,22 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 "src/main.cpp",
             )
             self.assertEqual(
-                normalize_lcov._matching_repo_suffix("src/main.cpp", repo_indexes.casefold_paths),
+                normalize_lcov._matching_repo_suffix(
+                    "src/main.cpp",
+                    repo_indexes.casefold_paths,
+                ),
                 "src/main.cpp",
             )
             self.assertEqual(
-                normalize_lcov._matching_repo_suffix("../main.cpp", repo_indexes.casefold_paths),
+                normalize_lcov._matching_repo_suffix(
+                    "../main.cpp",
+                    repo_indexes.casefold_paths,
+                ),
                 "main.cpp",
             )
 
     def test_normalize_source_path_handles_repo_and_outside_inputs(self) -> None:
+        """Normalize repo-local, absolute, empty, and unmatched source path inputs."""
         with _normalize_lcov_fixture() as (repo_root, repo_indexes):
             repo_root_posix = repo_root.resolve(strict=False).as_posix()
             expected_cases = [
@@ -175,6 +196,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                     )
 
     def test_normalize_lcov_lines_and_main_strip_branch_records(self) -> None:
+        """Strip branch records and keep the CLI entry point output deterministic."""
         with _normalize_lcov_fixture() as (repo_root, _):
             normalized, stripped = normalize_lcov.normalize_lcov_lines(
                 [
@@ -208,10 +230,16 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                     stderr=stderr,
                 )
             self.assertEqual(result, 0)
-            self.assertEqual(stdout.getvalue(), "SF:src/main.cpp\nDA:2,1\nLF:1\nLH:1\n")
+            self.assertEqual(
+                stdout.getvalue(),
+                "SF:src/main.cpp\nDA:2,1\nLF:1\nLH:1\n",
+            )
             self.assertIn("stripped 1 branch records", stderr.getvalue())
 
-    def test_normalize_source_path_matches_casefolded_suffix_for_outside_paths(self) -> None:
+    def test_normalize_source_path_matches_casefolded_suffix_for_outside_paths(
+        self,
+    ) -> None:
+        """Resolve outside-the-repo paths by matching a casefolded repo suffix."""
         with _normalize_lcov_fixture() as (_, repo_indexes):
             self.assertEqual(
                 normalize_lcov._normalize_source_path(
@@ -222,6 +250,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
             )
 
     def test_normalize_lcov_lines_synthesizes_lf_lh_from_da_records(self) -> None:
+        """Synthesize LF and LH records when LCOV input only contains DA entries."""
         with _normalize_lcov_fixture() as (repo_root, _):
             normalized, stripped = normalize_lcov.normalize_lcov_lines(
                 [
@@ -240,6 +269,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         )
 
     def test_normalize_lcov_lines_preserves_existing_lf_lh_records(self) -> None:
+        """Keep explicit LF and LH lines intact when the input already provides them."""
         with _normalize_lcov_fixture() as (repo_root, _):
             normalized, stripped = normalize_lcov.normalize_lcov_lines(
                 [
@@ -259,7 +289,8 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         )
 
     def test_handle_da_line_ignores_inactive_records(self) -> None:
-        kept_lines: list[str] = []
+        """Leave inactive record counters unchanged when processing DA lines."""
+        kept_lines: List[str] = []
         record = normalize_lcov._RecordState()
         normalize_lcov._handle_da_line("DA:7,1", kept_lines=kept_lines, record=record)
 
@@ -268,6 +299,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         self.assertEqual(record.covered, 0)
 
     def test_lcov_and_istanbul_parsers_cover_fallback_and_exclusions(self) -> None:
+        """Cover parser fallbacks, exclusions, and non-dict entries across formats."""
         parsers._excluded_line_numbers.cache_clear()
         with _coverage_parser_fixture() as (
             lcov_path,
@@ -307,9 +339,16 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         self.assertIsNone(parsers._lookup_repo_source_lines("/abs/path.cpp"))
         self.assertEqual(parsers._safe_int("bad"), 0)
 
-    def test_parser_helper_branches_cover_empty_inputs_and_repo_prefixes(self) -> None:
+    def test_parser_helper_branches_cover_empty_inputs_and_escape_paths(self) -> None:
+        """Exercise parser helper branches for empty inputs and escaped lookups."""
         self.assertEqual(
-            parsers.CoverageStats(name="empty", path="x", covered=0, total=0).percent, 100.0
+            parsers.CoverageStats(
+                name="empty",
+                path="x",
+                covered=0,
+                total=0,
+            ).percent,
+            100.0,
         )
         self.assertTrue(parsers._include_lcov_line(None, 0))
         self.assertIsNone(parsers._lookup_repo_source_lines("../escape.cpp"))
@@ -323,25 +362,45 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 ("int handleReservation();",),
             )
 
+    def test_parser_helper_branches_cover_repo_prefixed_paths(self) -> None:
+        """Resolve repo-prefixed paths against cached repo source lines."""
         repo_relative = "src/sample.cpp"
         sample_lines = ("int main() {", "return 0;", "}")
         repo_prefixed = parsers.REPO_ROOT.as_posix().rstrip("/") + "/" + repo_relative
-        with mock.patch.dict(parsers.REPO_SOURCE_LINES, {repo_relative: sample_lines}, clear=False):
-            self.assertEqual(parsers._lookup_repo_source_lines(repo_prefixed), sample_lines)
+        with mock.patch.dict(
+            parsers.REPO_SOURCE_LINES,
+            {repo_relative: sample_lines},
+            clear=False,
+        ):
             self.assertEqual(
-                parsers._lookup_repo_source_lines(f"repo/{repo_relative}"), sample_lines
+                parsers._lookup_repo_source_lines(repo_prefixed),
+                sample_lines,
+            )
+            self.assertEqual(
+                parsers._lookup_repo_source_lines(f"repo/{repo_relative}"),
+                sample_lines,
             )
 
+    def test_parser_helper_branches_cover_bad_final_payloads(self) -> None:
+        """Return empty coverage stats when Istanbul final payloads are malformed."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             not_dict_path = Path(temp_path / "not-dict.json")
             not_dict_path.write_text(json.dumps(["bad"]), encoding="utf-8")
             bad_statements_path = Path(temp_path / "bad-statements.json")
-            bad_statements_path.write_text(json.dumps({"a.js": {"s": []}}), encoding="utf-8")
+            bad_statements_path.write_text(
+                json.dumps({"a.js": {"s": []}}),
+                encoding="utf-8",
+            )
 
             not_dict_stats = parsers.parse_istanbul_final("node", not_dict_path)
-            bad_statement_stats = parsers.parse_istanbul_final("node", bad_statements_path)
+            bad_statement_stats = parsers.parse_istanbul_final(
+                "node",
+                bad_statements_path,
+            )
 
         self.assertEqual((not_dict_stats.covered, not_dict_stats.total), (0, 0))
-        self.assertEqual((bad_statement_stats.covered, bad_statement_stats.total), (0, 0))
-
+        self.assertEqual(
+            (bad_statement_stats.covered, bad_statement_stats.total),
+            (0, 0),
+        )

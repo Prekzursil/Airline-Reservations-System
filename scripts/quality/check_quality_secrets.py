@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Validate that quality-gate secrets and variables are configured."""
+
 from __future__ import absolute_import, annotations, division
 
 import argparse
@@ -23,13 +25,27 @@ DEFAULT_REQUIRED_VARS = [
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate required quality-gate secrets/variables are configured.")
-    parser.add_argument("--required-secret", action="append", default=[], help="Additional required secret env var")
-    parser.add_argument("--required-var", action="append", default=[], help="Additional required variable env var")
+    """Parse CLI arguments for the quality-secrets preflight."""
+    parser = argparse.ArgumentParser(
+        description="Validate required quality-gate secrets/variables are configured."
+    )
+    parser.add_argument(
+        "--required-secret",
+        action="append",
+        default=[],
+        help="Additional required secret env var",
+    )
+    parser.add_argument(
+        "--required-var",
+        action="append",
+        default=[],
+        help="Additional required variable env var",
+    )
     return parser.parse_args()
 
 
 def _dedupe(items: List[str]) -> List[str]:
+    """Preserve input order while removing blank and duplicate items."""
     seen: Set[str] = set()
     out: List[str] = []
     for item in items:
@@ -42,10 +58,12 @@ def _dedupe(items: List[str]) -> List[str]:
 
 
 def _is_configured(name: str) -> bool:
+    """Return whether the named environment variable is present."""
     return name in os.environ
 
 
 def _partition_presence(required: List[str]) -> Dict[str, List[str]]:
+    """Split required environment variable names into present and missing lists."""
     missing = [name for name in required if not _is_configured(name)]
     present = [name for name in required if name not in missing]
     return {
@@ -54,7 +72,11 @@ def _partition_presence(required: List[str]) -> Dict[str, List[str]]:
     }
 
 
-def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[str, List[str]]:
+def evaluate_env(
+    required_secrets: List[str],
+    required_vars: List[str],
+) -> Dict[str, List[str]]:
+    """Return present and missing secret and variable names."""
     secrets = _partition_presence(required_secrets)
     vars_payload = _partition_presence(required_vars)
     return {
@@ -65,17 +87,28 @@ def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[
     }
 
 
-def evaluate_env_counts(required_secrets: List[str], required_vars: List[str]) -> Dict[str, Any]:
-    missing_secret_count = sum(1 for name in required_secrets if not _is_configured(name))
+def evaluate_env_counts(
+    required_secrets: List[str],
+    required_vars: List[str],
+) -> Dict[str, Any]:
+    """Return only pass/fail counts so artifacts avoid secret-derived details."""
+    missing_secret_count = sum(
+        1 for name in required_secrets if not _is_configured(name)
+    )
     missing_var_count = sum(1 for name in required_vars if not _is_configured(name))
     return {
-        "status": "pass" if missing_secret_count == 0 and missing_var_count == 0 else "fail",
+        "status": (
+            "pass"
+            if missing_secret_count == 0 and missing_var_count == 0
+            else "fail"
+        ),
         "missing_secret_count": missing_secret_count,
         "missing_var_count": missing_var_count,
     }
 
 
 def _render_md(*, timestamp_utc: str) -> str:
+    """Render the sanitized quality-secrets report as markdown."""
     lines = [
         "# Quality Secrets Preflight",
         "",
@@ -88,8 +121,11 @@ def _render_md(*, timestamp_utc: str) -> str:
 
 
 def main() -> int:
+    """Run the quality-secrets preflight and write sanitized artifacts."""
     args = _parse_args()
-    required_secrets = _dedupe(DEFAULT_REQUIRED_SECRETS + list(args.required_secret or []))
+    required_secrets = _dedupe(
+        DEFAULT_REQUIRED_SECRETS + list(args.required_secret or [])
+    )
     required_vars = _dedupe(DEFAULT_REQUIRED_VARS + list(args.required_var or []))
 
     result = evaluate_env_counts(required_secrets, required_vars)
@@ -102,7 +138,10 @@ def main() -> int:
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
-    out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(timestamp_utc=timestamp_utc), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 

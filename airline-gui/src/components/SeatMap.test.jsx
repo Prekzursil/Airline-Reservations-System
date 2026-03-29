@@ -58,9 +58,6 @@ const baseSeats = [
 describe('SeatMap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -81,7 +78,7 @@ describe('SeatMap', () => {
   });
 
   it('shows loading customers indicator while customer list is still being fetched', async () => {
-    let resolveCustomers;
+    let resolveCustomers = (_customers) => undefined;
     const customersPromise = new Promise((resolve) => {
       resolveCustomers = resolve;
     });
@@ -98,7 +95,7 @@ describe('SeatMap', () => {
     });
   });
 
-  it('handles booked-seat info and cancel-booking confirm/no-confirm/success/failure branches', async () => {
+  it('handles booked-seat info and inline cancel-booking confirmation branches', async () => {
     const onBookingSuccess = vi.fn();
     fetchCustomers.mockResolvedValue([{ personId: 'C1', name: 'Alice' }]);
 
@@ -107,13 +104,15 @@ describe('SeatMap', () => {
     fireEvent.click(await screen.findByText('1A'));
     expect(screen.getByText('Seat 1A: Booked by Customer ID C-BOOKED.')).toBeInTheDocument();
 
-    globalThis.confirm.mockReturnValueOnce(false);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
+    expect(screen.getByText('Confirm cancellation for booking 501.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep booking 501' }));
     expect(cancelBooking).not.toHaveBeenCalled();
+    expect(screen.getByText('Cancellation kept.')).toBeInTheDocument();
 
-    globalThis.confirm.mockReturnValueOnce(true);
     cancelBooking.mockResolvedValueOnce({ message: 'Booking 501 cancelled' });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 501' }));
 
     expect(await screen.findByText('Booking 501 cancelled')).toBeInTheDocument();
     expect(cancelBooking).toHaveBeenCalledWith(501);
@@ -121,6 +120,7 @@ describe('SeatMap', () => {
 
     cancelBooking.mockResolvedValueOnce({});
     fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 501' }));
 
     expect(
       await screen.findByText('Booking 501 cancellation processed.')
@@ -128,6 +128,7 @@ describe('SeatMap', () => {
 
     cancelBooking.mockRejectedValueOnce(new Error('cancel failed'));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 501' }));
 
     expect(await screen.findByText('Failed to cancel booking 501: cancel failed')).toBeInTheDocument();
   });
