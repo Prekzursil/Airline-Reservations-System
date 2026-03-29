@@ -146,7 +146,7 @@ def _http_module():
 
 def _require_identifier(raw: str, *, rules: IdentifierRules) -> str:
     """Validate a simple identifier against length and character constraints."""
-    return _validation_module()._require_identifier(raw, rules=rules)
+    return _validation_module().require_identifier(raw, rules=rules)
 
 
 def normalize_https_url(
@@ -237,17 +237,17 @@ def build_https_request_target(
 
 def _https_connection() -> Any:
     """Return the HTTPS connection factory from the standard library."""
-    return _http_module()._https_connection()
+    return _http_module().https_connection()
 
 
 def _normalized_http_method(method: str) -> str:
     """Normalize and validate a supported HTTP method."""
-    return _http_module()._normalized_http_method(method)
+    return _http_module().normalized_http_method(method)
 
 
 def _safe_timeout_seconds(timeout: int) -> int:
     """Clamp timeout configuration to a narrow, safe integer range."""
-    return _http_module()._safe_timeout_seconds(timeout)
+    return _http_module().safe_timeout_seconds(timeout)
 
 
 def _merge_safe_headers(
@@ -256,7 +256,7 @@ def _merge_safe_headers(
     include_json_content_type: bool,
 ) -> Headers:
     """Merge user headers into a validated default JSON header set."""
-    return _http_module()._merge_safe_headers(
+    return _http_module().merge_safe_headers(
         headers,
         include_json_content_type=include_json_content_type,
     )

@@ -19,11 +19,21 @@ def _https_connection() -> Any:
     return http.client.HTTPSConnection
 
 
+def https_connection() -> Any:
+    """Return the HTTPS connection factory exposed for shared helper wrappers."""
+    return _https_connection()
+
+
 def _normalized_http_method(method: str) -> str:
     value = (method or "").strip().upper()
     if value not in {"DELETE", "GET", "PATCH", "POST", "PUT"}:
         raise ValueError(f"Unsupported HTTP method: {method!r}")
     return value
+
+
+def normalized_http_method(method: str) -> str:
+    """Normalize and validate a supported HTTP method."""
+    return _normalized_http_method(method)
 
 
 def _safe_timeout_seconds(timeout: int) -> int:
@@ -34,6 +44,11 @@ def _safe_timeout_seconds(timeout: int) -> int:
     if checked < 1 or checked > 300:
         raise ValueError(f"Timeout must be between 1 and 300 seconds: {timeout!r}")
     return checked
+
+
+def safe_timeout_seconds(timeout: int) -> int:
+    """Clamp timeout configuration to the accepted safe range."""
+    return _safe_timeout_seconds(timeout)
 
 
 def _contains_control_characters(value: str) -> bool:
@@ -63,6 +78,18 @@ def _merge_safe_headers(headers: Optional[Dict[str, str]], *, include_json_conte
     if include_json_content_type:
         final_headers.setdefault("Content-Type", _JSON_CONTENT_TYPE)
     return final_headers
+
+
+def merge_safe_headers(
+    headers: Optional[Dict[str, str]],
+    *,
+    include_json_content_type: bool,
+) -> Dict[str, str]:
+    """Merge caller headers into the validated default JSON header set."""
+    return _merge_safe_headers(
+        headers,
+        include_json_content_type=include_json_content_type,
+    )
 
 
 def _request_https_payload(*, target: HTTPSRequestTarget, options: Optional[HTTPSRequestOptions] = None) -> HTTPSResponsePayload:

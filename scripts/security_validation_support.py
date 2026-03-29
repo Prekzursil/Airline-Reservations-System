@@ -30,6 +30,11 @@ def _require_identifier(raw: str, *, rules: IdentifierRules) -> str:
     return value
 
 
+def require_identifier(raw: str, *, rules: IdentifierRules) -> str:
+    """Validate a simple identifier using the shared identifier rules."""
+    return _require_identifier(raw, rules=rules)
+
+
 def _has_invalid_host_characters(host: str) -> bool:
     return any(ch not in _HOST_CHARS for ch in host)
 

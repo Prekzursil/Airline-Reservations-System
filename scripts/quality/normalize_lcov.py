@@ -9,11 +9,24 @@ from pathlib import Path, PurePosixPath
 from typing import Dict, Iterable, List, TextIO, Tuple
 
 _BRANCH_PREFIXES = ("BRDA:", "BRF:", "BRH:")
-_SOURCE_SUFFIXES = (".cpp", ".h", ".hpp", ".c", ".cc", ".py", ".js", ".jsx", ".ts", ".tsx")
+_SOURCE_SUFFIXES = (
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".c",
+    ".cc",
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+)
 
 
 @dataclass(frozen=True)
 class _RepoFileIndexes:
+    """Repository-relative lookup indexes used for LCOV path normalization."""
+
     repo_root: Path
     by_name: Dict[str, List[str]]
     casefold_paths: Dict[str, str]
@@ -21,6 +34,8 @@ class _RepoFileIndexes:
 
 @dataclass
 class _RecordState:
+    """Mutable per-record LCOV counters tracked during normalization."""
+
     active: bool = False
     total: int = 0
     covered: int = 0
@@ -85,7 +100,10 @@ def _matching_repo_suffix(raw_path: str, casefold_paths: Dict[str, str]) -> str:
 
     best_match = ""
     for casefold_path, canonical in casefold_paths.items():
-        if candidate_casefold.endswith(casefold_path) and len(canonical) > len(best_match):
+        if (
+            candidate_casefold.endswith(casefold_path)
+            and len(canonical) > len(best_match)
+        ):
             best_match = canonical
     return best_match or candidate
 
@@ -133,6 +151,69 @@ def _handle_da_line(line: str, *, kept_lines: List[str], record: _RecordState) -
         record.covered += 1
 
 
+def _handle_sf_line(
+    line: str,
+    *,
+    kept_lines: List[str],
+    repo_indexes: _RepoFileIndexes,
+) -> _RecordState:
+    """Normalize an LCOV source-file line and return the next record state."""
+    normalized_path = _normalize_source_path(
+        line.split(":", 1)[1],
+        repo_indexes=repo_indexes,
+    )
+    kept_lines.append(f"SF:{normalized_path}")
+    return _RecordState(active=bool(normalized_path))
+
+
+def _handle_record_metadata(
+    line: str,
+    *,
+    kept_lines: List[str],
+    record: _RecordState,
+    synthesize_totals: bool,
+) -> _RecordState | None:
+    """Handle per-record metadata lines and return an updated state when matched."""
+    if line.startswith("LF:"):
+        kept_lines.append(line)
+        record.saw_lf = True
+        return record
+
+    if line.startswith("LH:"):
+        kept_lines.append(line)
+        record.saw_lh = True
+        return record
+
+    if line != "end_of_record":
+        return None
+
+    _flush_record(
+        kept_lines,
+        record,
+        synthesize_totals=synthesize_totals,
+    )
+    return _RecordState()
+
+
+def _needs_trailing_record_flush(record: _RecordState, *, synthesize_totals: bool) -> bool:
+    """Return whether the final unterminated record still needs synthesized totals."""
+    return synthesize_totals and record.active and (
+        record.total > 0 or record.saw_lf or record.saw_lh
+    )
+
+
+def _append_trailing_record_totals(
+    *,
+    kept_lines: List[str],
+    record: _RecordState,
+) -> None:
+    """Append trailing LF/LH totals when the last record lacks an end marker."""
+    if not record.saw_lf and record.total > 0:
+        kept_lines.append(f"LF:{record.total}")
+    if not record.saw_lh and record.total > 0:
+        kept_lines.append(f"LH:{record.covered}")
+
+
 def _flush_record(
     kept_lines: List[str],
     record: _RecordState,
@@ -167,45 +248,36 @@ def normalize_lcov_lines(
             continue
 
         if raw_line.startswith("SF:"):
-            normalized_path = _normalize_source_path(
-                raw_line.split(":", 1)[1],
+            record = _handle_sf_line(
+                raw_line,
+                kept_lines=kept_lines,
                 repo_indexes=repo_indexes,
             )
-            kept_lines.append(f"SF:{normalized_path}")
-            record = _RecordState(active=bool(normalized_path))
             continue
 
         if raw_line.startswith("DA:"):
             _handle_da_line(raw_line, kept_lines=kept_lines, record=record)
             continue
 
-        if raw_line.startswith("LF:"):
-            kept_lines.append(raw_line)
-            record.saw_lf = True
-            continue
-
-        if raw_line.startswith("LH:"):
-            kept_lines.append(raw_line)
-            record.saw_lh = True
-            continue
-
-        if raw_line == "end_of_record":
-            _flush_record(
-                kept_lines,
-                record,
-                synthesize_totals=synthesize_totals,
-            )
-            record = _RecordState()
+        updated_record = _handle_record_metadata(
+            raw_line,
+            kept_lines=kept_lines,
+            record=record,
+            synthesize_totals=synthesize_totals,
+        )
+        if updated_record is not None:
+            record = updated_record
             continue
 
         kept_lines.append(raw_line)
 
-    if synthesize_totals and record.active and (record.total > 0 or record.saw_lf or record.saw_lh):
-        if not kept_lines or kept_lines[-1] != "end_of_record":
-            if not record.saw_lf and record.total > 0:
-                kept_lines.append(f"LF:{record.total}")
-            if not record.saw_lh and record.total > 0:
-                kept_lines.append(f"LH:{record.covered}")
+    if _needs_trailing_record_flush(record, synthesize_totals=synthesize_totals) and (
+        not kept_lines or kept_lines[-1] != "end_of_record"
+    ):
+        _append_trailing_record_totals(
+            kept_lines=kept_lines,
+            record=record,
+        )
 
     normalized = "\n".join(kept_lines)
     if normalized and not normalized.endswith("\n"):
@@ -225,7 +297,11 @@ def main(
     error_stream = stderr or sys.stderr
 
     raw_lines = input_stream.read().splitlines()
-    normalize_kwargs = {"repo_root": Path.cwd()} if raw_lines and raw_lines[-1] != "end_of_record" else {}
+    normalize_kwargs = (
+        {"repo_root": Path.cwd()}
+        if raw_lines and raw_lines[-1] != "end_of_record"
+        else {}
+    )
     normalized, stripped_count = normalize_lcov_lines(
         raw_lines,
         **normalize_kwargs,

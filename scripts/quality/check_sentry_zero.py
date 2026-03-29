@@ -10,14 +10,30 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from scripts.security_helpers import QualityArtifact, quality_artifact_paths
-from scripts.quality.sentry_support import run_sentry_check
-from scripts.quality.sentry_targets import SentryConfig
+from scripts.quality.sentry_support import (
+    resolve_project_slug as _resolve_project_slug_impl,
+    run_sentry_check,
+)
+from scripts.quality.sentry_targets import (
+    SentryConfig,
+    build_project_issues_path as _build_project_issues_path_impl,
+)
 
 _SENTRY_CONFIG = SentryConfig(
     org_label="Sentry org",
     project_label="Sentry project",
     user_agent="airline-sentry-zero-gate",
 )
+
+
+def _build_project_issues_path(org: str, project: str) -> str:
+    """Expose the project-issues path builder for compatibility tests."""
+    return _build_project_issues_path_impl(org, project, _SENTRY_CONFIG)
+
+
+def _resolve_project_slug(org: str, project: str, token: str) -> str | None:
+    """Expose project-slug resolution with the default gate configuration."""
+    return _resolve_project_slug_impl(org, project, token, _SENTRY_CONFIG)
 
 
 def _parse_args() -> argparse.Namespace:

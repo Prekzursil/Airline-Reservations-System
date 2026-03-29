@@ -18,7 +18,7 @@ from scripts.security_helpers import (
     build_https_request_target,
     quality_artifact_paths,
     quote_path_segment,
-    request_json_https_target,
+    request_json_https_target as _request_json_https_target,
     require_repo_segment,
 )
 
@@ -127,6 +127,24 @@ def _resolve_token(token_arg: str) -> str:
     return (token_arg or os.environ.get("CODACY_API_TOKEN", "")).strip()
 
 
+def request_json_https_target(
+    *,
+    target: HTTPSRequestTarget,
+    method: str = "GET",
+    headers: Optional[Dict[str, str]] = None,
+    body: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """Keep the legacy request signature stable for compatibility tests."""
+    return _request_json_https_target(
+        target=target,
+        options=HTTPSRequestOptions(
+            method=method,
+            headers=headers,
+            body=body,
+        ),
+    )
+
+
 def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
     """Fetch the current Codacy open-issue total for the requested scope."""
     target = _build_issue_search_target(args.provider, args.owner, args.repo)
@@ -136,14 +154,12 @@ def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
         body["branchName"] = branch_name
     payload = request_json_https_target(
         target=target,
-        options=HTTPSRequestOptions(
-            method="POST",
-            headers={
-                "api-token": token,
-                "User-Agent": "airline-codacy-zero-gate",
-            },
-            body=body,
-        ),
+        method="POST",
+        headers={
+            "api-token": token,
+            "User-Agent": "airline-codacy-zero-gate",
+        },
+        body=body,
     )
     return extract_total_open(payload)
 

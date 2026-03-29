@@ -14,8 +14,8 @@ from scripts.quality import coverage_parsers
 
 CoverageStats = coverage_parsers.CoverageStats
 REPO_SOURCE_LINES = coverage_parsers.REPO_SOURCE_LINES
-_include_lcov_line = coverage_parsers._include_lcov_line
-_lookup_repo_source_lines = coverage_parsers._lookup_repo_source_lines
+_include_lcov_line = coverage_parsers.include_lcov_line
+_lookup_repo_source_lines = coverage_parsers.lookup_repo_source_lines
 parse_lcov = coverage_parsers.parse_lcov
 
 NODE_LCOV_PATH = Path("airline-gui/coverage/lcov.info")

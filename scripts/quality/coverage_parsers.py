@@ -136,6 +136,19 @@ def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
     return REPO_SOURCE_LINES.get(relative_path.as_posix())
 
 
+def include_lcov_line(
+    source_lines: Tuple[str, ...] | None,
+    line_number: int,
+) -> bool:
+    """Expose LCOV line filtering without relying on private module members."""
+    return _include_lcov_line(source_lines, line_number)
+
+
+def lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
+    """Expose cached repository source lookup without private-member access."""
+    return _lookup_repo_source_lines(raw_path_text)
+
+
 def _safe_int(value: Any) -> int:
     try:
         return int(value)
