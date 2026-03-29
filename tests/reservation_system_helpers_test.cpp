@@ -2,22 +2,24 @@
 #include "gtest/gtest.h"
 #include "../src/ReservationSystemHelpers.h"
 
-#include <array>
 #include <algorithm>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 namespace rsh = reservation_system_helpers;
 
 namespace {
-template <std::size_t N>
-bool all_seen(const std::array<bool, N>& seen) {
+bool all_seen(const std::vector<bool>& seen) {
     return std::all_of(seen.begin(), seen.end(), [](bool value) { return value; });
 }
 
-template <std::size_t N>
-void mark_seen(const std::array<std::string_view, N>& prefixes, const std::string& name, std::array<bool, N>& seen) {
-    for (std::size_t index = 0; index < N; ++index) {
+void mark_seen(
+    const std::vector<std::string_view>& prefixes,
+    const std::string& name,
+    std::vector<bool>& seen
+) {
+    for (std::size_t index = 0; index < prefixes.size(); ++index) {
         if (name.starts_with(prefixes[index])) {
             seen[index] = true;
         }
@@ -144,22 +146,22 @@ TEST(ReservationSystemHelpersTest, GenerateApiAutoCustomerDataIsDeterministicAnd
 }
 
 TEST(ReservationSystemHelpersTest, GenerateAutoCustomerDataCoversAllNameVariants) {
-    const std::array<std::string_view, 5> console_prefixes = {
+    const std::vector<std::string_view> console_prefixes = {
         "AutoPat_",
         "RoboUser_",
         "GenClient_",
         "SysPerson_",
         "BotPassenger_",
     };
-    const std::array<std::string_view, 5> api_prefixes = {
+    const std::vector<std::string_view> api_prefixes = {
         "ApiPat_",
         "WebServiceUser_",
         "JsonGenClient_",
         "SystemPerson_",
         "BackendBot_",
     };
-    std::array<bool, 5> console_seen{};
-    std::array<bool, 5> api_seen{};
+    std::vector<bool> console_seen(console_prefixes.size(), false);
+    std::vector<bool> api_seen(api_prefixes.size(), false);
 
     for (int counter = 1; counter <= 200 && (!all_seen(console_seen) || !all_seen(api_seen)); ++counter) {
         const std::string customer_id = rsh::formatCustomerId(counter);

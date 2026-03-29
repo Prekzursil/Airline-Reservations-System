@@ -1,8 +1,6 @@
 #include "gtest/gtest.h"
 #include "../src/Seat.h"
 
-#include <sstream>
-
 using enum SeatClass;
 
 std::string seatClassToString(SeatClass sc);

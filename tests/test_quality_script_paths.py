@@ -3,7 +3,6 @@
 from __future__ import absolute_import, division
 
 import contextlib
-import io
 import json
 import os
 import tempfile
