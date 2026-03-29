@@ -1,3 +1,5 @@
+"""Coverage parsing helpers shared by repository quality gates."""
+
 from __future__ import absolute_import, annotations, division
 
 import json
@@ -15,6 +17,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass
 class CoverageStats:
+    """Normalized covered and total counts for a named coverage component."""
+
     name: str
     path: str
     covered: int
@@ -22,6 +26,7 @@ class CoverageStats:
 
     @property
     def percent(self) -> float:
+        """Return the covered percentage, treating empty totals as 100%."""
         if self.total <= 0:
             return 100.0
         return (self.covered / self.total) * 100.0
@@ -29,6 +34,8 @@ class CoverageStats:
 
 @dataclass
 class LcovState:
+    """Mutable state used while aggregating a single LCOV stream."""
+
     total: int = 0
     covered: int = 0
     record_lines: Dict[int, int] | None = None
@@ -37,27 +44,38 @@ class LcovState:
     source_lines: Tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
+        """Ensure the per-record line map is always initialized."""
         if self.record_lines is None:
             self.record_lines = {}
 
 
 REPO_SOURCE_LINES = {
-    path.relative_to(REPO_ROOT).as_posix(): tuple(path.read_text(encoding="utf-8").splitlines())
+    path.relative_to(REPO_ROOT).as_posix(): tuple(
+        path.read_text(encoding="utf-8").splitlines()
+    )
     for path in REPO_ROOT.rglob("*")
     if path.is_file()
-    and path.suffix in {".cpp", ".h", ".hpp", ".c", ".cc", ".py", ".js", ".jsx", ".ts", ".tsx"}
+    and path.suffix
+    in {".cpp", ".h", ".hpp", ".c", ".cc", ".py", ".js", ".jsx", ".ts", ".tsx"}
 }
 
 
 def parse_lcov(name: str, path: Path) -> CoverageStats:
+    """Parse an LCOV report into aggregate covered and total line counts."""
     state = LcovState()
     for raw in path.read_text(encoding="utf-8").splitlines():
         _process_lcov_line(state, raw.strip())
     _flush_lcov_record(state)
-    return CoverageStats(name=name, path=str(path), covered=state.covered, total=state.total)
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=state.covered,
+        total=state.total,
+    )
 
 
 def _process_lcov_line(state: LcovState, line: str) -> None:
+    """Update the current LCOV aggregation state from a single raw line."""
     if line.startswith("SF:"):
         _flush_lcov_record(state)
         state.source_lines = _lookup_repo_source_lines(line.split(":", 1)[1])
@@ -72,7 +90,12 @@ def _process_lcov_line(state: LcovState, line: str) -> None:
 
 
 def _flush_lcov_record(state: LcovState) -> None:
-    if not ((state.record_lines or {}) or state.fallback_total or state.fallback_covered):
+    """Flush the current LCOV record into the aggregate running totals."""
+    if not (
+        (state.record_lines or {})
+        or state.fallback_total
+        or state.fallback_covered
+    ):
         return
     if state.record_lines:
         state.total += len(state.record_lines)
@@ -85,7 +108,12 @@ def _flush_lcov_record(state: LcovState) -> None:
     state.fallback_covered = 0
 
 
-def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...] | None, line: str) -> None:
+def _record_lcov_line(
+    record_lines: Dict[int, int],
+    source_lines: Tuple[str, ...] | None,
+    line: str,
+) -> None:
+    """Record LCOV hit counts for executable source lines only."""
     line_number_text, hit_count_text, *_ = line[3:].split(",")
     line_number = _safe_int(line_number_text)
     hit_count = _safe_int(hit_count_text)
@@ -94,6 +122,7 @@ def _record_lcov_line(record_lines: Dict[int, int], source_lines: Tuple[str, ...
 
 
 def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -> bool:
+    """Return whether a reported LCOV line should count toward totals."""
     if source_lines is None or line_number <= 0 or line_number > len(source_lines):
         return True
     if line_number in _excluded_line_numbers(source_lines):
@@ -104,6 +133,7 @@ def _include_lcov_line(source_lines: Tuple[str, ...] | None, line_number: int) -
 
 @lru_cache(maxsize=None)
 def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
+    """Return source line numbers explicitly excluded from LCOV counting."""
     excluded = set()
     in_excluded_block = False
     for line_number, raw_line in enumerate(source_lines, start=1):
@@ -116,12 +146,15 @@ def _excluded_line_numbers(source_lines: Tuple[str, ...]) -> frozenset[int]:
             excluded.add(line_number)
             in_excluded_block = False
             continue
-        if in_excluded_block or any(marker in source_line for marker in INLINE_EXCLUSION_MARKERS):
+        if in_excluded_block or any(
+            marker in source_line for marker in INLINE_EXCLUSION_MARKERS
+        ):
             excluded.add(line_number)
     return frozenset(excluded)
 
 
 def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
+    """Resolve cached source lines for an LCOV path when it points into the repo."""
     normalized = raw_path_text.replace("\\", "/")
     repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
     if normalized.startswith(repo_prefix):
@@ -150,6 +183,7 @@ def lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
 
 
 def _safe_int(value: Any) -> int:
+    """Convert a value to an integer and fall back to zero on invalid input."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -157,19 +191,30 @@ def _safe_int(value: Any) -> int:
 
 
 def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
+    """Parse line coverage totals from an Istanbul summary JSON artifact."""
     data = json.loads(path.read_text(encoding="utf-8"))
     total_node = data.get("total", {})
     lines = total_node.get("lines", {}) if isinstance(total_node, dict) else {}
     covered = _safe_int(lines.get("covered"))
     total = _safe_int(lines.get("total"))
     if total <= 0:
-        statements = total_node.get("statements", {}) if isinstance(total_node, dict) else {}
+        statements = (
+            total_node.get("statements", {})
+            if isinstance(total_node, dict)
+            else {}
+        )
         covered = _safe_int(statements.get("covered"))
         total = _safe_int(statements.get("total"))
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=covered,
+        total=total,
+    )
 
 
 def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
+    """Parse statement hit totals from an Istanbul per-file JSON artifact."""
     data = json.loads(path.read_text(encoding="utf-8"))
     covered = 0
     total = 0
@@ -182,5 +227,12 @@ def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
         if not isinstance(statements, dict):
             continue
         total += len(statements)
-        covered += sum(1 for count in statements.values() if _safe_int(count) > 0)
-    return CoverageStats(name=name, path=str(path), covered=covered, total=total)
+        covered += sum(
+            1 for count in statements.values() if _safe_int(count) > 0
+        )
+    return CoverageStats(
+        name=name,
+        path=str(path),
+        covered=covered,
+        total=total,
+    )

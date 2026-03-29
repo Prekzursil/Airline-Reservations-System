@@ -217,13 +217,17 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
             if observed_sha == expected_pr_sha:
                 break
             if time.time() >= deadline:
+                timeout_message = (
+                    "Sonar PR analysis did not reach the expected head SHA before "
+                    "timeout."
+                )
                 return (
                     "fail",
                     None,
                     None,
                     None,
                     [
-                        "Sonar PR analysis did not reach the expected head SHA before timeout.",
+                        timeout_message,
                         f"Expected SHA: {expected_pr_sha}",
                         f"Observed SHA: {observed_sha or 'missing'}",
                     ],
