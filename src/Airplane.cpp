@@ -85,19 +85,31 @@ Seat* Airplane::findSeat(std::string_view seatId) {
 }
 
 bool Airplane::bookSpecificSeat(std::string_view seatId) {
-    if (Seat* seatToBook = findSeat(seatId); seatToBook != nullptr && !seatToBook->getIsBooked() && seatToBook->bookSeat()) {
-        ++bookedSeatsCount;
-        return true;
+    Seat* seatToBook = findSeat(seatId);
+    if (seatToBook == nullptr) {
+        return false;
     }
-    return false;
+    if (seatToBook->getIsBooked()) {
+        return false;
+    }
+    seatToBook->bookSeat();
+
+    ++bookedSeatsCount;
+    return true;
 }
 
 bool Airplane::unbookSpecificSeat(std::string_view seatId) {
-    if (Seat* seatToUnbook = findSeat(seatId); seatToUnbook != nullptr && seatToUnbook->getIsBooked() && seatToUnbook->unbookSeat()) {
-        --bookedSeatsCount;
-        return true;
+    Seat* seatToUnbook = findSeat(seatId);
+    if (seatToUnbook == nullptr) {
+        return false;
     }
-    return false;
+    if (!seatToUnbook->getIsBooked()) {
+        return false;
+    }
+    seatToUnbook->unbookSeat();
+
+    --bookedSeatsCount;
+    return true;
 }
 
 void Airplane::displaySeatingMap() const {

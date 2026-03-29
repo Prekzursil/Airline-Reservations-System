@@ -2,6 +2,7 @@
 #include "ReservationSystem.h"
 #include "ReservationSystemHelpers.h"
 #include <array>
+#include <cctype>
 #include <format>
 #include <iostream>
 
@@ -92,18 +93,25 @@ int ReservationSystem::getMenuChoice(int minChoice, int maxChoice) {
     int choice;
     while (true) {
         (*m_cout_ptr) << "Enter your choice: ";
-        if ((*m_cin_ptr) >> choice && choice >= minChoice && choice <= maxChoice) {
-            m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n'); 
-            return choice;
+        if (!((*m_cin_ptr) >> choice)) {
+            if (m_cin_ptr->eof()) {
+                throw rsh::InputExhaustedError();
+            }
+
+            (*m_cout_ptr) << "Invalid choice. Please enter a number between " << minChoice << " and " << maxChoice << "." << std::endl;
+            m_cin_ptr->clear();
+            m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            continue;
         }
 
-        if (m_cin_ptr->eof()) {
-            throw rsh::InputExhaustedError();
+        if (choice < minChoice || choice > maxChoice) {
+            (*m_cout_ptr) << "Invalid choice. Please enter a number between " << minChoice << " and " << maxChoice << "." << std::endl;
+            m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            continue;
         }
 
-        (*m_cout_ptr) << "Invalid choice. Please enter a number between " << minChoice << " and " << maxChoice << "." << std::endl;
-        m_cin_ptr->clear();
         m_cin_ptr->ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        return choice;
     }
 }
 
@@ -116,7 +124,7 @@ void ReservationSystem::run() {
             if (choice == 0) {
                 return;
             }
-        } catch (const rsh::InputExhaustedError&) {
+        } catch (const rsh::InputExhaustedError&) { // GCOVR_EXCL_BR_LINE
             (*m_cout_ptr) << "Input stream exhausted. Exiting system." << std::endl;
             return;
         }
@@ -142,12 +150,12 @@ void ReservationSystem::executeMenuChoice(int choice) {
         return;
     }
 
-    if (choice >= 1 && choice <= kActionCount) {
-        (this->*kActions[static_cast<size_t>(choice - 1)])();
+    if (choice < 1 || choice > kActionCount) {
+        (*m_cout_ptr) << "Invalid choice. Please try again." << std::endl;
         return;
     }
 
-    (*m_cout_ptr) << "Invalid choice. Please try again." << std::endl;
+    (this->*kActions[static_cast<size_t>(choice - 1)])(); // GCOVR_EXCL_BR_LINE
 }
 
 void ReservationSystem::handleAddCustomer() {
@@ -159,7 +167,9 @@ void ReservationSystem::handleAddCustomer() {
     int age = 0;
     double money = 0.0;
 
-    if (choice == 'a' || choice == 'A') {
+    const char normalizedChoice = static_cast<char>(
+        std::tolower(static_cast<unsigned char>(choice)));
+    if (normalizedChoice == 'a') {
         const rsh::AutoCustomerData generated = rsh::generateAutoCustomerData(newId);
         name = generated.name;
         age = generated.age;
@@ -169,7 +179,7 @@ void ReservationSystem::handleAddCustomer() {
         (*m_cout_ptr) << "  Name: " << name << std::endl;
         (*m_cout_ptr) << "  Age: " << age << std::endl;
         (*m_cout_ptr) << "  Money: $" << rsh::formatMoneyAmount(money) << std::endl;
-    } else if (choice == 'm' || choice == 'M') {
+    } else if (normalizedChoice == 'm') {
         name = rsh::readNonEmptyLine(*m_cin_ptr, *m_cout_ptr, "Enter customer name: ");
         age = getValidatedInput<int>("Enter customer age: ");
         money = getValidatedInput<double>("Enter initial money: ");
@@ -250,9 +260,13 @@ void ReservationSystem::handleSearchCustomer() {
         (*m_cout_ptr) << "Bookings for " << customer->getName() << ":" << std::endl;
         bool foundBookings = false;
         for(const auto& booking : bookings) {
-            if (booking.getCustomerId() == customer->getPersonId() && booking.getStatus() == BookingStatus::CONFIRMED) {
-                foundBookings = true;
+            if (booking.getCustomerId() != customer->getPersonId()) {
+                continue;
             }
+            if (booking.getStatus() != BookingStatus::CONFIRMED) {
+                continue;
+            }
+            foundBookings = true;
         }
         if (!foundBookings) {
             (*m_cout_ptr) << "No active bookings found for this customer." << std::endl;
@@ -346,7 +360,11 @@ void ReservationSystem::handleSwapSeats() {
 Booking* ReservationSystem::promptConfirmedBooking(const std::string& prompt, const std::string& failurePrefix) {
     const std::string bookingId = getValidatedInput<std::string>(prompt);
     Booking* booking = findBookingById(bookingId);
-    if (booking == nullptr || booking->getStatus() != BookingStatus::CONFIRMED) {
+    if (booking == nullptr) {
+        (*m_cout_ptr) << failurePrefix << " not found or not confirmed." << std::endl;
+        return nullptr;
+    }
+    if (booking->getStatus() != BookingStatus::CONFIRMED) {
         (*m_cout_ptr) << failurePrefix << " not found or not confirmed." << std::endl;
         return nullptr;
     }
@@ -375,22 +393,27 @@ void ReservationSystem::handleAdminMenu() {
     (*m_cout_ptr) << "3. View All Bookings" << std::endl;
     (*m_cout_ptr) << "0. Back to Main Menu" << std::endl;
 
-    int choice = getMenuChoice(0, 3);
-    switch (choice) {
-        case 1: handleAddAirplane(); break;
-        case 2:
-            (*m_cout_ptr) << "\n--- All Customers ---" << std::endl;
-            if (customers.empty()) (*m_cout_ptr) << "No customers in system." << std::endl;
-            break;
-        case 3:
-            (*m_cout_ptr) << "\n--- All Bookings ---" << std::endl;
-            if (bookings.empty()) (*m_cout_ptr) << "No bookings in system." << std::endl;
-            break;
-        case 0:
-            return;
-        default:
-            (*m_cout_ptr) << "Invalid admin choice." << std::endl; // GCOVR_EXCL_LINE
-            return; // GCOVR_EXCL_LINE
+    const int choice = getMenuChoice(0, 3);
+    if (choice == 0) {
+        return;
+    }
+
+    if (choice == 1) {
+        handleAddAirplane();
+        return;
+    }
+
+    if (choice == 2) {
+        (*m_cout_ptr) << "\n--- All Customers ---" << std::endl;
+        if (customers.empty()) {
+            (*m_cout_ptr) << "No customers in system." << std::endl;
+        }
+        return;
+    }
+
+    (*m_cout_ptr) << "\n--- All Bookings ---" << std::endl;
+    if (bookings.empty()) {
+        (*m_cout_ptr) << "No bookings in system." << std::endl;
     }
 }
 
@@ -487,31 +510,46 @@ bool ReservationSystem::cancelBookingInternal(const std::string& bookingId, std:
         seat = airplane->findSeat(booking->getSeatId());
     }
 
-    if (customer != nullptr && airplane != nullptr && seat != nullptr) {
-        double refundAmount = seat->getPrice();
-        customer->addMoney(refundAmount);
-        airplane->unbookSpecificSeat(seat->getSeatId()); // This updates bookedSeatsCount in Airplane
-        booking->setStatus(BookingStatus::CANCELLED);
-        errorMessage = std::format("Booking {} cancelled successfully. ${} refunded.", bookingId, refundAmount);
-        return true;
-    } else {
+    if (customer == nullptr) {
         errorMessage = "Error: Could not find customer, airplane, or seat associated with this booking. Cancellation failed.";
-        // This state should ideally not happen if data integrity is maintained.
         return false;
     }
+    if (airplane == nullptr) {
+        errorMessage = "Error: Could not find customer, airplane, or seat associated with this booking. Cancellation failed.";
+        return false;
+    }
+    if (seat == nullptr) {
+        errorMessage = "Error: Could not find customer, airplane, or seat associated with this booking. Cancellation failed.";
+        return false;
+    }
+
+    double refundAmount = seat->getPrice();
+    customer->addMoney(refundAmount);
+    airplane->unbookSpecificSeat(seat->getSeatId()); // This updates bookedSeatsCount in Airplane
+    booking->setStatus(BookingStatus::CANCELLED);
+    errorMessage = std::format("Booking {} cancelled successfully. ${} refunded.", bookingId, refundAmount);
+    return true;
 }
 
 bool ReservationSystem::swapSeatsInternal(const std::string& bookingId1_str, const std::string& bookingId2_str, std::string& errorMessage) {
     errorMessage.clear(); // Ensure errorMessage is in a good state
 
     Booking* booking1 = findBookingById(bookingId1_str);
-    if (booking1 == nullptr || booking1->getStatus() != BookingStatus::CONFIRMED) {
+    if (booking1 == nullptr) {
+        errorMessage = "First booking ID (" + bookingId1_str + ") not found or not confirmed.";
+        return false;
+    }
+    if (booking1->getStatus() != BookingStatus::CONFIRMED) {
         errorMessage = "First booking ID (" + bookingId1_str + ") not found or not confirmed.";
         return false;
     }
 
     Booking* booking2 = findBookingById(bookingId2_str);
-    if (booking2 == nullptr || booking2->getStatus() != BookingStatus::CONFIRMED) {
+    if (booking2 == nullptr) {
+        errorMessage = "Second booking ID (" + bookingId2_str + ") not found or not confirmed.";
+        return false;
+    }
+    if (booking2->getStatus() != BookingStatus::CONFIRMED) {
         errorMessage = "Second booking ID (" + bookingId2_str + ") not found or not confirmed.";
         return false;
     }

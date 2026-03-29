@@ -18,6 +18,16 @@ public:
         plane.seats.clear();
     }
 
+    static void setLayout(Airplane& plane, const int rows, const int seats_per_row, const int booked_seats_count) {
+        plane.totalRows = rows;
+        plane.seatsPerRow = seats_per_row;
+        plane.bookedSeatsCount = booked_seats_count;
+    }
+
+    static void rebuildSeats(Airplane& plane) {
+        plane.initializeSeats();
+    }
+
 private:
     AirplaneTestAccess() = default;
     ~AirplaneTestAccess() = default;
@@ -75,6 +85,16 @@ TEST_F(AirplaneTest, ConstructorInvalidDimensions) {
 
     Airplane plane_invalid_cols("IVC01", 5, 0);
     EXPECT_EQ(plane_invalid_cols.getCapacity(), 5);
+}
+
+TEST_F(AirplaneTest, InitializeSeatsHandlesZeroRowsWithoutCreatingSeats) {
+    Airplane plane("ZR001", 1, 1);
+    AirplaneTestAccess::setLayout(plane, 0, 0, 0);
+
+    AirplaneTestAccess::rebuildSeats(plane);
+
+    EXPECT_EQ(plane.getCapacity(), 0);
+    EXPECT_TRUE(plane.getAllSeats().empty());
 }
 
 TEST_F(AirplaneTest, FindSeat) {

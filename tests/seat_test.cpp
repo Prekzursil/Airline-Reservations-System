@@ -1,6 +1,8 @@
 #include "gtest/gtest.h"
 #include "../src/Seat.h"
 
+#include <sstream>
+
 using enum SeatClass;
 
 std::string seatClassToString(SeatClass sc);
@@ -91,4 +93,17 @@ TEST_F(SeatTest, DisplaySeatInfoNoCrash) {
     EXPECT_NO_THROW(economySeat().displaySeatInfo());
     EXPECT_NO_THROW(businessSeat().displaySeatInfo());
     EXPECT_NO_THROW(defaultSeat().displaySeatInfo());
+}
+
+TEST_F(SeatTest, DisplaySeatInfoReportsBookedStatus) {
+    ASSERT_TRUE(economySeat().bookSeat());
+
+    std::ostringstream captured_output;
+    std::streambuf* original_cout = std::cout.rdbuf(captured_output.rdbuf());
+
+    economySeat().displaySeatInfo();
+
+    std::cout.rdbuf(original_cout);
+
+    EXPECT_NE(captured_output.str().find("Status: Booked"), std::string::npos);
 }

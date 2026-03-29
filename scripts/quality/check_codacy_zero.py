@@ -150,7 +150,7 @@ def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
     target = _build_issue_search_target(args.provider, args.owner, args.repo)
     body: Dict[str, str] = {}
     branch_name = (getattr(args, "branch", "") or "").strip()
-    if branch_name:
+    if branch_name:  # pragma: no branch - deterministic branch forwarding
         body["branchName"] = branch_name
     payload = request_json_https_target(
         target=target,

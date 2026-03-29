@@ -221,6 +221,35 @@ TEST(ApiServerHelpersTest, SerializationHelpersReturnExpectedPayloads) {
     EXPECT_EQ(booking_json.at("status"), "Confirmed");
 }
 
+TEST(ApiServerHelpersTest, SerializationHelpersCoverRemainingStateBranches) {
+    Seat economy_seat("2A", SeatClass::ECONOMY, 50.0);
+    json economy_seat_json;
+    to_json(economy_seat_json, economy_seat);
+    EXPECT_EQ(economy_seat_json.at("seatClass"), "Economy");
+
+    Seat unknown_seat("9Z", static_cast<SeatClass>(99), 50.0);
+    json unknown_seat_json;
+    to_json(unknown_seat_json, unknown_seat);
+    EXPECT_EQ(unknown_seat_json.at("seatClass"), "Unknown");
+
+    Airplane full_plane("FULL1", 1, 1);
+    ASSERT_TRUE(full_plane.bookSpecificSeat("1A"));
+    json full_plane_json;
+    to_json(full_plane_json, full_plane);
+    EXPECT_EQ(full_plane_json.at("isFull"), true);
+
+    Booking pending_booking("CUST1001", "FL101", "1A");
+    json pending_booking_json;
+    to_json(pending_booking_json, pending_booking);
+    EXPECT_EQ(pending_booking_json.at("status"), "Pending");
+
+    Booking cancelled_booking("CUST1002", "FL101", "1B");
+    cancelled_booking.setStatus(BookingStatus::CANCELLED);
+    json cancelled_booking_json;
+    to_json(cancelled_booking_json, cancelled_booking);
+    EXPECT_EQ(cancelled_booking_json.at("status"), "Cancelled");
+}
+
 TEST(ApiServerHelpersTest, DetailBuildersReturnExpectedPayloads) {
     std::stringstream input;
     std::stringstream output;
@@ -257,6 +286,57 @@ TEST(ApiServerHelpersTest, DetailBuildersReturnExpectedPayloads) {
     ASSERT_TRUE(customer_details.contains("bookings"));
     ASSERT_EQ(customer_details.at("bookings").size(), 1);
     EXPECT_EQ(customer_details.at("bookings").front().at("bookingId"), api_booking->getBookingId());
+}
+
+TEST(ApiServerHelpersTest, DetailBuildersCoverLookupAndFilterBranches) {
+    std::stringstream input;
+    std::stringstream output;
+    ReservationSystem reservation_system(input, output);
+
+    Customer* first_customer =
+        reservation_system.addCustomerInternal("First Builder User", 40, 2000.0, false);
+    Customer* second_customer =
+        reservation_system.addCustomerInternal("Second Builder User", 41, 2000.0, false);
+    ASSERT_NE(first_customer, nullptr);
+    ASSERT_NE(second_customer, nullptr);
+
+    std::string booking_error;
+    Booking* first_flight_other_seat = reservation_system.createBookingInternal(
+        first_customer->getPersonId(),
+        "FL101",
+        "1B",
+        booking_error);
+    ASSERT_NE(first_flight_other_seat, nullptr);
+
+    Booking* other_flight_booking = reservation_system.createBookingInternal(
+        second_customer->getPersonId(),
+        "FL202",
+        "2A",
+        booking_error);
+    ASSERT_NE(other_flight_booking, nullptr);
+
+    Booking* target_booking = reservation_system.createBookingInternal(
+        first_customer->getPersonId(),
+        "FL101",
+        "4A",
+        booking_error);
+    ASSERT_NE(target_booking, nullptr);
+    target_booking->setStatus(BookingStatus::CANCELLED);
+
+    const json customer_details = build_customer_details(reservation_system, *first_customer);
+    ASSERT_TRUE(customer_details.contains("bookings"));
+    EXPECT_EQ(customer_details.at("bookings").size(), 2);
+
+    const Airplane* airplane = reservation_system.findAirplaneByFlightNumber("FL101");
+    ASSERT_NE(airplane, nullptr);
+    const json airplane_details = build_airplane_details(reservation_system, *airplane);
+    ASSERT_TRUE(airplane_details.contains("seats"));
+    const auto seat_it = std::ranges::find_if(
+        airplane_details.at("seats"),
+        [](const json& seat_details) { return seat_details.at("seatId") == "4A"; });
+    ASSERT_NE(seat_it, airplane_details.at("seats").end());
+    EXPECT_FALSE(seat_it->contains("bookedByCustomerId"));
+    EXPECT_FALSE(seat_it->contains("bookingId"));
 }
 
 TEST(ApiServerHelpersTest, RespondJsonSetsContentTypeAndCorsHeaders) {
@@ -353,6 +433,26 @@ TEST(ApiServerEntryTest, AirlineApiServerEntryReturnsFailureWhenDefaultPortIsAlr
     const int exit_code = airline_api_server_entry(input_stream, output_stream, error_stream);
 
     EXPECT_EQ(exit_code, 1);
+    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
+#endif
+}
+
+TEST(ApiServerEntryTest, MainWrapperReturnsFailureWhenDefaultPortIsAlreadyInUse) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Port-collision coverage path is exercised on Linux coverage runners.";
+#else
+    std::optional<ScopedPortOccupier> blocking_listener(std::in_place, kServerPort);
+    if (const auto port_reserved = static_cast<bool>(*blocking_listener); !port_reserved) {
+        GTEST_SKIP() << "Port 8080 could not be reserved in this environment.";
+    }
+
+    std::ostringstream output_stream;
+    std::ostringstream error_stream;
+    ScopedStreamRedirect cout_redirect(std::cout, output_stream);
+    ScopedStreamRedirect cerr_redirect(std::cerr, error_stream);
+
+    EXPECT_EQ(airline_api_server_entry_main(), 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 #endif
@@ -590,6 +690,32 @@ TEST_F(ApiServerRoutesTest, ReturnsBadRequestForMalformedPayloads) {
     EXPECT_EQ(booking_response->status, 400);
 
     const auto swap_response = client.Post("/api/bookings/swap", "{bad json", kJsonMimeType);
+    ASSERT_TRUE(swap_response);
+    EXPECT_EQ(swap_response->status, 400);
+}
+
+TEST_F(ApiServerRoutesTest, ReturnsBadRequestForTypeMismatchedPayloads) {
+    start_server();
+    httplib::Client client("127.0.0.1", bound_port());
+
+    const auto customer_response = client.Post(
+        "/api/customers",
+        R"({"name":{"nested":"Mismatch User"},"age":31,"money":200.0,"autoGenerate":false})",
+        kJsonMimeType);
+    ASSERT_TRUE(customer_response);
+    EXPECT_EQ(customer_response->status, 400);
+
+    const auto booking_response = client.Post(
+        "/api/bookings",
+        R"({"customerId":{},"flightNumber":"FL101","seatId":"4A"})",
+        kJsonMimeType);
+    ASSERT_TRUE(booking_response);
+    EXPECT_EQ(booking_response->status, 400);
+
+    const auto swap_response = client.Post(
+        "/api/bookings/swap",
+        R"({"bookingId1":{},"bookingId2":"BK-2"})",
+        kJsonMimeType);
     ASSERT_TRUE(swap_response);
     EXPECT_EQ(swap_response->status, 400);
 }

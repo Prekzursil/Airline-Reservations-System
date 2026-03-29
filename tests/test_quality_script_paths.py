@@ -219,22 +219,62 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
                 "SF:src/named.py\nDA:2,1\nLF:1\nLH:1\nend_of_record\n",
             )
 
-            stdout = io.StringIO()
-            stderr = io.StringIO()
-            with _temporary_cwd(repo_root):
-                result = normalize_lcov.main(
-                    stdin=io.StringIO(
-                        "SF:build/CMakeFiles/app.dir/src/main.cpp.gcno\nBRH:1\nDA:2,1\n"
-                    ),
-                    stdout=stdout,
-                    stderr=stderr,
-                )
-            self.assertEqual(result, 0)
-            self.assertEqual(
-                stdout.getvalue(),
-                "SF:src/main.cpp\nDA:2,1\nLF:1\nLH:1\n",
+    def test_normalize_lcov_handles_invalid_da_and_trailing_record_totals(self) -> None:
+        """Exercise the remaining LCOV normalization fallback branches."""
+        kept_lines: List[str] = []
+        record = normalize_lcov._RecordState(active=True)
+
+        normalize_lcov._handle_da_line("DA:bad,line", kept_lines=kept_lines, record=record)
+        self.assertEqual(kept_lines, ["DA:bad,line"])
+        self.assertEqual((record.total, record.covered), (0, 0))
+
+        normalized, stripped = normalize_lcov.normalize_lcov_lines([])
+        self.assertEqual((normalized, stripped), ("", 0))
+
+        trailing_record = normalize_lcov._RecordState(active=True, total=2, covered=1)
+        trailing_lines: List[str] = []
+        normalize_lcov._append_trailing_record_totals(
+            kept_lines=trailing_lines,
+            record=trailing_record,
+        )
+        self.assertEqual(trailing_lines, ["LF:2", "LH:1"])
+
+        trailing_lines = []
+        normalize_lcov._append_trailing_record_totals(
+            kept_lines=trailing_lines,
+            record=normalize_lcov._RecordState(
+                active=True,
+                total=2,
+                covered=1,
+                saw_lf=True,
+                saw_lh=False,
+            ),
+        )
+        self.assertEqual(trailing_lines, ["LH:1"])
+
+        trailing_lines = []
+        normalize_lcov._append_trailing_record_totals(
+            kept_lines=trailing_lines,
+            record=normalize_lcov._RecordState(
+                active=True,
+                total=2,
+                covered=1,
+                saw_lf=False,
+                saw_lh=True,
+            ),
+        )
+        self.assertEqual(trailing_lines, ["LF:2"])
+
+        with _normalize_lcov_fixture() as (repo_root, _):
+            normalized, stripped = normalize_lcov.normalize_lcov_lines(
+                [
+                    "SF:build/CMakeFiles/airline.dir/src/main.cpp.gcda",
+                    "DA:1,1",
+                ],
+                repo_root=repo_root,
             )
-            self.assertIn("stripped 1 branch records", stderr.getvalue())
+        self.assertEqual(stripped, 0)
+        self.assertIn("LF:1\nLH:1\n", normalized)
 
     def test_normalize_source_path_matches_casefolded_suffix_for_outside_paths(
         self,

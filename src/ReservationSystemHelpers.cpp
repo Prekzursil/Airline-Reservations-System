@@ -1,6 +1,8 @@
 // cppcheck-suppress-file missingIncludeSystem
 #include "ReservationSystemHelpers.h"
+#include <array>
 #include <format>
+#include <string_view>
 
 namespace reservation_system_helpers {
 namespace {
@@ -58,7 +60,7 @@ std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::str
 }
 
 AutoCustomerData generateAutoCustomerData(const std::string& newId) {
-    static const std::vector<std::string> firstNames = {
+    static const std::array<std::string_view, 5> firstNames = {
         "AutoPat",
         "RoboUser",
         "GenClient",
@@ -66,14 +68,17 @@ AutoCustomerData generateAutoCustomerData(const std::string& newId) {
         "BotPassenger",
     };
     const SeedValue seed = buildDeterministicSeed(newId, 0x9E3779B97F4A7C15ULL);
-    const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
+    const std::string name = buildDeterministicAutoName(
+        {firstNames.begin(), firstNames.end()},
+        newId,
+        seed);
     const int age = buildDeterministicAutoAge(seed >> 8U);
     const double money = buildDeterministicAutoMoney(seed >> 16U);
     return {name, age, money};
 }
 
 AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
-    static const std::vector<std::string> firstNames = {
+    static const std::array<std::string_view, 5> firstNames = {
         "ApiPat",
         "WebServiceUser",
         "JsonGenClient",
@@ -81,7 +86,10 @@ AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
         "BackendBot",
     };
     const SeedValue seed = buildDeterministicSeed(newId, 0xD1B54A32D192ED03ULL);
-    const std::string name = buildDeterministicAutoName(firstNames, newId, seed);
+    const std::string name = buildDeterministicAutoName(
+        {firstNames.begin(), firstNames.end()},
+        newId,
+        seed);
     const int age = buildDeterministicAutoAge(seed >> 8U);
     const double money = buildDeterministicAutoMoney(seed >> 16U);
     return {name, age, money};

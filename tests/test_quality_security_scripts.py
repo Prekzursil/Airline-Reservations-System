@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import sys
@@ -9,6 +10,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+
+from scripts import security_http_support as http_support
+from scripts import security_validation_support as validation_support
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -197,6 +201,119 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
                 self.assertEqual(out_json.parent.name, "codacy-zero")
             finally:
                 os.chdir(previous)
+
+    def test_security_helper_wrappers_delegate_to_validation_and_http_layers(self) -> None:
+        """Cover the thin helper wrappers that proxy the shared validation modules."""
+        self.assertEqual(
+            helpers._require_identifier(
+                "abc",
+                rules=helpers.IdentifierRules(
+                    label="label",
+                    allowed_chars={"a", "b", "c"},
+                    min_len=1,
+                    max_len=3,
+                ),
+            ),
+            "abc",
+        )
+        self.assertEqual(
+            helpers.normalize_https_url(
+                "https://API.GITHUB.COM/path?x=1",
+                allowed_hosts={"api.github.com"},
+                strip_query=True,
+            ),
+            "https://api.github.com/path",
+        )
+        self.assertEqual(
+            helpers.normalize_https_url(
+                "https://API.GITHUB.COM/path?x=1",
+                allowed_hosts={"api.github.com"},
+            ),
+            "https://api.github.com/path?x=1",
+        )
+        self.assertEqual(helpers.require_repo_slug("Owner/Repo"), ("Owner", "Repo"))
+        self.assertEqual(helpers.require_repo_segment("Owner", label="owner"), "Owner")
+        self.assertEqual(helpers.require_slug("branch-1", label="branch"), "branch-1")
+        self.assertEqual(helpers.require_sha("a1b2c3d"), "a1b2c3d")
+        self.assertEqual(helpers.quote_segment("owner/repo"), "owner%2Frepo")
+        self.assertEqual(
+            helpers.quote_path_segment("branch-1", label="branch"),
+            "branch-1",
+        )
+        self.assertEqual(
+            helpers._https_connection(),
+            http.client.HTTPSConnection,
+        )
+        self.assertEqual(helpers._normalized_http_method("get"), "GET")
+        self.assertEqual(helpers._safe_timeout_seconds("5"), 5)
+        self.assertEqual(
+            helpers._merge_safe_headers(None, include_json_content_type=True),
+            {"Accept": "application/json", "Content-Type": "application/json"},
+        )
+        self.assertEqual(
+            validation_support.require_identifier(
+                "abc",
+                rules=helpers.IdentifierRules(
+                    label="label",
+                    allowed_chars={"a", "b", "c"},
+                    min_len=1,
+                    max_len=3,
+                ),
+            ),
+            "abc",
+        )
+        self.assertEqual(
+            validation_support._validate_output_directory("nested//path"),
+            Path("nested/path"),
+        )
+        self.assertIs(http_support.https_connection(), http.client.HTTPSConnection)
+
+        with mock.patch.object(http_support, "request_json_https", return_value={"ok": True}):
+            self.assertEqual(
+                helpers.request_json_https(host="api.github.com", path="/repos/owner/repo"),
+                {"ok": True},
+            )
+        with mock.patch.object(
+            http_support,
+            "request_json_https_target",
+            return_value={"ok": True},
+        ):
+            self.assertEqual(
+                helpers.request_json_https_target(
+                    target=helpers.HTTPSRequestTarget(
+                        host="api.github.com",
+                        path="/repos/owner/repo",
+                    )
+                ),
+                {"ok": True},
+            )
+        with mock.patch.object(
+            http_support,
+            "request_json_list_https",
+            return_value=([{"ok": True}], {"x-hits": "1"}),
+        ):
+            self.assertEqual(
+                helpers.request_json_list_https(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
+                ),
+                ([{"ok": True}], {"x-hits": "1"}),
+            )
+        with mock.patch.object(
+            http_support,
+            "request_json_list_https_target",
+            return_value=([{"ok": True}], {"x-hits": "1"}),
+        ):
+            self.assertEqual(
+                helpers.request_json_list_https_target(
+                    target=helpers.HTTPSRequestTarget(
+                        host="api.github.com",
+                        path="/repos/owner/repo",
+                    )
+                ),
+                ([{"ok": True}], {"x-hits": "1"}),
+            )
+        self.assertEqual(helpers.basic_auth_header("token"), "Basic dG9rZW46")
 
 
 class _ScriptPathBuilderTests(unittest.TestCase):

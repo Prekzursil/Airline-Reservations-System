@@ -316,6 +316,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
 
     def test_wrapper_helpers_forward_to_target_helpers(self) -> None:
         self.assertIs(http_support._https_connection(), http.client.HTTPSConnection)
+        self.assertIs(http_support.https_connection(), http.client.HTTPSConnection)
         with self.assertRaises(ValueError):
             http_support._safe_timeout_seconds("bad")
 
@@ -341,6 +342,44 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertEqual(items, [{"ok": True}])
         self.assertEqual(headers["x-hits"], "1")
         list_mock.assert_called_once()
+
+    def test_request_https_payload_handles_empty_body_and_default_headers(self) -> None:
+        response = _FakeHTTPResponse(
+            status=200,
+            reason="OK",
+            body='{"ok": true}',
+            headers={},
+        )
+        connection_box: Dict[str, _FakeHTTPSConnection] = {}
+
+        def _connection_factory(host: str, timeout: int) -> _FakeHTTPSConnection:
+            connection = _FakeHTTPSConnection(host, timeout, response=response)
+            connection_box["conn"] = connection
+            return connection
+
+        with mock.patch.object(http_support, "_https_connection", return_value=_connection_factory):
+            payload = http_support._request_https_payload(
+                target=helpers.HTTPSRequestTarget(host="api.github.com", path="/repos/owner/repo"),
+                options=helpers.HTTPSRequestOptions(
+                    method="GET",
+                    headers=None,
+                    timeout=15,
+                    body=None,
+                ),
+            )
+
+        connection = connection_box["conn"]
+        self.assertIsNotNone(connection.request_args)
+        request_args = connection.request_args
+        self.assertIsNotNone(request_args)
+        request_method, request_path, request_body, request_headers = request_args or ("", "", b"", {})
+        self.assertEqual(request_method, "GET")
+        self.assertEqual(request_path, "/repos/owner/repo")
+        self.assertIsNone(request_body)
+        self.assertEqual(request_headers["Accept"], "application/json")
+        self.assertNotIn("Content-Type", request_headers)
+        self.assertEqual(payload.status, 200)
+        self.assertTrue(connection.closed)
 
     def test_request_json_list_https_target_rejects_non_collection_payload(self) -> None:
         with mock.patch.object(
@@ -468,6 +507,18 @@ class AirlineCoverageGateTests(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     airline_coverage_gate.main()
 
+            with (
+                mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
+                mock.patch.object(airline_coverage_gate, "CPP_LCOV_PATH", cpp_lcov),
+                mock.patch.object(
+                    airline_coverage_gate, "quality_artifact_paths", return_value=(out_json, out_md)
+                ),
+                mock.patch.object(sys, "argv", ["assert_coverage_100.py"]),
+            ):
+                self.assertEqual(airline_coverage_gate.main(), 0)
+            payload = json.loads(out_json.read_text(encoding="utf-8"))
+            self.assertEqual([component["name"] for component in payload["components"]], ["node"])
+
     def test_render_optional_cpp_and_arg_parse_branches(self) -> None:
         with mock.patch.object(sys, "argv", ["assert_coverage_100.py"]):
             args = airline_coverage_gate._parse_args()
@@ -516,5 +567,3 @@ class AirlineCoverageGateTests(unittest.TestCase):
             self.assertEqual(
                 [component["name"] for component in payload["components"]], ["node", "cpp"]
             )
-
-

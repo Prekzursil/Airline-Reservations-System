@@ -150,6 +150,11 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertIn("no X-Hits header", findings[0])
 
         findings = []
+        unresolved = sentry_support.unresolved_count("proj", [], {}, findings)
+        self.assertEqual(unresolved, 0)
+        self.assertEqual(findings, [])
+
+        findings = []
         sentry_support.append_project_fetch_failure(
             "proj",
             RuntimeError("404 Not Found"),
@@ -406,6 +411,24 @@ class SentryAndSonarScriptTests(unittest.TestCase):
             ("pass", 0, 0, "OK", []),
         )
 
+    def test_sonar_branch_and_pull_request_scoped_queries(self) -> None:
+        args = _sonar_args(branch="", pull_request="17", expected_pr_sha="want", max_wait_seconds=0)
+        with (
+            mock.patch.object(sonar, "_fetch_pr_analysis_sha", return_value="want"),
+            mock.patch.object(sonar, "_fetch_open_issues", return_value=0),
+            mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0),
+            mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK"),
+            mock.patch.object(sonar.time, "time", side_effect=[0, 0]),
+            mock.patch.object(sonar.time, "sleep"),
+        ):
+            status, open_issues, unresolved_hotspots, quality_gate, findings = (
+                sonar._run_sonar_check(args, "token")
+            )
+        self.assertEqual(
+            (status, open_issues, unresolved_hotspots, quality_gate, findings),
+            ("pass", 0, 0, "OK", []),
+        )
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             out_json = Path(temp_path / "sonar.json")
@@ -539,4 +562,3 @@ class SentryAndSonarScriptTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

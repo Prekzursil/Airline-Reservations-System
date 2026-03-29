@@ -154,10 +154,47 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         """Cover Codacy total parsing and environment token fallback."""
         nested_total = {"outer": [{"hits": 3}]}
         self.assertEqual(codacy.extract_total_open(nested_total), 3)
+        self.assertEqual(codacy.extract_total_open([{"count": 4}]), 4)
+        self.assertIsNone(codacy.extract_total_open(["ignored"]))
         self.assertIsNone(codacy.extract_total_open({"results": []}))
 
         with mock.patch.dict(os.environ, {"CODACY_API_TOKEN": "env-token"}, clear=True):
             self.assertEqual(RESOLVE_CODACY_TOKEN(""), "env-token")
+
+        with mock.patch.object(
+            codacy,
+            "_request_json_https_target",
+            return_value={"total": 0},
+        ) as request_mock:
+            self.assertEqual(
+                codacy.request_json_https_target(
+                    target=helpers.HTTPSRequestTarget(
+                        host=helpers.HTTPSHost.CODACY_API.value,
+                        path="/api/v3/analysis/organizations/gh/owner/repositories/repo/issues/search?limit=1",
+                    ),
+                    method="POST",
+                    headers={"api-token": "token"},
+                    body={"branchName": "feature"},
+                ),
+                {"total": 0},
+            )
+        request_mock.assert_called_once()
+
+        with mock.patch.object(
+            codacy,
+            "request_json_https_target",
+            return_value={"total": 0},
+        ) as wrapper_mock:
+            codacy._fetch_open_issues(
+                Namespace(
+                    provider="github",
+                    owner="owner",
+                    repo="repo",
+                    branch="feature/zero",
+                ),
+                "token",
+            )
+        wrapper_mock.assert_called_once()
 
     def test_run_codacy_check_covers_missing_token_success_and_failure(self) -> None:
         """Cover the Codacy runner for missing-token, pass, and exception branches."""

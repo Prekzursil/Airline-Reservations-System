@@ -2,12 +2,28 @@
 #include "gtest/gtest.h"
 #include "../src/ReservationSystemHelpers.h"
 
+#include <array>
+#include <algorithm>
 #include <sstream>
 #include <vector>
 
 namespace rsh = reservation_system_helpers;
 
 namespace {
+template <std::size_t N>
+bool all_seen(const std::array<bool, N>& seen) {
+    return std::all_of(seen.begin(), seen.end(), [](bool value) { return value; });
+}
+
+template <std::size_t N>
+void mark_seen(const std::array<std::string_view, N>& prefixes, const std::string& name, std::array<bool, N>& seen) {
+    for (std::size_t index = 0; index < N; ++index) {
+        if (name.starts_with(prefixes[index])) {
+            seen[index] = true;
+        }
+    }
+}
+
 void expect_book_seat_prerequisites_result(
     const std::vector<Airplane>& airplanes,
     const std::vector<Customer>& customers,
@@ -125,6 +141,34 @@ TEST(ReservationSystemHelpersTest, GenerateApiAutoCustomerDataIsDeterministicAnd
     EXPECT_LE(first.age, 80);
     EXPECT_GE(first.money, 100.0);
     EXPECT_LE(first.money, 2000.0);
+}
+
+TEST(ReservationSystemHelpersTest, GenerateAutoCustomerDataCoversAllNameVariants) {
+    const std::array<std::string_view, 5> console_prefixes = {
+        "AutoPat_",
+        "RoboUser_",
+        "GenClient_",
+        "SysPerson_",
+        "BotPassenger_",
+    };
+    const std::array<std::string_view, 5> api_prefixes = {
+        "ApiPat_",
+        "WebServiceUser_",
+        "JsonGenClient_",
+        "SystemPerson_",
+        "BackendBot_",
+    };
+    std::array<bool, 5> console_seen{};
+    std::array<bool, 5> api_seen{};
+
+    for (int counter = 1; counter <= 200 && (!all_seen(console_seen) || !all_seen(api_seen)); ++counter) {
+        const std::string customer_id = rsh::formatCustomerId(counter);
+        mark_seen(console_prefixes, rsh::generateAutoCustomerData(customer_id).name, console_seen);
+        mark_seen(api_prefixes, rsh::generateApiAutoCustomerData(customer_id).name, api_seen);
+    }
+
+    EXPECT_TRUE(all_seen(console_seen));
+    EXPECT_TRUE(all_seen(api_seen));
 }
 
 TEST(ReservationSystemHelpersTest, FormatCustomerIdPadsValuesToAtLeastFourDigits) {

@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import unittest
 
-from scripts.quality import assert_coverage_100, normalize_lcov
+from scripts.quality import assert_coverage_100, coverage_parsers, normalize_lcov
 
 
 class _NormalizeLcovTests(unittest.TestCase):
@@ -169,6 +169,13 @@ class _AssertCoverageParsingTests(unittest.TestCase):
             )
 
         self.assertEqual(resolved, source_lines)
+
+    def test_lcov_state_preserves_preseeded_record_lines(self) -> None:
+        """Leave already-initialized LCOV record maps untouched."""
+        state = coverage_parsers.LcovState(record_lines={1: 1})
+        state.__post_init__()
+
+        self.assertEqual(state.record_lines, {1: 1})
 
 
 if __name__ == "__main__":

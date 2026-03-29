@@ -66,6 +66,30 @@ TEST_F(ReservationSystemTest, HandleAddCustomerAutomatic) {
     EXPECT_NE(output.find("added successfully."), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, HandleAddCustomerAcceptsUppercaseChoices) {
+    test_in.str("A\n");
+    ReservationSystemTestAccess::handleAddCustomer(rs);
+
+    Customer* auto_customer = rs.findCustomerById("CUST0003");
+    ASSERT_NE(auto_customer, nullptr);
+    EXPECT_TRUE(auto_customer->getName().rfind("AutoPat_CUST0003", 0) == 0 ||
+                auto_customer->getName().rfind("RoboUser_CUST0003", 0) == 0 ||
+                auto_customer->getName().rfind("GenClient_CUST0003", 0) == 0 ||
+                auto_customer->getName().rfind("SysPerson_CUST0003", 0) == 0 ||
+                auto_customer->getName().rfind("BotPassenger_CUST0003", 0) == 0);
+
+    test_in.clear();
+    test_in.str("M\nManual User\n31\n777.0\n");
+    ReservationSystemTestAccess::handleAddCustomer(rs);
+
+    Customer* manual_customer = rs.findCustomerById("CUST0004");
+    ASSERT_NE(manual_customer, nullptr);
+    EXPECT_EQ(manual_customer->getName(), "Manual User");
+    EXPECT_EQ(manual_customer->getAge(), 31);
+    EXPECT_DOUBLE_EQ(manual_customer->getMoney(), 777.0);
+    EXPECT_NE(test_out.str().find("Customer Manual User with ID CUST0004 added successfully."), std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, HandleAddCustomerInvalidChoice) {
     test_in.str("1\nx\n0\n"); // Menu: 1 (add cust), x (invalid), 0 (exit)
     rs.run();
@@ -81,6 +105,15 @@ TEST_F(ReservationSystemTest, RunRejectsInvalidMenuInputBeforeExit) {
     EXPECT_NE(
         test_out.str().find("Invalid choice. Please enter a number between 0 and 7."),
         std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, RunReportsOutOfRangeMenuChoiceBeforeInputExhaustion) {
+    test_in.str("9\n");
+    rs.run();
+
+    const std::string output = test_out.str();
+    EXPECT_NE(output.find("Invalid choice. Please enter a number between 0 and 7."), std::string::npos);
+    EXPECT_NE(output.find("Input stream exhausted. Exiting system."), std::string::npos);
 }
 
 TEST_F(ReservationSystemTest, GetValidatedInputRetriesAfterInvalidNumericInput) {
@@ -157,8 +190,34 @@ TEST_F(ReservationSystemTest, GetValidatedStringHandlesFailStateThenEof) {
     EXPECT_NE(test_out.str().find("Invalid input. Please try again."), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, GetMenuChoiceRetriesAfterInvalidToken) {
+    test_in.str("oops\n2\n");
+    test_in.clear();
+
+    EXPECT_EQ(ReservationSystemTestAccess::getMenuChoice(rs, 0, 7), 2);
+    EXPECT_NE(
+        test_out.str().find("Invalid choice. Please enter a number between 0 and 7."),
+        std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, GetMenuChoiceRetriesAfterBelowMinimumValue) {
+    test_in.str("-1\n2\n");
+    test_in.clear();
+
+    EXPECT_EQ(ReservationSystemTestAccess::getMenuChoice(rs, 0, 7), 2);
+    EXPECT_NE(
+        test_out.str().find("Invalid choice. Please enter a number between 0 and 7."),
+        std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, ExecuteMenuChoiceReportsOutOfRangeChoice) {
     ReservationSystemTestAccess::executeMenuChoice(rs, 99);
+
+    EXPECT_NE(test_out.str().find("Invalid choice. Please try again."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, ExecuteMenuChoiceRejectsNegativeChoice) {
+    ReservationSystemTestAccess::executeMenuChoice(rs, -1);
 
     EXPECT_NE(test_out.str().find("Invalid choice. Please try again."), std::string::npos);
 }
@@ -348,6 +407,45 @@ TEST_F(ReservationSystemTest, HandleSearchCustomerSuppressesNoBookingsMessageWhe
     const std::string output = test_out.str();
     EXPECT_NE(output.find("Bookings for Alice Wonderland:"), std::string::npos);
     EXPECT_EQ(output.find("No active bookings found for this customer."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleSearchCustomerIgnoresCancelledBookings) {
+    Customer* customer = addCustomer("Search User", 29, 500.0, false);
+    ASSERT_NE(customer, nullptr);
+
+    Booking* active_booking = createConfirmedBooking(customer->getPersonId(), "FL101", "4D");
+    ASSERT_NE(active_booking, nullptr);
+    Booking* cancelled_booking = createConfirmedBooking(customer->getPersonId(), "FL101", "4E");
+    ASSERT_NE(cancelled_booking, nullptr);
+
+    std::string cancel_error;
+    ASSERT_TRUE(rs.cancelBookingInternal(cancelled_booking->getBookingId(), cancel_error));
+
+    test_in.str(customer->getPersonId() + "\n");
+    ReservationSystemTestAccess::handleSearchCustomer(rs);
+
+    const std::string output = test_out.str();
+    EXPECT_NE(output.find("Bookings for Search User:"), std::string::npos);
+    EXPECT_EQ(output.find("No active bookings found for this customer."), std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, HandleSearchCustomerSkipsOtherCustomersBookings) {
+    Customer* primary_customer = addCustomer("Primary Search User", 33, 700.0, false);
+    Customer* secondary_customer = addCustomer("Secondary Search User", 34, 700.0, false);
+    ASSERT_NE(primary_customer, nullptr);
+    ASSERT_NE(secondary_customer, nullptr);
+
+    Booking* primary_booking = createConfirmedBooking(primary_customer->getPersonId(), "FL101", "4F");
+    Booking* secondary_booking = createConfirmedBooking(secondary_customer->getPersonId(), "FL101", "5A");
+    ASSERT_NE(primary_booking, nullptr);
+    ASSERT_NE(secondary_booking, nullptr);
+
+    test_in.str(primary_customer->getPersonId() + "\n");
+    ReservationSystemTestAccess::handleSearchCustomer(rs);
+
+    const std::string output = test_out.str();
+    EXPECT_NE(output.find("Bookings for Primary Search User:"), std::string::npos);
+    EXPECT_EQ(output.find(secondary_booking->getBookingId()), std::string::npos);
 }
 
 

@@ -62,6 +62,10 @@ public:
 
 class ReservationSystemTestAccess {
 public:
+    static int getMenuChoice(ReservationSystem& reservation_system, const int min_choice, const int max_choice) {
+        return reservation_system.getMenuChoice(min_choice, max_choice);
+    }
+
     static char getValidatedChar(ReservationSystem& reservation_system, const std::string& prompt) {
         return reservation_system.getValidatedInput<char>(prompt);
     }
@@ -87,5 +91,37 @@ public:
         const Booking& first_booking,
         const Booking& second_booking) {
         return reservation_system.validateSwapPair(first_booking, second_booking);
+    }
+
+    static void handleAddCustomer(ReservationSystem& reservation_system) {
+        reservation_system.handleAddCustomer();
+    }
+
+    static void handleSearchCustomer(ReservationSystem& reservation_system) {
+        reservation_system.handleSearchCustomer();
+    }
+
+    static void handleSwapSeats(ReservationSystem& reservation_system) {
+        reservation_system.handleSwapSeats();
+    }
+
+    static void handleAdminMenu(ReservationSystem& reservation_system) {
+        reservation_system.handleAdminMenu();
+    }
+
+    static void clearAirplanesForTest(ReservationSystem& reservation_system) {
+        reservation_system.airplanes.clear();
+    }
+
+    static void replaceAirplaneForTest(
+        ReservationSystem& reservation_system,
+        const std::string& flight_number,
+        Airplane replacement) {
+        for (Airplane& airplane : reservation_system.airplanes) {
+            if (airplane.getFlightNumber() == flight_number) {
+                airplane = std::move(replacement);
+                return;
+            }
+        }
     }
 };

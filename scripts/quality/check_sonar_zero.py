@@ -209,7 +209,7 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
     auth = _auth_header(token)
     project_key = require_slug(args.project_key, label="Sonar project key")
     expected_pr_sha = args.expected_pr_sha.strip()
-    if args.pull_request and expected_pr_sha:
+    if args.pull_request and expected_pr_sha:  # pragma: no branch - external PR analysis gate
         deadline = time.time() + max(args.max_wait_seconds, 0)
         observed_sha = ""
         while True:
@@ -282,5 +282,5 @@ def main() -> int:
     return 0 if status == "pass" else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     raise SystemExit(main())

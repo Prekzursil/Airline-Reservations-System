@@ -357,6 +357,25 @@ TEST_F(ReservationSystemTest, HandleSwapSeatsCancelledByUser) {
     EXPECT_EQ(rs.findBookingById(second_booking_id)->getSeatId(), "9E");
 }
 
+TEST_F(ReservationSystemTest, HandleSwapSeatsRejectsMissingFirstBooking) {
+    Customer* cust1 = addCustomer("MissingFirstA", 30, 500.0, false);
+    Customer* cust2 = addCustomer("MissingFirstB", 32, 500.0, false);
+    ASSERT_NE(cust1, nullptr);
+    ASSERT_NE(cust2, nullptr);
+
+    Booking* booking1 = createConfirmedBooking(cust1->getPersonId(), "FL101", "10B");
+    ASSERT_NE(booking1, nullptr);
+    Booking* booking2 = createConfirmedBooking(cust2->getPersonId(), "FL101", "10C");
+    ASSERT_NE(booking2, nullptr);
+
+    test_in.str("BK_FAKE\n");
+    ReservationSystemTestAccess::handleSwapSeats(rs);
+
+    EXPECT_NE(
+        test_out.str().find("First booking ID not found or not confirmed."),
+        std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, HandleSwapSeatsSuccessfulViaMenu) {
     Customer* cust1 = addCustomer("SwapUserA", 30, 500.0, false);
     Customer* cust2 = addCustomer("SwapUserB", 32, 500.0, false);
@@ -395,6 +414,28 @@ TEST_F(ReservationSystemTest, HandleAdminMenuShowsEmptyCustomersAndBookings) {
     EXPECT_NE(output.find("No bookings in system."), std::string::npos);
 }
 
+TEST_F(ReservationSystemTest, HandleAdminMenuShowsExistingCustomersAndBookings) {
+    Customer* customer = addCustomer("Admin View User", 28, 650.0, false);
+    ASSERT_NE(customer, nullptr);
+    Booking* booking = createConfirmedBooking(customer->getPersonId(), "FL101", "11A");
+    ASSERT_NE(booking, nullptr);
+
+    test_in.str("2\n");
+    ReservationSystemTestAccess::handleAdminMenu(rs);
+
+    EXPECT_NE(test_out.str().find("--- All Customers ---"), std::string::npos);
+    EXPECT_EQ(test_out.str().find("No customers in system."), std::string::npos);
+
+    test_out.clear();
+    test_out.str("");
+    test_in.clear();
+    test_in.str("3\n");
+    ReservationSystemTestAccess::handleAdminMenu(rs);
+
+    EXPECT_NE(test_out.str().find("--- All Bookings ---"), std::string::npos);
+    EXPECT_EQ(test_out.str().find("No bookings in system."), std::string::npos);
+}
+
 TEST_F(ReservationSystemTest, HandleAdminMenuReturnsToMainMenuOnZero) {
     test_in.str("7\n0\n0\n");
     rs.run();
@@ -424,6 +465,72 @@ TEST_F(ReservationSystemTest, AddCustomerInternalAutoGeneratesApiDefaults) {
     EXPECT_LE(customer->getAge(), 80);
     EXPECT_GE(customer->getMoney(), 100.0);
     EXPECT_LE(customer->getMoney(), 2000.0);
+
+    Customer* preserved = rs.addCustomerInternal("Ignored Again", 33, 777.0, true);
+    ASSERT_NE(preserved, nullptr);
+    EXPECT_TRUE(has_expected_auto_generated_customer_name(preserved->getName()));
+    EXPECT_EQ(preserved->getAge(), 33);
+    EXPECT_DOUBLE_EQ(preserved->getMoney(), 777.0);
+}
+
+TEST_F(ReservationSystemTest, CancelBookingInternalFailsWhenAssociatedAirplaneIsMissing) {
+    Booking* booking = createConfirmedBooking("CUST0001", "FL101", "11B");
+    ASSERT_NE(booking, nullptr);
+
+    ReservationSystemTestAccess::clearAirplanesForTest(rs);
+
+    std::string error_message;
+    EXPECT_FALSE(rs.cancelBookingInternal(booking->getBookingId(), error_message));
+    EXPECT_NE(
+        error_message.find("Error: Could not find customer, airplane, or seat associated with this booking."),
+        std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, CancelBookingInternalFailsWhenAssociatedSeatIsMissing) {
+    Booking* booking = createConfirmedBooking("CUST0001", "FL101", "11C");
+    ASSERT_NE(booking, nullptr);
+
+    ReservationSystemTestAccess::replaceAirplaneForTest(rs, "FL101", Airplane("FL101", 0, 0));
+
+    std::string error_message;
+    EXPECT_FALSE(rs.cancelBookingInternal(booking->getBookingId(), error_message));
+    EXPECT_NE(
+        error_message.find("Error: Could not find customer, airplane, or seat associated with this booking."),
+        std::string::npos);
+}
+
+TEST_F(ReservationSystemTest, SwapSeatsInternal_FirstBookingNotConfirmed) {
+    Customer* first_customer = addCustomer("Unconfirmed First", 30, 500.0, false);
+    Customer* second_customer = addCustomer("Confirmed Second", 31, 500.0, false);
+    ASSERT_NE(first_customer, nullptr);
+    ASSERT_NE(second_customer, nullptr);
+
+    Booking* first_booking = createConfirmedBooking(first_customer->getPersonId(), "FL101", "10D");
+    Booking* second_booking = createConfirmedBooking(second_customer->getPersonId(), "FL101", "10E");
+    ASSERT_NE(first_booking, nullptr);
+    ASSERT_NE(second_booking, nullptr);
+
+    first_booking->setStatus(BookingStatus::PENDING);
+
+    std::string error_message;
+    EXPECT_FALSE(rs.swapSeatsInternal(first_booking->getBookingId(), second_booking->getBookingId(), error_message));
+    EXPECT_EQ(
+        error_message,
+        "First booking ID (" + first_booking->getBookingId() + ") not found or not confirmed.");
+}
+
+TEST_F(ReservationSystemTest, SwapSeatsInternal_SecondBookingNotFound) {
+    Customer* first_customer = addCustomer("Second Missing First", 30, 500.0, false);
+    ASSERT_NE(first_customer, nullptr);
+
+    Booking* first_booking = createConfirmedBooking(first_customer->getPersonId(), "FL101", "10F");
+    ASSERT_NE(first_booking, nullptr);
+
+    std::string error_message;
+    EXPECT_FALSE(rs.swapSeatsInternal(first_booking->getBookingId(), "BK_DOES_NOT_EXIST", error_message));
+    EXPECT_EQ(
+        error_message,
+        "Second booking ID (BK_DOES_NOT_EXIST) not found or not confirmed.");
 }
 
 TEST_F(ReservationSystemTest, CreateBookingInternalReturnsDetailedErrors) {

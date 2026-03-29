@@ -148,6 +148,34 @@ TEST_F(BookingTest, GetBookingDateStringHandlesEpochAndNegativeTimes) {
     BookingTestAccess::setBookingDate(firstBooking(), std::chrono::system_clock::time_point{});
     EXPECT_EQ(firstBooking().getBookingDateString(), "1970-01-01 00:00:00");
 
-    BookingTestAccess::setBookingDate(firstBooking(), std::chrono::system_clock::time_point{std::chrono::seconds{-1}});
+    BookingTestAccess::setBookingDate(
+        firstBooking(),
+        std::chrono::system_clock::time_point{std::chrono::seconds{1}});
+    EXPECT_EQ(firstBooking().getBookingDateString(), "1970-01-01 00:00:01");
+
+    BookingTestAccess::setBookingDate(
+        firstBooking(),
+        std::chrono::system_clock::time_point{std::chrono::seconds{-1}});
     EXPECT_EQ(firstBooking().getBookingDateString(), "1969-12-31 23:59:59");
+
+    BookingTestAccess::setBookingDate(
+        firstBooking(),
+        std::chrono::system_clock::time_point{std::chrono::days{-719469}});
+    EXPECT_TRUE(
+        std::regex_match(
+            firstBooking().getBookingDateString(),
+            std::regex(R"(-?\d{3,}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")));
+
+    BookingTestAccess::setBookingDate(
+        firstBooking(),
+        std::chrono::sys_days{std::chrono::year{2024} / 12 / 31}
+            + std::chrono::hours{23}
+            + std::chrono::minutes{59}
+            + std::chrono::seconds{59});
+    EXPECT_EQ(firstBooking().getBookingDateString(), "2024-12-31 23:59:59");
+
+    BookingTestAccess::setBookingDate(
+        firstBooking(),
+        std::chrono::sys_days{std::chrono::year{-4000} / 1 / 1});
+    EXPECT_FALSE(firstBooking().getBookingDateString().empty());
 }
