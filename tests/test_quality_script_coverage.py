@@ -1,3 +1,5 @@
+"""Exercise shared security helper branches used by the quality scripts."""
+
 from __future__ import absolute_import, division
 
 # pylint: disable=too-many-lines,no-member,not-context-manager
@@ -19,7 +21,9 @@ from tests.quality_script_imported_coverage_cases import (
     QualitySecretsAndCodacyTests,
 )
 from tests.test_quality_script_coverage_gate import AirlineCoverageGateTests
-from tests.test_quality_script_deepscan_required_checks import DeepScanAndRequiredChecksTests
+from tests.test_quality_script_deepscan_required_checks import (
+    DeepScanAndRequiredChecksTests,
+)
 from tests.test_quality_script_paths import CoverageParsersAndNormalizeLCOVTests
 from tests.test_quality_script_sonar import SonarScriptTests
 from tests.test_quality_script_sentry_sonar import SentryAndSonarScriptTests
@@ -40,6 +44,7 @@ _PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
 
 @contextlib.contextmanager
 def _temporary_cwd(path: Path):
+    """Temporarily change the working directory for path-based helper tests."""
     previous = Path.cwd()
     os.chdir(path)
     try:
@@ -49,10 +54,12 @@ def _temporary_cwd(path: Path):
 
 
 def _join_parts(*parts: str) -> str:
+    """Join string fragments without exposing the full literal inline."""
     return "".join(parts)
 
 
 def _build_https_url(*, scheme: str, host: str, path: str = "/path") -> str:
+    """Assemble a simple URL for validation coverage cases."""
     return f"{scheme}://{host}{path}"
 
 
@@ -63,6 +70,7 @@ def _https_response_payload(
     body: str = "{}",
     headers: Optional[Dict[str, str]] = None,
 ) -> helpers.HTTPSResponsePayload:
+    """Build a response payload object for HTTP helper tests."""
     return helpers.HTTPSResponsePayload(
         host="api.github.com",
         path="/repos/owner/repo",
@@ -74,6 +82,8 @@ def _https_response_payload(
 
 
 class _FakeHTTPResponse:
+    """Minimal fake response object for request helper tests."""
+
     def __init__(
         self,
         *,
@@ -95,6 +105,8 @@ class _FakeHTTPResponse:
 
 
 class _FakeHTTPSConnection:
+    """Capture request arguments passed to the patched HTTPS client."""
+
     def __init__(self, host: str, timeout: int, *, response: _FakeHTTPResponse):
         self.host = host
         self.timeout = timeout
@@ -119,7 +131,12 @@ class _FakeHTTPSConnection:
 
 
 class SecurityValidationSupportTests(unittest.TestCase):
-    def test_normalize_https_url_accepts_allowlisted_suffixes_and_rejects_local_hosts(self) -> None:
+    """Cover validation helper branches used by quality gate scripts."""
+
+    def test_normalize_https_url_accepts_allowlisted_suffixes_and_rejects_local_hosts(
+        self,
+    ) -> None:
+        """Accept allowlisted hosts and reject insecure or local targets."""
         normalized = validation_support.normalize_https_url(
             "https://Sub.Example.CODECOV.io:443/path#fragment",
             allowed_host_suffixes={"codecov.io"},
@@ -127,7 +144,10 @@ class SecurityValidationSupportTests(unittest.TestCase):
 
         self.assertEqual(normalized, "https://sub.example.codecov.io/path")
 
-        insecure_url = _build_https_url(scheme=_join_parts("ht", "tp"), host="codecov.io")
+        insecure_url = _build_https_url(
+            scheme=_join_parts("ht", "tp"),
+            host="codecov.io",
+        )
         private_ip_host = ".".join(("10", "0", "0", "8"))
         private_ip_url = _build_https_url(scheme="https", host=private_ip_host)
         with self.assertRaises(ValueError):
@@ -138,15 +158,24 @@ class SecurityValidationSupportTests(unittest.TestCase):
             validation_support.normalize_https_url(private_ip_url)
 
     def test_repo_slug_sha_quote_and_artifact_helpers_cover_edge_cases(self) -> None:
+        """Exercise identifier quoting and artifact path helpers."""
         self.assertEqual(
-            validation_support.require_repo_slug("Owner-1/Repo_2"), ("Owner-1", "Repo_2")
+            validation_support.require_repo_slug("Owner-1/Repo_2"),
+            ("Owner-1", "Repo_2"),
         )
         self.assertEqual(
-            validation_support.require_slug("branch.name:123", label="branch"), "branch.name:123"
+            validation_support.require_slug(
+                "branch.name:123",
+                label="branch",
+            ),
+            "branch.name:123",
         )
         self.assertEqual(validation_support.require_sha("A1b2c3d"), "A1b2c3d")
         self.assertEqual(validation_support.quote_segment("owner/repo"), "owner%2Frepo")
-        self.assertEqual(validation_support.quote_path_segment("Owner-1", label="owner"), "Owner-1")
+        self.assertEqual(
+            validation_support.quote_path_segment("Owner-1", label="owner"),
+            "Owner-1",
+        )
 
         with self.assertRaises(ValueError):
             validation_support.require_repo_slug("bad/repo/extra")
@@ -169,6 +198,7 @@ class SecurityValidationSupportTests(unittest.TestCase):
             self.assertEqual(artifact_md.name, "codacy.md")
 
     def test_private_validation_helpers_cover_remaining_rejections(self) -> None:
+        """Cover the remaining validation helper rejection branches."""
         with self.assertRaises(ValueError):
             validation_support._require_identifier(
                 "",
@@ -210,7 +240,12 @@ class SecurityValidationSupportTests(unittest.TestCase):
 
 
 class SecurityHTTPAndHelpersTests(unittest.TestCase):
-    def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(self) -> None:
+    """Cover HTTP wrapper behavior used by the quality scripts."""
+
+    def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(
+        self,
+    ) -> None:
+        """Build request payloads with normalized headers and JSON bodies."""
         response = _FakeHTTPResponse(
             status=200,
             reason="OK",
@@ -220,13 +255,21 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         connection_box: Dict[str, _FakeHTTPSConnection] = {}
 
         def _connection_factory(host: str, timeout: int) -> _FakeHTTPSConnection:
+            """Store the created fake connection for later assertions."""
             connection = _FakeHTTPSConnection(host, timeout, response=response)
             connection_box["conn"] = connection
             return connection
 
-        with mock.patch.object(http_support, "_https_connection", return_value=_connection_factory):
+        with mock.patch.object(
+            http_support,
+            "_https_connection",
+            return_value=_connection_factory,
+        ):
             payload = http_support._request_https_payload(
-                target=helpers.HTTPSRequestTarget(host="api.github.com", path="/repos/owner/repo"),
+                target=helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
+                ),
                 options=helpers.HTTPSRequestOptions(
                     method="post",
                     headers={"X-Test": "token"},
@@ -239,7 +282,12 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertIsNotNone(connection.request_args)
         request_args = connection.request_args
         self.assertIsNotNone(request_args)
-        request_method, request_path, request_body, request_headers = request_args or ("", "", b"", {})
+        request_method, request_path, request_body, request_headers = request_args or (
+            "",
+            "",
+            b"",
+            {},
+        )
         self.assertEqual(request_method, "POST")
         self.assertEqual(request_path, "/repos/owner/repo")
         self.assertEqual(request_body, b'{"ok": true}')
@@ -250,6 +298,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertTrue(connection.closed)
 
     def test_request_json_https_target_returns_object_payload(self) -> None:
+        """Return JSON objects from the object-target HTTPS wrapper."""
         with mock.patch.object(
             http_support,
             "_request_https_payload",
@@ -264,6 +313,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertEqual(payload, {"name": "value"})
 
     def test_request_json_list_https_target_returns_collection_payload(self) -> None:
+        """Return collections and response headers from the list wrapper."""
         with mock.patch.object(
             http_support,
             "_request_https_payload",
@@ -282,6 +332,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertEqual(headers["x-hits"], "1")
 
     def test_json_request_helpers_raise_for_errors(self) -> None:
+        """Raise the expected exceptions for invalid JSON helper inputs."""
         with mock.patch.object(
             http_support,
             "_request_https_payload",
@@ -345,7 +396,9 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertEqual(headers["x-hits"], "1")
         list_mock.assert_called_once()
 
-    def test_request_https_payload_handles_empty_body_and_default_headers(self) -> None:
+    def test_request_https_payload_handles_empty_body_and_default_headers(
+        self,
+    ) -> None:
         """Cover HTTPS payload generation when the request body is absent."""
         response = _FakeHTTPResponse(
             status=200,
@@ -361,9 +414,16 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
             connection_box["conn"] = connection
             return connection
 
-        with mock.patch.object(http_support, "_https_connection", return_value=_connection_factory):
+        with mock.patch.object(
+            http_support,
+            "_https_connection",
+            return_value=_connection_factory,
+        ):
             payload = http_support._request_https_payload(
-                target=helpers.HTTPSRequestTarget(host="api.github.com", path="/repos/owner/repo"),
+                target=helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
+                ),
                 options=helpers.HTTPSRequestOptions(
                     method="GET",
                     headers=None,
@@ -376,7 +436,12 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertIsNotNone(connection.request_args)
         request_args = connection.request_args
         self.assertIsNotNone(request_args)
-        request_method, request_path, request_body, request_headers = request_args or ("", "", b"", {})
+        request_method, request_path, request_body, request_headers = request_args or (
+            "",
+            "",
+            b"",
+            {},
+        )
         self.assertEqual(request_method, "GET")
         self.assertEqual(request_path, "/repos/owner/repo")
         self.assertIsNone(request_body)
@@ -385,13 +450,18 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertEqual(payload.status, 200)
         self.assertTrue(connection.closed)
 
-    def test_request_json_list_https_target_rejects_non_collection_payload(self) -> None:
+    def test_request_json_list_https_target_rejects_non_collection_payload(
+        self,
+    ) -> None:
         """Reject object payloads when the list wrapper expects a collection."""
-        with mock.patch.object(
-            http_support,
-            "_request_https_payload",
-            return_value=_https_response_payload(body='{"name": "value"}'),
-        ), self.assertRaises(RuntimeError):
+        with (
+            mock.patch.object(
+                http_support,
+                "_request_https_payload",
+                return_value=_https_response_payload(body='{"name": "value"}'),
+            ),
+            self.assertRaises(RuntimeError),
+        ):
             http_support.request_json_list_https_target(
                 target=helpers.HTTPSRequestTarget(
                     host="api.github.com",
@@ -400,6 +470,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
             )
 
     def test_json_target_helpers_surface_collection_and_http_errors(self) -> None:
+        """Surface HTTP and payload-shape errors through target helpers."""
         with mock.patch.object(
             http_support,
             "_request_https_payload",

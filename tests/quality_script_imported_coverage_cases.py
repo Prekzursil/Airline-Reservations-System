@@ -199,6 +199,10 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             )
         self.assertEqual((open_issues, findings, status), (0, [], "pass"))
         wrapper_mock.assert_called_once()
+        call_kwargs = wrapper_mock.call_args.kwargs
+        self.assertEqual(call_kwargs["method"], "POST")
+        self.assertEqual(call_kwargs["headers"]["api-token"], "token")
+        self.assertEqual(call_kwargs["body"], {"branchName": "feature/zero"})
 
     def test_run_codacy_check_covers_missing_token_success_and_failure(self) -> None:
         """Cover the Codacy runner for missing-token, pass, and exception branches."""
@@ -213,13 +217,13 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             (None, ["CODACY_API_TOKEN is missing."], "fail"),
         )
 
-        with mock.patch.object(codacy, "_fetch_open_issues", return_value=0):
+        with mock.patch.object(codacy, "fetch_open_issues", return_value=0):
             open_issues, findings, status = RUN_CODACY_CHECK(args, "token")
         self.assertEqual((open_issues, findings, status), (0, [], "pass"))
 
         with mock.patch.object(
             codacy,
-            "_fetch_open_issues",
+            "fetch_open_issues",
             side_effect=RuntimeError("boom"),
         ):
             _, findings, status = RUN_CODACY_CHECK(args, "token")

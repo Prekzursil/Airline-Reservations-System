@@ -1,3 +1,5 @@
+"""Exercise Sentry zero helper branches used by the quality scripts."""
+
 from __future__ import absolute_import, division
 
 # pylint: disable=not-context-manager
@@ -18,18 +20,24 @@ from scripts.quality import sentry_targets
 
 
 def _join_parts(*parts: str) -> str:
+    """Join string fragments without exposing the full literal inline."""
     return "".join(parts)
 
 
 def _sentry_config():
+    """Return a compact Sentry configuration for helper tests."""
     return sentry_targets.SentryConfig(
         org_label="Org",
         project_label="Project",
         user_agent="ua",
     )
 
+
 class SentryAndSonarScriptTests(unittest.TestCase):
+    """Cover Sentry helper logic that feeds the zero-issue gate."""
+
     def test_sentry_target_helpers(self) -> None:
+        """Exercise Sentry target construction and header helpers."""
         config = _sentry_config()
         self.assertEqual(sentry_targets.hits_from_headers({"x-hits": "7"}), 7)
         self.assertIsNone(sentry_targets.hits_from_headers({"x-hits": "bad"}))
@@ -42,12 +50,17 @@ class SentryAndSonarScriptTests(unittest.TestCase):
             sentry_targets.build_project_issues_path("org", "proj", config),
         )
 
-        project_target = sentry_targets.build_project_issues_target("org", "proj", config)
+        project_target = sentry_targets.build_project_issues_target(
+            "org",
+            "proj",
+            config,
+        )
         org_target = sentry_targets.build_org_projects_target("org", "proj", config)
         self.assertEqual(project_target.host, helpers.HTTPSHost.SENTRY.value)
         self.assertIn("/organizations/", org_target.path)
 
     def test_sentry_project_slug_resolution_helpers(self) -> None:
+        """Resolve project slugs from direct matches and org lookups."""
         config = _sentry_config()
         self.assertEqual(
             sentry_support.project_slug_from_match(
@@ -56,8 +69,12 @@ class SentryAndSonarScriptTests(unittest.TestCase):
             ),
             "proj",
         )
-        self.assertIsNone(sentry_support.project_slug_from_match({"name": "Project"}, "project"))
-        self.assertTrue(sentry_support.is_not_found_error(RuntimeError("404 Not Found")))
+        self.assertIsNone(
+            sentry_support.project_slug_from_match({"name": "Project"}, "project")
+        )
+        self.assertTrue(
+            sentry_support.is_not_found_error(RuntimeError("404 Not Found"))
+        )
         self.assertIsNone(sentry_support.project_slug_from_match("bad", "proj"))
         self.assertIsNone(sentry_support.project_slug_from_match({"slug": ""}, "proj"))
         self.assertIsNone(
@@ -78,6 +95,7 @@ class SentryAndSonarScriptTests(unittest.TestCase):
             )
 
     def test_sentry_project_candidate_helpers(self) -> None:
+        """Build ordered project candidate lists for lookup retries."""
         config = _sentry_config()
         with mock.patch.object(
             sentry_support,
@@ -94,20 +112,29 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertIn("Proj_Backend", candidates)
 
         with mock.patch.object(sentry_support, "fetch_org_projects", return_value=None):
-            self.assertIsNone(sentry_support.resolve_project_slug("org", "Proj", "token", config))
+            self.assertIsNone(
+                sentry_support.resolve_project_slug("org", "Proj", "token", config)
+            )
         with mock.patch.object(
             sentry_support,
             "fetch_org_projects",
             return_value=[{"slug": "proj", "name": "Project"}],
         ):
-            self.assertIsNone(sentry_support.resolve_project_slug("org", "Other", "token", config))
-        with mock.patch.object(sentry_support, "resolve_project_slug", return_value=None):
+            self.assertIsNone(
+                sentry_support.resolve_project_slug("org", "Other", "token", config)
+            )
+        with mock.patch.object(
+            sentry_support,
+            "resolve_project_slug",
+            return_value=None,
+        ):
             self.assertEqual(
                 sentry_support.project_candidates("org", "", "token", config),
                 [],
             )
 
     def test_sentry_input_validation_and_failure_helpers(self) -> None:
+        """Cover invalid input handling and unresolved-count helpers."""
         config = _sentry_config()
         with mock.patch.dict(
             os.environ,
@@ -160,6 +187,7 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertIn("SENTRY_AUTH_TOKEN is missing.", findings)
 
     def test_sentry_evaluation_records_not_found_and_failures(self) -> None:
+        """Record not-found and request-failure outcomes during evaluation."""
         config = _sentry_config()
         with mock.patch.object(
             sentry_support,
@@ -195,6 +223,7 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertIn("expected 0", findings[0])
 
     def test_sentry_run_check_records_unresolved_issue_findings(self) -> None:
+        """Fail the run when evaluated projects still report open issues."""
         config = _sentry_config()
         with mock.patch.object(
             sentry_support,
@@ -235,6 +264,7 @@ class SentryAndSonarScriptTests(unittest.TestCase):
         self.assertEqual(project_results[0]["project"], "proj")
 
     def test_sentry_parse_render_and_fetch_wrappers(self) -> None:
+        """Cover CLI parsing, markdown rendering, and fetch wrappers."""
         config = _sentry_config()
         with mock.patch.object(
             sys,
@@ -274,9 +304,12 @@ class SentryAndSonarScriptTests(unittest.TestCase):
             "request_json_list_https_target",
             side_effect=RuntimeError("boom"),
         ):
-            self.assertIsNone(sentry_support.fetch_org_projects("org", "proj", "token", config))
+            self.assertIsNone(
+                sentry_support.fetch_org_projects("org", "proj", "token", config)
+            )
 
     def test_sentry_selection_prefers_first_successful_project_payload(self) -> None:
+        """Stop candidate iteration at the first successful payload lookup."""
         config = _sentry_config()
         with (
             mock.patch.object(
@@ -293,19 +326,20 @@ class SentryAndSonarScriptTests(unittest.TestCase):
                 ],
             ),
         ):
-            resolved, issues, headers, last_error = sentry_support.select_project_payload(
-                "org",
-                "proj",
-                "token",
-                config,
+            resolved, issues, headers, last_error = (
+                sentry_support.select_project_payload(
+                    "org",
+                    "proj",
+                    "token",
+                    config,
+                )
             )
         self.assertEqual(
             (resolved, issues, headers, last_error),
             ("proj-b", [{"id": 1}], {"x-hits": "1"}, None),
         )
-
-
     def test_sentry_selection_returns_last_error_when_all_candidates_fail(self) -> None:
+        """Return the last lookup error when every candidate fails."""
         config = _sentry_config()
         with (
             mock.patch.object(
@@ -322,16 +356,19 @@ class SentryAndSonarScriptTests(unittest.TestCase):
                 ],
             ),
         ):
-            resolved, issues, headers, last_error = sentry_support.select_project_payload(
-                "org",
-                "proj",
-                "token",
-                config,
+            resolved, issues, headers, last_error = (
+                sentry_support.select_project_payload(
+                    "org",
+                    "proj",
+                    "token",
+                    config,
+                )
             )
         self.assertEqual((resolved, issues, headers), (None, None, {}))
         self.assertIsInstance(last_error, RuntimeError)
 
     def test_sentry_main_writes_failure_report(self) -> None:
+        """Write a failure artifact when the Sentry CLI encounters an error."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             out_json = Path(temp_path / "sentry.json")

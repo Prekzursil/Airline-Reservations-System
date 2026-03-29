@@ -145,7 +145,7 @@ def request_json_https_target(
     )
 
 
-def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
+def fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
     """Fetch the current Codacy open-issue total for the requested scope."""
     target = _build_issue_search_target(args.provider, args.owner, args.repo)
     body: Dict[str, str] = {}
@@ -190,7 +190,7 @@ def _run_codacy_check(
         return open_issues, findings, "fail"
 
     try:
-        open_issues = _fetch_open_issues(args, token)
+        open_issues = fetch_open_issues(args, token)
         return open_issues, findings, _evaluate_status(open_issues, findings)
     except (
         RuntimeError,

@@ -13,7 +13,9 @@ from scripts.quality import assert_coverage_100 as airline_coverage_gate
 class AirlineCoverageGateTests(unittest.TestCase):
     """Exercise the repo's strict line and branch coverage gate script."""
 
-    def test_load_node_stats_prefers_known_inputs_and_evaluate_reports_failures(self) -> None:
+    def test_load_node_stats_prefers_known_inputs_and_evaluate_reports_failures(
+        self,
+    ) -> None:
         """Cover Node fallback loading and failure reporting branches."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -21,14 +23,22 @@ class AirlineCoverageGateTests(unittest.TestCase):
             node_lcov.write_text("LF:2\nLH:2\n", encoding="utf-8")
             summary = temp_path / "summary.json"
             summary.write_text(
-                json.dumps({"total": {"lines": {"covered": 3, "total": 4}}}), encoding="utf-8"
+                json.dumps({"total": {"lines": {"covered": 3, "total": 4}}}),
+                encoding="utf-8",
             )
             final = temp_path / "final.json"
-            final.write_text(json.dumps({"a.js": {"s": {"1": 1, "2": 0}}}), encoding="utf-8")
+            final.write_text(
+                json.dumps({"a.js": {"s": {"1": 1, "2": 0}}}),
+                encoding="utf-8",
+            )
 
             with (
                 mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
-                mock.patch.object(airline_coverage_gate, "NODE_SUMMARY_JSON_PATH", summary),
+                mock.patch.object(
+                    airline_coverage_gate,
+                    "NODE_SUMMARY_JSON_PATH",
+                    summary,
+                ),
                 mock.patch.object(airline_coverage_gate, "NODE_FINAL_JSON_PATH", final),
             ):
                 lcov_stats = airline_coverage_gate.load_node_stats()
@@ -47,13 +57,25 @@ class AirlineCoverageGateTests(unittest.TestCase):
 
         status, findings = airline_coverage_gate.evaluate(
             [
-                airline_coverage_gate.CoverageStats(name="node", path="node", covered=3, total=4),
-                airline_coverage_gate.CoverageStats(name="cpp", path="cpp", covered=1, total=1),
+                airline_coverage_gate.CoverageStats(
+                    name="node",
+                    path="node",
+                    covered=3,
+                    total=4,
+                ),
+                airline_coverage_gate.CoverageStats(
+                    name="cpp",
+                    path="cpp",
+                    covered=1,
+                    total=1,
+                ),
             ]
         )
         self.assertEqual(status, "fail")
         self.assertTrue(any("node coverage below 100%" in item for item in findings))
-        self.assertTrue(any("combined coverage below 100%" in item for item in findings))
+        self.assertTrue(
+            any("combined coverage below 100%" in item for item in findings)
+        )
 
     def test_main_writes_artifacts_and_require_cpp_guard(self) -> None:
         """Cover artifact rendering and the optional C++ coverage requirement."""
@@ -70,9 +92,15 @@ class AirlineCoverageGateTests(unittest.TestCase):
                 mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
                 mock.patch.object(airline_coverage_gate, "CPP_LCOV_PATH", cpp_lcov),
                 mock.patch.object(
-                    airline_coverage_gate, "quality_artifact_paths", return_value=(out_json, out_md)
+                    airline_coverage_gate,
+                    "quality_artifact_paths",
+                    return_value=(out_json, out_md),
                 ),
-                mock.patch.object(sys, "argv", ["assert_coverage_100.py", "--require-cpp"]),
+                mock.patch.object(
+                    sys,
+                    "argv",
+                    ["assert_coverage_100.py", "--require-cpp"],
+                ),
             ):
                 self.assertEqual(airline_coverage_gate.main(), 0)
 
@@ -86,9 +114,15 @@ class AirlineCoverageGateTests(unittest.TestCase):
                 mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
                 mock.patch.object(airline_coverage_gate, "CPP_LCOV_PATH", cpp_lcov),
                 mock.patch.object(
-                    airline_coverage_gate, "quality_artifact_paths", return_value=(out_json, out_md)
+                    airline_coverage_gate,
+                    "quality_artifact_paths",
+                    return_value=(out_json, out_md),
                 ),
-                mock.patch.object(sys, "argv", ["assert_coverage_100.py", "--require-cpp"]),
+                mock.patch.object(
+                    sys,
+                    "argv",
+                    ["assert_coverage_100.py", "--require-cpp"],
+                ),
                 self.assertRaises(SystemExit),
             ):
                 airline_coverage_gate.main()
@@ -97,13 +131,18 @@ class AirlineCoverageGateTests(unittest.TestCase):
                 mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
                 mock.patch.object(airline_coverage_gate, "CPP_LCOV_PATH", cpp_lcov),
                 mock.patch.object(
-                    airline_coverage_gate, "quality_artifact_paths", return_value=(out_json, out_md)
+                    airline_coverage_gate,
+                    "quality_artifact_paths",
+                    return_value=(out_json, out_md),
                 ),
                 mock.patch.object(sys, "argv", ["assert_coverage_100.py"]),
             ):
                 self.assertEqual(airline_coverage_gate.main(), 0)
             payload = json.loads(out_json.read_text(encoding="utf-8"))
-            self.assertEqual([component["name"] for component in payload["components"]], ["node"])
+            self.assertEqual(
+                [component["name"] for component in payload["components"]],
+                ["node"],
+            )
 
     def test_render_optional_cpp_and_arg_parse_branches(self) -> None:
         """Cover markdown rendering and optional C++ component selection paths."""
@@ -145,12 +184,15 @@ class AirlineCoverageGateTests(unittest.TestCase):
                 mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
                 mock.patch.object(airline_coverage_gate, "CPP_LCOV_PATH", cpp_lcov),
                 mock.patch.object(
-                    airline_coverage_gate, "quality_artifact_paths", return_value=(out_json, out_md)
+                    airline_coverage_gate,
+                    "quality_artifact_paths",
+                    return_value=(out_json, out_md),
                 ),
                 mock.patch.object(sys, "argv", ["assert_coverage_100.py"]),
             ):
                 self.assertEqual(airline_coverage_gate.main(), 0)
             payload = json.loads(out_json.read_text(encoding="utf-8"))
             self.assertEqual(
-                [component["name"] for component in payload["components"]], ["node", "cpp"]
+                [component["name"] for component in payload["components"]],
+                ["node", "cpp"],
             )
