@@ -26,11 +26,10 @@ jobs:
       pull_request_author: ${{ github.event.pull_request.user.login || '' }}
       pull_request_head_ref: ${{ github.event.pull_request.head.ref || github.head_ref || '' }}
       platform_repository: Prekzursil/quality-zero-platform
-      platform_ref: main
+      platform_ref: 07703d5eb1a6c7a2a9a478f2b1cea9702788ad63
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CODACY_API_TOKEN: ${{ secrets.CODACY_API_TOKEN }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       DEEPSCAN_API_TOKEN: ${{ secrets.DEEPSCAN_API_TOKEN }}
-

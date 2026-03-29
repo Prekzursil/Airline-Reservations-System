@@ -2,6 +2,102 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { addCustomer } from '../services/apiService';
 
+/**
+ * Renders a labeled customer form input.
+ *
+ * @param {object} props Component props.
+ * @returns {JSX.Element} The rendered form field.
+ */
+function CustomerField({ id, label, onChange, step = null, type, value }) {
+    return (
+        <div>
+            <label htmlFor={id}>{label}</label>
+            <input
+                id={id}
+                type={type}
+                value={value}
+                onChange={onChange}
+                step={step || undefined}
+                required
+            />
+        </div>
+    );
+}
+
+CustomerField.propTypes = {
+    id: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    onChange: PropTypes.func.isRequired,
+    step: PropTypes.string,
+    type: PropTypes.string.isRequired,
+    value: PropTypes.string.isRequired,
+};
+
+/**
+ * Renders the manual customer input fields.
+ *
+ * @param {object} props Component props.
+ * @returns {JSX.Element} The rendered manual field group.
+ */
+function ManualCustomerFields({ age, money, name, setAge, setMoney, setName }) {
+    const manualFieldConfigs = [
+        {
+            id: 'customerName',
+            label: 'Name',
+            type: 'text',
+            value: name,
+            onChange: (event) => setName(event.target.value),
+        },
+        {
+            id: 'customerAge',
+            label: 'Age',
+            type: 'number',
+            value: age,
+            onChange: (event) => setAge(event.target.value),
+        },
+        {
+            id: 'customerMoney',
+            label: 'Money',
+            type: 'number',
+            value: money,
+            step: '0.01',
+            onChange: (event) => setMoney(event.target.value),
+        },
+    ];
+
+    return (
+        <>
+            {manualFieldConfigs.map((fieldConfig) => (
+                <CustomerField
+                    key={fieldConfig.id}
+                    id={fieldConfig.id}
+                    label={fieldConfig.label}
+                    onChange={fieldConfig.onChange}
+                    step={fieldConfig.step}
+                    type={fieldConfig.type}
+                    value={fieldConfig.value}
+                />
+            ))}
+        </>
+    );
+}
+
+ManualCustomerFields.propTypes = {
+    age: PropTypes.string.isRequired,
+    money: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    setAge: PropTypes.func.isRequired,
+    setMoney: PropTypes.func.isRequired,
+    setName: PropTypes.func.isRequired,
+};
+
+/**
+ * Renders the customer creation form.
+ *
+ * @param {object} props Component props.
+ * @param {?Function} props.onCustomerAdded Optional callback invoked after a successful customer creation.
+ * @returns {JSX.Element} The rendered customer form.
+ */
 const CustomerForm = ({ onCustomerAdded = null }) => {
     const [name, setName] = useState('');
     const [age, setAge] = useState('');
@@ -9,6 +105,12 @@ const CustomerForm = ({ onCustomerAdded = null }) => {
     const [autoGenerate, setAutoGenerate] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
 
+    /**
+     * Submits the customer creation request.
+     *
+     * @param {Event} event The form submission event.
+     * @returns {Promise<void>} A promise that settles after the request completes.
+     */
     const handleSubmit = async (event) => {
         event.preventDefault();
         setStatusMessage('Adding customer...');
@@ -30,42 +132,46 @@ const CustomerForm = ({ onCustomerAdded = null }) => {
         }
     };
 
+    const autoGenerateToggle = (
+        <div>
+            <label htmlFor="autoGenerateCustomer">
+                <input
+                    id="autoGenerateCustomer"
+                    type="checkbox"
+                    checked={autoGenerate}
+                    onChange={(event) => setAutoGenerate(event.target.checked)}
+                />
+                <span style={{ marginLeft: '0.25rem' }}>Auto-generate customer data</span>
+            </label>
+        </div>
+    );
+
+    const manualFields = autoGenerate ? null : (
+        <ManualCustomerFields
+            age={age}
+            money={money}
+            name={name}
+            setAge={setAge}
+            setMoney={setMoney}
+            setName={setName}
+        />
+    );
+
+    const statusMessageContent = statusMessage
+        ? <p aria-live="polite">{statusMessage}</p>
+        : null;
+
     return (
         <div>
             <h3>Add New Customer</h3>
             <form onSubmit={handleSubmit}>
-                <div>
-                    <label htmlFor="autoGenerateCustomer">
-                        <input
-                            id="autoGenerateCustomer"
-                            type="checkbox"
-                            checked={autoGenerate}
-                            onChange={(event) => setAutoGenerate(event.target.checked)}
-                        />
-                        <span style={{ marginLeft: '0.25rem' }}>Auto-generate customer data</span>
-                    </label>
-                </div>
-                {!autoGenerate && (
-                    <>
-                        <div>
-                            <label htmlFor="customerName">Name</label>
-                            <input id="customerName" type="text" value={name} onChange={(event) => setName(event.target.value)} required />
-                        </div>
-                        <div>
-                            <label htmlFor="customerAge">Age</label>
-                            <input id="customerAge" type="number" value={age} onChange={(event) => setAge(event.target.value)} required />
-                        </div>
-                        <div>
-                            <label htmlFor="customerMoney">Money</label>
-                            <input id="customerMoney" type="number" step="0.01" value={money} onChange={(event) => setMoney(event.target.value)} required />
-                        </div>
-                    </>
-                )}
+                {autoGenerateToggle}
+                {manualFields}
                 <button type="submit" style={{ marginTop: '10px' }}>
                     Add Customer
                 </button>
             </form>
-            {statusMessage && <p aria-live="polite">{statusMessage}</p>}
+            {statusMessageContent}
         </div>
     );
 };

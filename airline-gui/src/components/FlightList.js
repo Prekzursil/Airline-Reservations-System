@@ -3,6 +3,13 @@ import PropTypes from 'prop-types';
 import { fetchAirplanes, fetchAirplaneDetails } from '../services/apiService';
 import SeatMap from './SeatMap';
 
+/**
+ * Displays the list of flights and loads seat maps for the selected flight.
+ *
+ * @param {object} props Component props.
+ * @param {?Function} props.onBookingListChanged Optional callback fired after booking changes.
+ * @returns {JSX.Element} The rendered flight list.
+ */
 const FlightList = ({ onBookingListChanged = null }) => {
     const [airplanes, setAirplanes] = useState([]);
     const [selectedFlight, setSelectedFlight] = useState(null);
@@ -11,18 +18,29 @@ const FlightList = ({ onBookingListChanged = null }) => {
     const [error, setError] = useState('');
 
     useEffect(() => {
+        /**
+         * Loads the current airplane list from the API.
+         *
+         * @returns {Promise<void>} A promise that settles after loading completes.
+         */
         const loadAirplanes = async () => {
             try {
                 const data = await fetchAirplanes();
                 setAirplanes(data);
-            } catch (err) {
+            } catch {
                 setError('Failed to load airplanes. Ensure the C++ API server is running.');
-                console.error(err);
             }
         };
         loadAirplanes();
     }, []);
 
+    /**
+     * Selects a flight and toggles its detail pane.
+     *
+     * @param {string} flightNumber The flight to load.
+     * @param {boolean} forceRefresh Whether the current detail pane should be reloaded.
+     * @returns {Promise<void>} A promise that settles after the detail request completes.
+     */
     const handleFlightSelect = async (flightNumber, forceRefresh = false) => {
         if (selectedFlight === flightNumber && !forceRefresh) {
             setSelectedFlight(null);
@@ -36,9 +54,8 @@ const FlightList = ({ onBookingListChanged = null }) => {
         try {
             const data = await fetchAirplaneDetails(flightNumber);
             setFlightDetails(data);
-        } catch (err) {
+        } catch {
             setError(`Failed to load details for flight ${flightNumber}.`);
-            console.error(err);
             if (selectedFlight !== flightNumber) {
                 setFlightDetails(null);
             }
@@ -47,10 +64,14 @@ const FlightList = ({ onBookingListChanged = null }) => {
         }
     };
 
+    /**
+     * Refreshes the flight list after a successful seat booking.
+     *
+     * @param {string} flightNumberOfBooking The flight that was updated.
+     */
     const handleBookingSuccess = (flightNumberOfBooking) => {
-        fetchAirplanes().then(setAirplanes).catch((err) => {
+        fetchAirplanes().then(setAirplanes).catch(() => {
             setError('Failed to refresh airplane list after booking.');
-            console.error(err);
         });
 
         if (selectedFlight === flightNumberOfBooking) {

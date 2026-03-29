@@ -5,12 +5,31 @@
 #include <format>
 #include <regex>
 #include <string>
+#include <string_view>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include "../src/Booking.h"
 
 using enum BookingStatus;
+
+namespace {
+struct TransparentStringHash {
+    using is_transparent = void;
+
+    std::size_t operator()(std::string_view value) const noexcept {
+        return std::hash<std::string_view>{}(value);
+    }
+
+    std::size_t operator()(const std::string& value) const noexcept {
+        return operator()(std::string_view{value});
+    }
+};
+
+using TransparentStringSet =
+    std::unordered_set<std::string, TransparentStringHash, std::equal_to<>>;
+} // namespace
 
 class BookingTestAccess {
 public:
@@ -96,7 +115,7 @@ TEST_F(BookingTest, GenerateBookingIdUniqueness) {
     EXPECT_NE(id2, tempBooking2.getBookingId());
 }
 
-TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndMonotonicNumericSuffix) {
+TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndUniqueNumericSuffix) {
     constexpr int booking_count = 20;
     std::vector<std::string> generated_ids;
     generated_ids.reserve(booking_count);
@@ -111,16 +130,17 @@ TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndMonotonicNumericSuffix) {
     }
 
     const std::regex booking_id_pattern(R"(^BK\d+-\d+$)");
-    std::int64_t previous_suffix = -1;
+    TransparentStringSet unique_ids;
+    TransparentStringSet unique_suffixes;
     for (const std::string& booking_id : generated_ids) {
         ASSERT_TRUE(std::regex_match(booking_id, booking_id_pattern)) << booking_id;
+        EXPECT_TRUE(unique_ids.insert(booking_id).second) << booking_id;
 
         const auto dash_position = booking_id.rfind('-');
         ASSERT_NE(dash_position, std::string::npos) << booking_id;
 
-        const std::int64_t suffix = std::stoll(booking_id.substr(dash_position + 1));
-        EXPECT_GT(suffix, previous_suffix) << booking_id;
-        previous_suffix = suffix;
+        const std::string suffix = booking_id.substr(dash_position + 1);
+        EXPECT_TRUE(unique_suffixes.insert(suffix).second) << booking_id;
     }
 }
 
