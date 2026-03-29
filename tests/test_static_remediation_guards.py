@@ -38,16 +38,16 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
                 "Booking.cpp should not keep the booking sequence as a namespace-scope mutable global",
             )
 
-    def test_booking_sequence_storage_is_isolated_behind_an_accessor(self) -> None:
+    def test_booking_source_avoids_mutable_sequence_storage_helpers(self) -> None:
         booking_header = (REPO_ROOT / "src" / "Booking.h").read_text(encoding="utf-8")
         booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
 
-        self.assertIn("static std::atomic_uint64_t& bookingSequenceStorage();", booking_header)
-        self.assertNotIn("static inline std::atomic_uint64_t bookingSequence{100};", booking_header)
-        self.assertIn("std::atomic_uint64_t& Booking::bookingSequenceStorage()", booking_source)
-        self.assertIn("static auto* const bookingSequence = new std::atomic_uint64_t{100};", booking_source)
-        self.assertIn("return bookingSequenceState();", booking_source)
-        self.assertIn("return bookingSequenceStorage().fetch_add(1, std::memory_order_relaxed);", booking_source)
+        self.assertNotIn("#include <atomic>", booking_header)
+        self.assertNotIn("bookingSequenceStorage", booking_header)
+        self.assertNotIn("nextBookingSequence", booking_header)
+        self.assertNotIn("std::atomic_uint64_t", booking_source)
+        self.assertNotIn("new std::atomic_uint64_t", booking_source)
+        self.assertNotIn("fetch_add", booking_source)
 
     def test_quality_workflows_pin_shared_platform_contracts(self) -> None:
         platform_text = (REPO_ROOT / ".github" / "workflows" / "quality-zero-platform.yml").read_text(
