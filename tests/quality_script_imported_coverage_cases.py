@@ -21,6 +21,15 @@ from scripts.quality import github_contexts
 from scripts.quality import required_checks_support
 
 
+EVALUATE_CHECK_RUN = vars(required_checks_support)["_evaluate_check_run"]
+DEDUPE = vars(quality_secrets)["_dedupe"]
+RESOLVE_CODACY_TOKEN = vars(codacy)["_resolve_token"]
+RUN_CODACY_CHECK = vars(codacy)["_run_codacy_check"]
+PARSE_CODACY_ARGS = vars(codacy)["_parse_args"]
+RENDER_CODACY_MD = vars(codacy)["_render_md"]
+EVALUATE_CODACY_STATUS = vars(codacy)["_evaluate_status"]
+
+
 @contextlib.contextmanager
 def _temporary_cwd(path: Path):
     """Temporarily switch the working directory for filesystem-based script tests."""
@@ -83,13 +92,13 @@ class GitHubContextSupportTests(unittest.TestCase):
         )
         self.assertEqual(list(entries.keys()), ["Codecov Analytics"])
         self.assertEqual(
-            required_checks_support._evaluate_check_run(
+            EVALUATE_CHECK_RUN(
                 "Codecov Analytics", {"state": "queued", "conclusion": "success"}
             ),
             "Codecov Analytics: status=queued",
         )
         self.assertEqual(
-            required_checks_support._evaluate_check_run(
+            EVALUATE_CHECK_RUN(
                 "Codecov Analytics", {"state": "completed", "conclusion": "failure"}
             ),
             "Codecov Analytics: conclusion=failure",
@@ -103,7 +112,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         self,
     ) -> None:
         """Verify environment helpers and the sanitized quality-secrets CLI path."""
-        self.assertEqual(quality_secrets._dedupe(["A", " ", "A", "B"]), ["A", "B"])
+        self.assertEqual(DEDUPE(["A", " ", "A", "B"]), ["A", "B"])
         with mock.patch.dict(os.environ, {"A": "1"}, clear=True):
             self.assertEqual(
                 quality_secrets.evaluate_env(["A", "B"], ["C"]),
@@ -149,7 +158,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         self.assertIsNone(codacy.extract_total_open({"results": []}))
 
         with mock.patch.dict(os.environ, {"CODACY_API_TOKEN": "env-token"}, clear=True):
-            self.assertEqual(codacy._resolve_token(""), "env-token")
+            self.assertEqual(RESOLVE_CODACY_TOKEN(""), "env-token")
 
         args = Namespace(
             provider="gh",
@@ -158,12 +167,12 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             branch="",
         )
         self.assertEqual(
-            codacy._run_codacy_check(args, ""),
+            RUN_CODACY_CHECK(args, ""),
             (None, ["CODACY_API_TOKEN is missing."], "fail"),
         )
 
         with mock.patch.object(codacy, "_fetch_open_issues", return_value=0):
-            open_issues, findings, status = codacy._run_codacy_check(args, "token")
+            open_issues, findings, status = RUN_CODACY_CHECK(args, "token")
         self.assertEqual((open_issues, findings, status), (0, [], "pass"))
 
         with mock.patch.object(
@@ -171,7 +180,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             "_fetch_open_issues",
             side_effect=RuntimeError("boom"),
         ):
-            _, findings, status = codacy._run_codacy_check(args, "token")
+            _, findings, status = RUN_CODACY_CHECK(args, "token")
         self.assertEqual(status, "fail")
         self.assertIn("boom", findings[0])
 
@@ -217,10 +226,10 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
                 "Airline-Reservations-System",
             ],
         ):
-            args = codacy._parse_args()
+            args = PARSE_CODACY_ARGS()
         self.assertEqual(args.provider, "gh")
 
-        rendered = codacy._render_md(
+        rendered = RENDER_CODACY_MD(
             {
                 "status": "pass",
                 "owner": "Prekzursil",
@@ -234,7 +243,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         self.assertIn("- None", rendered)
         self.assertIn(
             "- problem",
-            codacy._render_md(
+            RENDER_CODACY_MD(
                 {
                     "status": "fail",
                     "owner": "Prekzursil",
@@ -248,9 +257,9 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
         )
 
         findings: List[str] = []
-        self.assertEqual(codacy._evaluate_status(None, findings), "fail")
+        self.assertEqual(EVALUATE_CODACY_STATUS(None, findings), "fail")
         self.assertIn("parseable total issue count", findings[0])
 
         findings = []
-        self.assertEqual(codacy._evaluate_status(2, findings), "fail")
+        self.assertEqual(EVALUATE_CODACY_STATUS(2, findings), "fail")
         self.assertIn("expected 0", findings[0])
