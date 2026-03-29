@@ -6,7 +6,7 @@ from __future__ import absolute_import, annotations, division
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, TextIO, Tuple
+from typing import Dict, Iterable, List, TextIO, Tuple
 
 from scripts.quality import lcov_path_support
 

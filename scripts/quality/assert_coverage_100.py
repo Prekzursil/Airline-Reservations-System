@@ -38,6 +38,7 @@ def _parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 def load_node_stats() -> CoverageStats:
     """Load the preferred frontend coverage artifact."""
     if NODE_LCOV_PATH.exists():
