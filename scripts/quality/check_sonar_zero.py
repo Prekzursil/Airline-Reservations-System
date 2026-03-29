@@ -25,6 +25,7 @@ QueryDict = Dict[str, str]
 SonarQueries = Tuple[QueryDict, QueryDict, QueryDict]
 SonarResult = Tuple[str, Optional[int], Optional[int], Optional[str], List[str]]
 
+
 def _parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the Sonar zero gate."""
     parser = argparse.ArgumentParser(
