@@ -26,12 +26,27 @@ _ALLOWED_PROVIDERS = {"gh", "github"}
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assert Codacy has zero total open issues.")
-    parser.add_argument("--provider", default="gh", help="Organization provider (gh/github).")
+    """Parse command-line arguments for the Codacy zero gate."""
+    parser = argparse.ArgumentParser(
+        description="Assert Codacy has zero total open issues."
+    )
+    parser.add_argument(
+        "--provider",
+        default="gh",
+        help="Organization provider (gh/github).",
+    )
     parser.add_argument("--owner", required=True, help="Repository owner")
     parser.add_argument("--repo", required=True, help="Repository name")
-    parser.add_argument("--branch", default="", help="Optional branch name to scope issue totals.")
-    parser.add_argument("--token", default="", help="Codacy API token (falls back to CODACY_API_TOKEN env)")
+    parser.add_argument(
+        "--branch",
+        default="",
+        help="Optional branch name to scope issue totals.",
+    )
+    parser.add_argument(
+        "--token",
+        default="",
+        help="Codacy API token or the `CODACY_API_TOKEN` environment variable.",
+    )
     return parser.parse_args()
 
 
@@ -52,6 +67,7 @@ def extract_total_open(payload: Any) -> Optional[int]:
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
+    """Render the gate result as markdown."""
     lines = [
         "# Codacy Zero Gate",
         "",
@@ -74,6 +90,7 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
 
 def _build_issue_search_path(provider: str, owner: str, repo: str) -> str:
+    """Build the Codacy API path used for the issue-total query."""
     provider_checked = (provider or "").strip().lower()
     if provider_checked not in _ALLOWED_PROVIDERS:
         raise ValueError(f"Unsupported provider: {provider}")
@@ -92,7 +109,12 @@ def _build_issue_search_path(provider: str, owner: str, repo: str) -> str:
     )
 
 
-def _build_issue_search_target(provider: str, owner: str, repo: str) -> HTTPSRequestTarget:
+def _build_issue_search_target(
+    provider: str,
+    owner: str,
+    repo: str,
+) -> HTTPSRequestTarget:
+    """Build the HTTPS request target for the Codacy issue search."""
     return build_https_request_target(
         host=HTTPSHost.CODACY_API,
         path=_build_issue_search_path(provider, owner, repo),
@@ -100,13 +122,15 @@ def _build_issue_search_target(provider: str, owner: str, repo: str) -> HTTPSReq
 
 
 def _resolve_token(token_arg: str) -> str:
+    """Resolve the Codacy API token from args or environment."""
     return (token_arg or os.environ.get("CODACY_API_TOKEN", "")).strip()
 
 
 def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
+    """Fetch the current Codacy open-issue total for the requested scope."""
     target = _build_issue_search_target(args.provider, args.owner, args.repo)
     body: Dict[str, str] = {}
-    branch_name = str(getattr(args, "branch", "") or "").strip()
+    branch_name = (getattr(args, "branch", "") or "").strip()
     if branch_name:
         body["branchName"] = branch_name
     payload = request_json_https_target(
@@ -122,8 +146,11 @@ def _fetch_open_issues(args: argparse.Namespace, token: str) -> Optional[int]:
 
 
 def _evaluate_status(open_issues: Optional[int], findings: List[str]) -> str:
+    """Convert the Codacy issue count into a pass/fail status."""
     if open_issues is None:
-        findings.append("Codacy response did not include a parseable total issue count.")
+        findings.append(
+            "Codacy response did not include a parseable total issue count."
+        )
         return "fail"
     if open_issues != 0:
         findings.append(f"Codacy reports {open_issues} open issues (expected 0).")
@@ -131,7 +158,11 @@ def _evaluate_status(open_issues: Optional[int], findings: List[str]) -> str:
     return "pass"
 
 
-def _run_codacy_check(args: argparse.Namespace, token: str) -> Tuple[Optional[int], List[str], str]:
+def _run_codacy_check(
+    args: argparse.Namespace,
+    token: str,
+) -> Tuple[Optional[int], List[str], str]:
+    """Run the Codacy issue query and evaluate the result."""
     findings: List[str] = []
     open_issues: Optional[int] = None
 
@@ -142,7 +173,10 @@ def _run_codacy_check(args: argparse.Namespace, token: str) -> Tuple[Optional[in
     try:
         open_issues = _fetch_open_issues(args, token)
         return open_issues, findings, _evaluate_status(open_issues, findings)
-    except (RuntimeError, ValueError) as exc:  # pragma: no cover - network/runtime surface
+    except (
+        RuntimeError,
+        ValueError,
+    ) as exc:  # pragma: no cover - network/runtime surface
         findings.append(f"Codacy API request failed: {exc}")
         return open_issues, findings, "fail"
 
@@ -165,7 +199,10 @@ def main() -> int:
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.CODACY_ZERO)
-    out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
     return 0 if status == "pass" else 1

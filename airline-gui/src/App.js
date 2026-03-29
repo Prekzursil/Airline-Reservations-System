@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import './App.css';
 import FlightList from './components/FlightList';
 import CustomerForm from './components/CustomerForm';
@@ -20,6 +21,12 @@ const customerButtonStyle = {
   textAlign: 'left',
 };
 
+/**
+ * Renders the customer list refresh controls and results.
+ *
+ * @param {object} props Component props.
+ * @returns {JSX.Element} The rendered customer list section.
+ */
 function CustomerListSection({
   customerError,
   customers,
@@ -28,37 +35,60 @@ function CustomerListSection({
   showCustomers,
   onCustomerSelect,
 }) {
+  const shouldShowCustomers = showCustomers && customers.length > 0;
+  const shouldShowEmptyState = showCustomers && customers.length === 0 && !customerError;
+
+  const customerList = shouldShowCustomers ? (
+    <div>
+      <h3>All Customers:</h3>
+      <ul>
+        {customers.map((cust) => (
+          <li key={cust.personId}>
+            <button
+              type="button"
+              onClick={() => onCustomerSelect(cust.personId)}
+              aria-pressed={selectedCustomerId === cust.personId}
+              aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
+              style={customerButtonStyle}
+            >
+              {cust.name} (ID: {cust.personId})
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
+
   return (
     <section style={customerSectionStyle}>
       <button type="button" onClick={loadCustomers} style={{ marginRight: '10px' }}>
         {showCustomers ? 'Refresh Customer List' : 'Show Customer List'}
       </button>
       {customerError && <p aria-live="polite" style={{ color: 'red' }}>{customerError}</p>}
-      {showCustomers && customers.length > 0 && (
-        <div>
-          <h3>All Customers:</h3>
-          <ul>
-            {customers.map((cust) => (
-              <li key={cust.personId}>
-                <button
-                  type="button"
-                  onClick={() => onCustomerSelect(cust.personId)}
-                  aria-pressed={selectedCustomerId === cust.personId}
-                  aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
-                  style={customerButtonStyle}
-                >
-                  {cust.name} (ID: {cust.personId})
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {showCustomers && customers.length === 0 && !customerError && <p>No customers found.</p>}
+      {customerList}
+      {shouldShowEmptyState && <p>No customers found.</p>}
     </section>
   );
 }
 
+CustomerListSection.propTypes = {
+  customerError: PropTypes.string.isRequired,
+  customers: PropTypes.arrayOf(PropTypes.shape({
+    personId: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+  }).isRequired).isRequired,
+  loadCustomers: PropTypes.func.isRequired,
+  selectedCustomerId: PropTypes.string.isRequired,
+  showCustomers: PropTypes.bool.isRequired,
+  onCustomerSelect: PropTypes.func.isRequired,
+};
+
+/**
+ * Renders the single-customer search area and detail panel.
+ *
+ * @param {object} props Component props.
+ * @returns {JSX.Element} The rendered customer search section.
+ */
 function CustomerSearchSection({
   customerDetailsRefreshKey,
   onBookingCancelled,
@@ -67,6 +97,16 @@ function CustomerSearchSection({
   selectedCustomerId,
   setSearchCustomerId,
 }) {
+  const customerDetailsPanel = selectedCustomerId ? (
+    <div id="customer-details-panel">
+      <CustomerDetails
+        customerId={selectedCustomerId}
+        onBookingCancelled={onBookingCancelled}
+        refreshTrigger={customerDetailsRefreshKey}
+      />
+    </div>
+  ) : null;
+
   return (
     <section>
       <h3>View Specific Customer Details</h3>
@@ -82,31 +122,49 @@ function CustomerSearchSection({
         style={{ marginRight: '10px' }}
       />
       <button type="button" onClick={onSearchCustomer}>Search Customer</button>
-      {selectedCustomerId && (
-        <div id="customer-details-panel">
-          <CustomerDetails
-            customerId={selectedCustomerId}
-            onBookingCancelled={onBookingCancelled}
-            refreshTrigger={customerDetailsRefreshKey}
-          />
-        </div>
-      )}
+      {customerDetailsPanel}
     </section>
   );
 }
 
+CustomerSearchSection.propTypes = {
+  customerDetailsRefreshKey: PropTypes.number.isRequired,
+  onBookingCancelled: PropTypes.func.isRequired,
+  onSearchCustomer: PropTypes.func.isRequired,
+  searchCustomerId: PropTypes.string.isRequired,
+  selectedCustomerId: PropTypes.string.isRequired,
+  setSearchCustomerId: PropTypes.func.isRequired,
+};
+
+/**
+ * Renders the booking-management column and swap feedback.
+ *
+ * @param {object} props Component props.
+ * @returns {JSX.Element} The rendered booking section.
+ */
 function BookingManagementSection({ bookingsRefreshKey, onSeatsSwapped, swapStatusMessage, triggerBookingsRefresh }) {
+  const swapStatus = swapStatusMessage
+    ? <p aria-live="polite">{swapStatusMessage}</p>
+    : null;
+
   return (
     <div style={bookingPanelStyle}>
       <h2>Flight & Booking Management</h2>
       <FlightList onBookingListChanged={triggerBookingsRefresh} />
       <section style={{ marginTop: '20px', padding: '15px', border: '1px solid #eee' }}>
         <SwapSeatsForm onSeatsSwapped={onSeatsSwapped} refreshTrigger={bookingsRefreshKey} />
-        {swapStatusMessage && <p aria-live="polite">{swapStatusMessage}</p>}
+        {swapStatus}
       </section>
     </div>
   );
 }
+
+BookingManagementSection.propTypes = {
+  bookingsRefreshKey: PropTypes.number.isRequired,
+  onSeatsSwapped: PropTypes.func.isRequired,
+  swapStatusMessage: PropTypes.string.isRequired,
+  triggerBookingsRefresh: PropTypes.func.isRequired,
+};
 
 /**
  * Renders the airline reservation dashboard and coordinates cross-panel refreshes.

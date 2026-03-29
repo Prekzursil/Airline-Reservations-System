@@ -58,6 +58,14 @@ void respond_json(httplib::Response& res, const json& payload, int status = 200)
     res.set_content(payload.dump(4), kJsonMimeType);
 }
 
+void respond_bad_request(
+    httplib::Response& res,
+    std::string_view prefix,
+    const json::exception& error) {
+    const auto error_message = std::string(prefix) + error.what();
+    respond_json(res, json{{"error", error_message}}, 400);
+}
+
 bool contains_fragment(std::string_view text, std::string_view needle) {
     if (needle.empty()) {
         return true;
@@ -211,11 +219,8 @@ void handle_create_customer(ReservationSystem& airline_system, const httplib::Re
 
         respond_json(res, json(*new_customer), 201);
     } catch (const json::exception& error) {
-        respond_json(
-            res,
-            json{{"error", "Error processing customer data: " + std::string(error.what())}},
-            400
-        );
+        respond_bad_request(res, "Error processing customer data: ", error);
+        return;
     }
 }
 
@@ -235,11 +240,8 @@ void handle_create_booking(ReservationSystem& airline_system, const httplib::Req
 
         respond_json(res, json{{"error", error_message}}, booking_error_status(error_message));
     } catch (const json::exception& error) {
-        respond_json(
-            res,
-            json{{"error", "Error processing booking data: " + std::string(error.what())}},
-            400
-        );
+        respond_bad_request(res, "Error processing booking data: ", error);
+        return;
     }
 }
 
@@ -267,11 +269,8 @@ void handle_swap_booking_seats(ReservationSystem& airline_system, const httplib:
 
         respond_json(res, json{{"message", error_message}});
     } catch (const json::exception& error) {
-        respond_json(
-            res,
-            json{{"error", "Error processing seat swap request: " + std::string(error.what())}},
-            400
-        );
+        respond_bad_request(res, "Error processing seat swap request: ", error);
+        return;
     }
 }
 

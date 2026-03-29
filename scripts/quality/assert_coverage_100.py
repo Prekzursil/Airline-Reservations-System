@@ -225,6 +225,7 @@ def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
 
 
 def _safe_int(value: Any) -> int:
+    """Convert a value to an integer, returning zero on invalid input."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -288,6 +289,7 @@ def load_node_stats() -> CoverageStats:
 
 
 def _component_findings(stats: List[CoverageStats]) -> List[str]:
+    """Return per-component findings for components below 100% coverage."""
     findings: List[str] = []
     for item in stats:
         if item.percent >= 100.0:
@@ -300,6 +302,7 @@ def _component_findings(stats: List[CoverageStats]) -> List[str]:
 
 
 def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
+    """Compute aggregate covered lines, total lines, and percentage."""
     combined_total = sum(item.total for item in stats)
     combined_covered = sum(item.covered for item in stats)
     combined_percent = (
@@ -325,6 +328,7 @@ def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
+    """Render the coverage gate result as markdown."""
     lines = [
         "# Coverage 100 Gate",
         "",

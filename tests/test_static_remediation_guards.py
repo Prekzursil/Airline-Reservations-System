@@ -43,7 +43,7 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
         booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
 
         self.assertIn("static std::atomic_uint64_t& bookingSequenceStorage();", booking_header)
-        self.assertIn("static std::atomic_uint64_t booking_sequence{100};", booking_source)
+        self.assertIn("static inline std::atomic_uint64_t bookingSequence{100};", booking_header)
         self.assertIn("return bookingSequenceStorage().fetch_add(1, std::memory_order_relaxed);", booking_source)
 
     def test_quality_workflows_pin_shared_platform_contracts(self) -> None:
