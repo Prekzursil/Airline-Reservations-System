@@ -167,10 +167,10 @@ void ReservationSystem::handleAddCustomer() {
     int age = 0;
     double money = 0.0;
 
-    const char normalizedChoice = static_cast<char>(
-        std::tolower(static_cast<unsigned char>(choice)));
-    if (normalizedChoice == 'a') {
-        const rsh::AutoCustomerData generated = rsh::generateAutoCustomerData(newId);
+    if (const auto normalizedChoice = static_cast<char>(
+            std::tolower(static_cast<unsigned char>(choice)));
+        normalizedChoice == 'a') {
+        const auto generated = rsh::generateAutoCustomerData(newId);
         name = generated.name;
         age = generated.age;
         money = generated.money;

@@ -5,18 +5,19 @@
 #include <algorithm>
 #include <sstream>
 #include <string_view>
+#include <ranges>
 #include <vector>
 
 namespace rsh = reservation_system_helpers;
 
 namespace {
 bool all_seen(const std::vector<bool>& seen) {
-    return std::all_of(seen.begin(), seen.end(), [](bool value) { return value; });
+    return std::ranges::all_of(seen, [](bool value) { return value; });
 }
 
 void mark_seen(
     const std::vector<std::string_view>& prefixes,
-    const std::string& name,
+    std::string_view name,
     std::vector<bool>& seen
 ) {
     for (std::size_t index = 0; index < prefixes.size(); ++index) {
@@ -29,7 +30,7 @@ void mark_seen(
 void expect_book_seat_prerequisites_result(
     const std::vector<Airplane>& airplanes,
     const std::vector<Customer>& customers,
-    const std::string& expected_output
+    std::string_view expected_output
 ) {
     std::ostringstream output;
 

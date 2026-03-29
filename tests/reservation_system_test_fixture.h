@@ -8,6 +8,7 @@
 #include "../src/Booking.h"
 #include <sstream> // For std::stringstream
 #include <string>
+#include <string_view>
 
 class ReservationSystemTest : public ::testing::Test {
 public:
@@ -115,7 +116,7 @@ public:
 
     static void replaceAirplaneForTest(
         ReservationSystem& reservation_system,
-        const std::string& flight_number,
+        std::string_view flight_number,
         const Airplane& replacement) {
         for (Airplane& airplane : reservation_system.airplanes) {
             if (airplane.getFlightNumber() == flight_number) {

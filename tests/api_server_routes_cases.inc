@@ -173,7 +173,12 @@ TEST_F(ApiServerRoutesTest, SwapRoutesMapErrorsAndSuccess) {
 
     const auto successful_swap = swap_bookings_via_route(client, refreshed_first_booking_id, second_booking_id);
     expect_response_status(successful_swap, 200);
-    EXPECT_NE(json::parse(successful_swap->body).at("message").get<std::string>().find("Seat swap successful"), std::string::npos);
+    EXPECT_NE(
+        json::parse(successful_swap->body).at("message").get<std::string>().find(
+            "Seat swap successful"
+        ),
+        std::string::npos
+    );
 }
 
 TEST_F(ApiServerRoutesTest, ReturnsBadRequestForMalformedPayloads) {

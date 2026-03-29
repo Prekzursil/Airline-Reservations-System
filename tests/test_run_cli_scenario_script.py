@@ -3,7 +3,6 @@
 from __future__ import absolute_import, division
 
 import importlib.util
-import io
 import os
 from pathlib import Path
 import sys
@@ -47,8 +46,7 @@ class RunCliScenarioScriptTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)
             binary_path = binary_dir / "airline_reservation_system"
-            with io.open(os.fspath(binary_path), "w", encoding="utf-8"):
-                pass
+            binary_path.touch()
 
             resolved = run_cli_scenario._resolve_binary(binary_dir)
 

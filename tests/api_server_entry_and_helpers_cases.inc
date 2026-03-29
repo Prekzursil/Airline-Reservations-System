@@ -310,9 +310,14 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     httplib::Server server;
     std::promise<int> exit_code_promise;
     std::future<int> exit_code_future = exit_code_promise.get_future();
-    std::jthread server_thread([&error_stream, &output_stream, &reservation_system, &server, exit_code = std::move(exit_code_promise)]() mutable {
-        exit_code.set_value(run_api_server(reservation_system, server, output_stream, error_stream));
-    });
+    std::jthread server_thread(
+        [&error_stream, &output_stream, &reservation_system, &server,
+         exit_code = std::move(exit_code_promise)]() mutable {
+            exit_code.set_value(
+                run_api_server(reservation_system, server, output_stream, error_stream)
+            );
+        }
+    );
     ScopedServerShutdown shutdown(server, server_thread);
 
     const bool observed_healthy = wait_for_status(kServerPort, "/api/airplanes", 200);
