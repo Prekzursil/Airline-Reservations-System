@@ -63,7 +63,11 @@ def _build_commit_api_path(repo: str, sha: str) -> str:
     return f"/repos/{owner_q}/{repo_q}/commits/{sha_q}"
 
 
-def _build_commit_api_target(repo: str, sha: str, resource_path: str) -> HTTPSRequestTarget:
+def _build_commit_api_target(
+    repo: str,
+    sha: str,
+    resource_path: str,
+) -> HTTPSRequestTarget:
     """Build a GitHub API request target for a commit-scoped resource."""
     return build_https_request_target(
         host=HTTPSHost.GITHUB_API,
@@ -199,20 +203,33 @@ def _is_pending_context(observed: Dict[str, str]) -> bool:
     return observed.get("conclusion") in _PENDING_STATES
 
 
-def _context_outcome(required_context: str, observed: Dict[str, str]) -> Tuple[str, Optional[str]]:
+def _context_outcome(
+    required_context: str,
+    observed: Dict[str, str],
+) -> Tuple[str, Optional[str]]:
     source = observed.get("source")
     conclusion = observed.get("conclusion")
     if source == "check_run":
         if conclusion == "success" and observed.get("state") == "completed":
             return "pass", None
-        return "fail", f"{required_context} conclusion is {conclusion} (expected success)"
+        return (
+            "fail",
+            f"{required_context} conclusion is {conclusion} (expected success)",
+        )
     if conclusion == "success":
         return "pass", None
     return "fail", f"{required_context} state is {conclusion} (expected success)"
 
 
-def _run_deepscan_check(args: argparse.Namespace, token: str) -> Tuple[str, List[str], Optional[Dict[str, str]]]:
-    check_runs_target = _build_commit_api_target(args.repo, args.sha, "/check-runs?per_page=100")
+def _run_deepscan_check(
+    args: argparse.Namespace,
+    token: str,
+) -> Tuple[str, List[str], Optional[Dict[str, str]]]:
+    check_runs_target = _build_commit_api_target(
+        args.repo,
+        args.sha,
+        "/check-runs?per_page=100",
+    )
     statuses_target = _build_commit_api_target(args.repo, args.sha, "/status")
     deadline = time.time() + max(args.max_wait_seconds, 0)
     findings: List[str] = []
@@ -243,7 +260,10 @@ def _run_deepscan_check(args: argparse.Namespace, token: str) -> Tuple[str, List
 def main() -> int:
     """Run the DeepScan gate and write result artifacts."""
     args = _parse_args()
-    token = (os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")).strip()
+    token = (
+        os.environ.get("GITHUB_TOKEN", "")
+        or os.environ.get("GH_TOKEN", "")
+    ).strip()
     if not token:
         raise SystemExit("GITHUB_TOKEN or GH_TOKEN is required")
 
@@ -260,7 +280,10 @@ def main() -> int:
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.DEEPSCAN_ZERO)
-    out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
     return 0 if status == "pass" else 1

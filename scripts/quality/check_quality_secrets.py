@@ -25,9 +25,21 @@ DEFAULT_REQUIRED_VARS = [
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate required quality-gate secrets/variables are configured.")
-    parser.add_argument("--required-secret", action="append", default=[], help="Additional required secret env var")
-    parser.add_argument("--required-var", action="append", default=[], help="Additional required variable env var")
+    parser = argparse.ArgumentParser(
+        description="Validate required quality-gate secrets/variables are configured."
+    )
+    parser.add_argument(
+        "--required-secret",
+        action="append",
+        default=[],
+        help="Additional required secret env var",
+    )
+    parser.add_argument(
+        "--required-var",
+        action="append",
+        default=[],
+        help="Additional required variable env var",
+    )
     return parser.parse_args()
 
 
@@ -56,7 +68,10 @@ def _partition_presence(required: List[str]) -> Dict[str, List[str]]:
     }
 
 
-def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[str, List[str]]:
+def evaluate_env(
+    required_secrets: List[str],
+    required_vars: List[str],
+) -> Dict[str, List[str]]:
     """Return present and missing secret and variable names."""
     secrets = _partition_presence(required_secrets)
     vars_payload = _partition_presence(required_vars)
@@ -68,12 +83,21 @@ def evaluate_env(required_secrets: List[str], required_vars: List[str]) -> Dict[
     }
 
 
-def evaluate_env_counts(required_secrets: List[str], required_vars: List[str]) -> Dict[str, Any]:
+def evaluate_env_counts(
+    required_secrets: List[str],
+    required_vars: List[str],
+) -> Dict[str, Any]:
     """Return only pass/fail counts so artifacts avoid secret-derived details."""
-    missing_secret_count = sum(1 for name in required_secrets if not _is_configured(name))
+    missing_secret_count = sum(
+        1 for name in required_secrets if not _is_configured(name)
+    )
     missing_var_count = sum(1 for name in required_vars if not _is_configured(name))
     return {
-        "status": "pass" if missing_secret_count == 0 and missing_var_count == 0 else "fail",
+        "status": (
+            "pass"
+            if missing_secret_count == 0 and missing_var_count == 0
+            else "fail"
+        ),
         "missing_secret_count": missing_secret_count,
         "missing_var_count": missing_var_count,
     }
@@ -94,7 +118,9 @@ def _render_md(*, timestamp_utc: str) -> str:
 def main() -> int:
     """Run the quality-secrets preflight and write sanitized artifacts."""
     args = _parse_args()
-    required_secrets = _dedupe(DEFAULT_REQUIRED_SECRETS + list(args.required_secret or []))
+    required_secrets = _dedupe(
+        DEFAULT_REQUIRED_SECRETS + list(args.required_secret or [])
+    )
     required_vars = _dedupe(DEFAULT_REQUIRED_VARS + list(args.required_var or []))
 
     result = evaluate_env_counts(required_secrets, required_vars)
@@ -107,7 +133,10 @@ def main() -> int:
     }
 
     out_json, out_md = quality_artifact_paths(QualityArtifact.QUALITY_SECRETS)
-    out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_json.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     out_md.write_text(_render_md(timestamp_utc=timestamp_utc), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
 
