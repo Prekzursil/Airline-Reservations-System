@@ -17,6 +17,7 @@ SONAR_PROJECT_KEY = "Prekzursil_Airline-Reservations-System"
 
 
 def _sonar_args(**overrides):
+    """Build a complete argparse namespace for the Sonar zero gate."""
     values = {
         "branch": "feature",
         "pull_request": "17",
@@ -30,7 +31,10 @@ def _sonar_args(**overrides):
 
 
 class SonarScriptTests(unittest.TestCase):
+    """Exercise the hosted Sonar zero-check helper script."""
+
     def test_sonar_auth_and_timeout_findings(self) -> None:
+        """Cover authentication, paging, and stale-analysis timeout handling."""
         self.assertTrue(sonar._auth_header("token").startswith("Basic "))
         self.assertEqual(sonar._paged_total({"paging": {"total": 5}}), 5)
 
@@ -52,6 +56,7 @@ class SonarScriptTests(unittest.TestCase):
         self.assertIn("Expected SHA: want", findings)
 
     def test_sonar_success_and_main_success_path(self) -> None:
+        """Cover the passing Sonar polling path once the expected SHA arrives."""
         success_args = _sonar_args(expected_pr_sha="want", max_wait_seconds=1)
         with ExitStack() as stack:
             stack.enter_context(
@@ -83,6 +88,7 @@ class SonarScriptTests(unittest.TestCase):
         )
 
     def test_sonar_branch_and_pull_request_scoped_queries(self) -> None:
+        """Cover pull-request scoped checks and the passing CLI entrypoint."""
         args = _sonar_args(
             branch="",
             pull_request="17",
@@ -150,6 +156,7 @@ class SonarScriptTests(unittest.TestCase):
                 )
 
     def test_sonar_parse_request_and_fetch_wrappers(self) -> None:
+        """Cover request-target construction and response-wrapper helpers."""
         with mock.patch.object(
             sys,
             "argv",
@@ -186,6 +193,7 @@ class SonarScriptTests(unittest.TestCase):
             )
 
     def test_sonar_quality_gate_and_pr_sha_helpers(self) -> None:
+        """Cover quality-gate fallback and pull-request SHA extraction helpers."""
         with mock.patch.object(
             sonar,
             "_request_sonar_payload",
@@ -210,6 +218,7 @@ class SonarScriptTests(unittest.TestCase):
             self.assertEqual(sonar._fetch_pr_analysis_sha("auth", "proj", "17"), "abc")
 
     def test_sonar_failure_findings_and_missing_token_path(self) -> None:
+        """Cover fail findings, missing-token handling, and CLI exception output."""
         findings = sonar._evaluate_findings(2, 1, "WARN")
         self.assertEqual(len(findings), 3)
 

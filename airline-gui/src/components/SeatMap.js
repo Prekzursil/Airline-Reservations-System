@@ -229,7 +229,7 @@ function SeatGrid({ getSeatButtonStyle, getSeatStyle, handleSeatClick, keepSeatB
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {rows.map((row, rowIndex) => (
                 <SeatRow
-                    key={`seat-row-${rowIndex}`}
+                    key={`seat-row-${row.map((seat) => seat.seatId).join('-')}`}
                     getSeatButtonStyle={getSeatButtonStyle}
                     getSeatStyle={getSeatStyle}
                     handleSeatClick={handleSeatClick}

@@ -14,16 +14,19 @@ from scripts.quality import assert_coverage_100 as airline_coverage_gate
 
 
 def _write_text_file(path: Path, payload: str) -> None:
+    """Write a UTF-8 text fixture without relying on pathlib instance helpers."""
     with open(os.fspath(path), "w", encoding="utf-8") as handle:
         handle.write(payload)
 
 
 def _read_text_file(path: Path) -> str:
+    """Read a UTF-8 text fixture without relying on pathlib instance helpers."""
     with open(os.fspath(path), encoding="utf-8") as handle:
         return handle.read()
 
 
 def _unlink_file(path: Path) -> None:
+    """Delete a temporary fixture using an analyzer-friendly helper."""
     os.unlink(os.fspath(path))
 
 
@@ -38,6 +41,7 @@ def _patched_gate_paths(
     out_md: Path | None = None,
     argv: list[str] | None = None,
 ) -> Iterator[None]:
+    """Patch gate paths and CLI arguments for a single coverage-gate assertion."""
     with ExitStack() as stack:
         stack.enter_context(
             mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov)
@@ -85,6 +89,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
         summary: Path,
         final: Path,
     ) -> None:
+        """Assert the preferred Node coverage artifacts are loaded in fallback order."""
         with _patched_gate_paths(
             node_lcov=node_lcov,
             summary=summary,
@@ -150,8 +155,8 @@ class AirlineCoverageGateTests(unittest.TestCase):
             any("combined coverage below 100%" in item for item in findings)
         )
 
+    @staticmethod
     def _run_coverage_gate_main(
-        self,
         *,
         node_lcov: Path,
         cpp_lcov: Path,
@@ -159,6 +164,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
         out_md: Path,
         argv: list[str],
     ) -> int:
+        """Execute the coverage gate entrypoint with patched artifact inputs."""
         with _patched_gate_paths(
             node_lcov=node_lcov,
             cpp_lcov=cpp_lcov,
@@ -176,6 +182,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
         out_json: Path,
         out_md: Path,
     ) -> None:
+        """Verify the happy-path artifact output when both coverage reports exist."""
         self.assertEqual(
             self._run_coverage_gate_main(
                 node_lcov=node_lcov,
@@ -199,6 +206,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
         out_json: Path,
         out_md: Path,
     ) -> None:
+        """Verify the optional C++ guard when the native coverage report is absent."""
         _unlink_file(cpp_lcov)
         with self.assertRaises(SystemExit):
             self._run_coverage_gate_main(
