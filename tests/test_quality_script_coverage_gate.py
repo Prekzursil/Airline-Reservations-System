@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, List
 from unittest import mock
 
 from scripts.quality import assert_coverage_100 as airline_coverage_gate
@@ -39,7 +39,7 @@ def _patched_gate_paths(
     final: Path | None = None,
     out_json: Path | None = None,
     out_md: Path | None = None,
-    argv: list[str] | None = None,
+    argv: List[str] | None = None,
 ) -> Iterator[None]:
     """Patch gate paths and CLI arguments for a single coverage-gate assertion."""
     with ExitStack() as stack:
@@ -162,7 +162,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
         cpp_lcov: Path,
         out_json: Path,
         out_md: Path,
-        argv: list[str],
+        argv: List[str],
     ) -> int:
         """Execute the coverage gate entrypoint with patched artifact inputs."""
         with _patched_gate_paths(
