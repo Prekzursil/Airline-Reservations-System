@@ -170,7 +170,10 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
                 codacy.request_json_https_target(
                     target=helpers.HTTPSRequestTarget(
                         host=helpers.HTTPSHost.CODACY_API.value,
-                        path="/api/v3/analysis/organizations/gh/owner/repositories/repo/issues/search?limit=1",
+                        path=(
+                            "/api/v3/analysis/organizations/gh/owner/"
+                            "repositories/repo/issues/search?limit=1"
+                        ),
                     ),
                     method="POST",
                     headers={"api-token": "token"},
@@ -185,7 +188,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
             "request_json_https_target",
             return_value={"total": 0},
         ) as wrapper_mock:
-            codacy._fetch_open_issues(
+            open_issues, findings, status = RUN_CODACY_CHECK(
                 Namespace(
                     provider="github",
                     owner="owner",
@@ -194,6 +197,7 @@ class QualitySecretsAndCodacyTests(unittest.TestCase):
                 ),
                 "token",
             )
+        self.assertEqual((open_issues, findings, status), (0, [], "pass"))
         wrapper_mock.assert_called_once()
 
     def test_run_codacy_check_covers_missing_token_success_and_failure(self) -> None:

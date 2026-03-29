@@ -116,10 +116,10 @@ public:
     static void replaceAirplaneForTest(
         ReservationSystem& reservation_system,
         const std::string& flight_number,
-        Airplane replacement) {
+        const Airplane& replacement) {
         for (Airplane& airplane : reservation_system.airplanes) {
             if (airplane.getFlightNumber() == flight_number) {
-                airplane = std::move(replacement);
+                airplane = replacement;
                 return;
             }
         }

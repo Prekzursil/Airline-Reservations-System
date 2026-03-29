@@ -11,7 +11,10 @@ from scripts.quality import assert_coverage_100 as airline_coverage_gate
 
 
 class AirlineCoverageGateTests(unittest.TestCase):
+    """Exercise the repo's strict line and branch coverage gate script."""
+
     def test_load_node_stats_prefers_known_inputs_and_evaluate_reports_failures(self) -> None:
+        """Cover Node fallback loading and failure reporting branches."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             node_lcov = temp_path / "node.lcov"
@@ -53,6 +56,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
         self.assertTrue(any("combined coverage below 100%" in item for item in findings))
 
     def test_main_writes_artifacts_and_require_cpp_guard(self) -> None:
+        """Cover artifact rendering and the optional C++ coverage requirement."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             node_lcov = temp_path / "node.lcov"
@@ -85,9 +89,9 @@ class AirlineCoverageGateTests(unittest.TestCase):
                     airline_coverage_gate, "quality_artifact_paths", return_value=(out_json, out_md)
                 ),
                 mock.patch.object(sys, "argv", ["assert_coverage_100.py", "--require-cpp"]),
+                self.assertRaises(SystemExit),
             ):
-                with self.assertRaises(SystemExit):
-                    airline_coverage_gate.main()
+                airline_coverage_gate.main()
 
             with (
                 mock.patch.object(airline_coverage_gate, "NODE_LCOV_PATH", node_lcov),
@@ -102,6 +106,7 @@ class AirlineCoverageGateTests(unittest.TestCase):
             self.assertEqual([component["name"] for component in payload["components"]], ["node"])
 
     def test_render_optional_cpp_and_arg_parse_branches(self) -> None:
+        """Cover markdown rendering and optional C++ component selection paths."""
         with mock.patch.object(sys, "argv", ["assert_coverage_100.py"]):
             args = airline_coverage_gate._parse_args()
         self.assertFalse(args.require_cpp)

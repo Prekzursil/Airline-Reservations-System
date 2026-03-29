@@ -316,6 +316,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
             http_support.request_json_https(host="example.com", path="/repos")
 
     def test_wrapper_helpers_forward_to_target_helpers(self) -> None:
+        """Cover the thin request wrapper helpers and timeout validation branch."""
         self.assertIs(http_support._https_connection(), http.client.HTTPSConnection)
         self.assertIs(http_support.https_connection(), http.client.HTTPSConnection)
         with self.assertRaises(ValueError):
@@ -345,6 +346,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         list_mock.assert_called_once()
 
     def test_request_https_payload_handles_empty_body_and_default_headers(self) -> None:
+        """Cover HTTPS payload generation when the request body is absent."""
         response = _FakeHTTPResponse(
             status=200,
             reason="OK",
@@ -354,6 +356,7 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         connection_box: Dict[str, _FakeHTTPSConnection] = {}
 
         def _connection_factory(host: str, timeout: int) -> _FakeHTTPSConnection:
+            """Capture the test connection used by the patched factory."""
             connection = _FakeHTTPSConnection(host, timeout, response=response)
             connection_box["conn"] = connection
             return connection
@@ -383,18 +386,18 @@ class SecurityHTTPAndHelpersTests(unittest.TestCase):
         self.assertTrue(connection.closed)
 
     def test_request_json_list_https_target_rejects_non_collection_payload(self) -> None:
+        """Reject object payloads when the list wrapper expects a collection."""
         with mock.patch.object(
             http_support,
             "_request_https_payload",
             return_value=_https_response_payload(body='{"name": "value"}'),
-        ):
-            with self.assertRaises(RuntimeError):
-                http_support.request_json_list_https_target(
-                    target=helpers.HTTPSRequestTarget(
-                        host="api.github.com",
-                        path="/repos/owner/repo",
-                    )
+        ), self.assertRaises(RuntimeError):
+            http_support.request_json_list_https_target(
+                target=helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
                 )
+            )
 
     def test_json_target_helpers_surface_collection_and_http_errors(self) -> None:
         with mock.patch.object(

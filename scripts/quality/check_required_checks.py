@@ -82,7 +82,9 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
         time.sleep(delay_seconds)
         delay_seconds *= 2
 
-    raise RuntimeError("GitHub API request exhausted retries")  # pragma: no cover - defensive fallback
+    raise RuntimeError(
+        "GitHub API request exhausted retries"
+    )  # pragma: no cover - defensive fallback
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
