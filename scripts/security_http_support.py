@@ -1,10 +1,12 @@
+"""HTTPS request helpers shared by repository quality gate scripts."""
+
 from __future__ import absolute_import, annotations, division
 
 import http.client
 import json
 from typing import Any, Dict, List, Optional
 
-from scripts.security_helpers import (
+from scripts.security_shared import (
     HTTPSRequestError,
     HTTPSRequestOptions,
     HTTPSRequestTarget,
@@ -12,10 +14,14 @@ from scripts.security_helpers import (
     _JSON_CONTENT_TYPE,
     _SAFE_HEADER_NAME_CHARS,
 )
-from scripts.security_validation_support import require_allowed_https_host, require_https_path
+from scripts.security_validation_support import (
+    require_allowed_https_host,
+    require_https_path,
+)
 
 
 def _https_connection() -> Any:
+    """Return the stdlib HTTPS connection class used by helper requests."""
     return http.client.HTTPSConnection
 
 
@@ -25,6 +31,7 @@ def https_connection() -> Any:
 
 
 def _normalized_http_method(method: str) -> str:
+    """Normalize and validate a supported HTTP verb."""
     value = (method or "").strip().upper()
     if value not in {"DELETE", "GET", "PATCH", "POST", "PUT"}:
         raise ValueError(f"Unsupported HTTP method: {method!r}")
@@ -37,12 +44,15 @@ def normalized_http_method(method: str) -> str:
 
 
 def _safe_timeout_seconds(timeout: int) -> int:
+    """Clamp timeout values to the narrow safe range used by these scripts."""
     try:
         checked = int(timeout)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid timeout: {timeout!r}") from exc
     if checked < 1 or checked > 300:
-        raise ValueError(f"Timeout must be between 1 and 300 seconds: {timeout!r}")
+        raise ValueError(
+            f"Timeout must be between 1 and 300 seconds: {timeout!r}"
+        )
     return checked
 
 
@@ -52,10 +62,12 @@ def safe_timeout_seconds(timeout: int) -> int:
 
 
 def _contains_control_characters(value: str) -> bool:
+    """Return whether a string contains ASCII control characters."""
     return any(ord(ch) < 32 for ch in value)
 
 
 def _validate_header_name(name: str) -> str:
+    """Validate a caller-provided HTTP header name."""
     checked = (name or "").strip()
     if not checked or any(ch not in _SAFE_HEADER_NAME_CHARS for ch in checked):
         raise ValueError(f"Invalid HTTP header name: {name!r}")
@@ -63,18 +75,30 @@ def _validate_header_name(name: str) -> str:
 
 
 def _validate_header_value(value: Any, *, name: str) -> str:
+    """Validate a caller-provided HTTP header value."""
     checked = str(value)
     if _contains_control_characters(checked):
-        raise ValueError(f"Invalid HTTP header value for {name}: control characters are not allowed")
+        raise ValueError(
+            f"Invalid HTTP header value for {name}: control characters are "
+            "not allowed"
+        )
     return checked
 
 
-def _merge_safe_headers(headers: Optional[Dict[str, str]], *, include_json_content_type: bool) -> Dict[str, str]:
+def _merge_safe_headers(
+    headers: Optional[Dict[str, str]],
+    *,
+    include_json_content_type: bool,
+) -> Dict[str, str]:
+    """Merge validated caller headers into the default JSON header set."""
     final_headers: Dict[str, str] = {"Accept": _JSON_CONTENT_TYPE}
     if headers:
         for name, value in headers.items():
             checked_name = _validate_header_name(name)
-            final_headers[checked_name] = _validate_header_value(value, name=checked_name)
+            final_headers[checked_name] = _validate_header_value(
+                value,
+                name=checked_name,
+            )
     if include_json_content_type:
         final_headers.setdefault("Content-Type", _JSON_CONTENT_TYPE)
     return final_headers
@@ -92,9 +116,17 @@ def merge_safe_headers(
     )
 
 
-def _request_https_payload(*, target: HTTPSRequestTarget, options: Optional[HTTPSRequestOptions] = None) -> HTTPSResponsePayload:
+def _request_https_payload(
+    *,
+    target: HTTPSRequestTarget,
+    options: Optional[HTTPSRequestOptions] = None,
+) -> HTTPSResponsePayload:
+    """Perform a validated HTTPS request and return normalized response data."""
     resolved_options = options or HTTPSRequestOptions()
-    safe_host = require_allowed_https_host(target.host, allowed_hosts=resolved_options.allowed_hosts)
+    safe_host = require_allowed_https_host(
+        target.host,
+        allowed_hosts=resolved_options.allowed_hosts,
+    )
     safe_path = require_https_path(target.path)
     safe_method = _normalized_http_method(resolved_options.method)
     safe_timeout = _safe_timeout_seconds(resolved_options.timeout)
@@ -108,12 +140,14 @@ def _request_https_payload(*, target: HTTPSRequestTarget, options: Optional[HTTP
         include_json_content_type=include_content_type,
     )
 
-    conn = _https_connection()(safe_host, timeout=safe_timeout)  # nosemgrep: validated allowlist host and path
+    conn = _https_connection()(safe_host, timeout=safe_timeout)  # nosemgrep
     try:
         conn.request(safe_method, safe_path, body=payload, headers=final_headers)
         response = conn.getresponse()
         raw = response.read().decode("utf-8", errors="replace")
-        response_headers = {str(k).lower(): str(v) for k, v in response.getheaders()}
+        response_headers = {
+            str(k).lower(): str(v) for k, v in response.getheaders()
+        }
     finally:
         conn.close()
 
@@ -128,21 +162,36 @@ def _request_https_payload(*, target: HTTPSRequestTarget, options: Optional[HTTP
 
 
 def _parse_json_response(raw: str, *, host: str, path: str) -> Any:
+    """Decode a JSON response body and preserve host/path context on errors."""
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Invalid JSON response body from {host}{path}") from exc
 
 
-def request_json_https(*, host: str, path: str, options: Optional[HTTPSRequestOptions] = None) -> Dict[str, Any]:
+def request_json_https(
+    *,
+    host: str,
+    path: str,
+    options: Optional[HTTPSRequestOptions] = None,
+) -> Dict[str, Any]:
+    """Perform a JSON-object HTTPS request using raw host and path inputs."""
     target = HTTPSRequestTarget(
-        host=require_allowed_https_host(host, allowed_hosts=(options.allowed_hosts if options else None)),
+        host=require_allowed_https_host(
+            host,
+            allowed_hosts=(options.allowed_hosts if options else None),
+        ),
         path=require_https_path(path),
     )
     return request_json_https_target(target=target, options=options)
 
 
-def request_json_https_target(*, target: HTTPSRequestTarget, options: Optional[HTTPSRequestOptions] = None) -> Dict[str, Any]:
+def request_json_https_target(
+    *,
+    target: HTTPSRequestTarget,
+    options: Optional[HTTPSRequestOptions] = None,
+) -> Dict[str, Any]:
+    """Perform a JSON-object HTTPS request using a validated request target."""
     response = _request_https_payload(target=target, options=options)
     if response.status >= 400:
         raise HTTPSRequestError(response.status, response.reason, response.body)
@@ -153,9 +202,18 @@ def request_json_https_target(*, target: HTTPSRequestTarget, options: Optional[H
     return parsed
 
 
-def request_json_list_https(*, host: str, path: str, options: Optional[HTTPSRequestOptions] = None) -> tuple[List[Any], Dict[str, str]]:
+def request_json_list_https(
+    *,
+    host: str,
+    path: str,
+    options: Optional[HTTPSRequestOptions] = None,
+) -> tuple[List[Any], Dict[str, str]]:
+    """Perform a JSON-list HTTPS request using raw host and path inputs."""
     target = HTTPSRequestTarget(
-        host=require_allowed_https_host(host, allowed_hosts=(options.allowed_hosts if options else None)),
+        host=require_allowed_https_host(
+            host,
+            allowed_hosts=(options.allowed_hosts if options else None),
+        ),
         path=require_https_path(path),
     )
     return request_json_list_https_target(target=target, options=options)
@@ -166,11 +224,16 @@ def request_json_list_https_target(
     target: HTTPSRequestTarget,
     options: Optional[HTTPSRequestOptions] = None,
 ) -> tuple[List[Any], Dict[str, str]]:
+    """Perform a JSON-list HTTPS request using a validated request target."""
     response = _request_https_payload(target=target, options=options)
     if response.status >= 400:
         raise HTTPSRequestError(response.status, response.reason, response.body)
 
-    parsed = _parse_json_response(response.body, host=response.host, path=response.path)
+    parsed = _parse_json_response(
+        response.body,
+        host=response.host,
+        path=response.path,
+    )
     if not isinstance(parsed, list):
         raise RuntimeError("Expected JSON list response")
     return parsed, response.headers
