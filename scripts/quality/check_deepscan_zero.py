@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
+    HTTPSRequestOptions,
     HTTPSRequestTarget,
     QualityArtifact,
     build_https_request_target,
@@ -21,6 +22,7 @@ from scripts.security_helpers import (
     require_repo_slug,
     require_sha,
 )
+from scripts.quality.github_contexts import collect_contexts
 
 _PENDING_STATES = {"pending", ""}
 
@@ -56,11 +58,10 @@ def _build_commit_api_path(repo: str, sha: str) -> str:
     """Build the base commit API path for the target repository and SHA."""
     owner, name = require_repo_slug(repo)
     checked_sha = require_sha(sha)
-
-    owner_q = quote_segment(owner)
-    repo_q = quote_segment(name)
-    sha_q = quote_segment(checked_sha)
-    return f"/repos/{owner_q}/{repo_q}/commits/{sha_q}"
+    return (
+        f"/repos/{quote_segment(owner)}/{quote_segment(name)}/"
+        f"commits/{quote_segment(checked_sha)}"
+    )
 
 
 def _build_commit_api_target(
@@ -79,86 +80,16 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
     """Fetch a JSON document from the GitHub API."""
     return request_json_https_target(
         target=target,
-        method="GET",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "airline-deepscan-zero-gate",
-        },
+        options=HTTPSRequestOptions(
+            method="GET",
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "airline-deepscan-zero-gate",
+            },
+        ),
     )
-
-
-def _context_name(value: Any) -> str:
-    """Normalize a check context name into a trimmed string."""
-    return str(value or "").strip()
-
-
-def _build_context_entry(*, state: Any, conclusion: Any, source: str) -> Dict[str, str]:
-    """Create a normalized context payload."""
-    return {
-        "state": str(state or ""),
-        "conclusion": str(conclusion or ""),
-        "source": source,
-    }
-
-
-def _collect_context_entries(
-    items: List[Dict[str, Any]],
-    *,
-    name_field: str,
-    state_field: str,
-    conclusion_field: Optional[str],
-    source: str,
-) -> Dict[str, Dict[str, str]]:
-    """Collect normalized context entries from a GitHub checks payload."""
-    contexts: Dict[str, Dict[str, str]] = {}
-    for item in items:
-        name = _context_name(item.get(name_field))
-        if not name:
-            continue
-        state = item.get(state_field)
-        conclusion = state if conclusion_field is None else item.get(conclusion_field)
-        contexts[name] = _build_context_entry(
-            state=state,
-            conclusion=conclusion,
-            source=source,
-        )
-    return contexts
-
-
-def _collect_contexts(
-    check_runs_payload: Dict[str, Any],
-    status_payload: Dict[str, Any],
-) -> Dict[str, Dict[str, str]]:
-    """Collect check-run and status contexts keyed by their display name."""
-    check_run_items = [
-        item
-        for item in check_runs_payload.get("check_runs", []) or []
-        if isinstance(item, dict)
-    ]
-    status_items = [
-        item
-        for item in status_payload.get("statuses", []) or []
-        if isinstance(item, dict)
-    ]
-    contexts = _collect_context_entries(
-        check_run_items,
-        name_field="name",
-        state_field="status",
-        conclusion_field="conclusion",
-        source="check_run",
-    )
-    contexts.update(
-        _collect_context_entries(
-            status_items,
-            name_field="context",
-            state_field="state",
-            conclusion_field=None,
-            source="status",
-        )
-    )
-    return contexts
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
@@ -201,8 +132,7 @@ def _pending_failure_message(required_context: str, observed: Dict[str, str]) ->
 
 def _is_pending_context(observed: Dict[str, str]) -> bool:
     """Return whether the observed context is still pending completion."""
-    source = observed.get("source")
-    if source == "check_run":
+    if observed.get("source") == "check_run":
         return observed.get("state") != "completed"
     return observed.get("conclusion") in _PENDING_STATES
 
@@ -212,9 +142,8 @@ def _context_outcome(
     observed: Dict[str, str],
 ) -> Tuple[str, Optional[str]]:
     """Translate a settled context into a pass/fail result tuple."""
-    source = observed.get("source")
     conclusion = observed.get("conclusion")
-    if source == "check_run":
+    if observed.get("source") == "check_run":
         if conclusion == "success" and observed.get("state") == "completed":
             return "pass", None
         return (
@@ -243,7 +172,7 @@ def _run_deepscan_check(
     while True:
         check_runs = _api_get(check_runs_target, token)
         statuses = _api_get(statuses_target, token)
-        observed = _collect_contexts(check_runs, statuses).get(args.required_context)
+        observed = collect_contexts(check_runs, statuses).get(args.required_context)
 
         if observed is None:
             if _poll_or_timeout(time.time(), deadline, args.poll_interval_seconds):

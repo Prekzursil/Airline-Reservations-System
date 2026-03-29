@@ -4,7 +4,6 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
-import base64
 import json
 import os
 import time
@@ -14,7 +13,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from scripts.security_helpers import (
     HTTPSHost,
+    HTTPSRequestOptions,
     QualityArtifact,
+    basic_auth_header,
     build_https_request_target,
     quality_artifact_paths,
     request_json_https_target,
@@ -61,8 +62,7 @@ def _parse_args() -> argparse.Namespace:
 
 def _auth_header(token: str) -> str:
     """Build the Sonar basic-auth header from a token."""
-    raw = f"{token}:".encode("utf-8")
-    return "Basic " + base64.b64encode(raw).decode("ascii")
+    return basic_auth_header(token)
 
 
 def _render_md(payload: Dict[str, Any]) -> str:
@@ -108,84 +108,72 @@ def _build_queries(args: argparse.Namespace, project_key: str) -> SonarQueries:
         gate_query["branch"] = branch
         hotspots_query["branch"] = branch
     if args.pull_request:
-        pr = require_slug(args.pull_request, label="Sonar pull request")
-        issues_query["pullRequest"] = pr
-        gate_query["pullRequest"] = pr
-        hotspots_query["pullRequest"] = pr
+        pull_request = require_slug(args.pull_request, label="Sonar pull request")
+        issues_query["pullRequest"] = pull_request
+        gate_query["pullRequest"] = pull_request
+        hotspots_query["pullRequest"] = pull_request
 
     return issues_query, gate_query, hotspots_query
 
 
-def _fetch_open_issues(auth: str, issues_query: QueryDict) -> int:
-    """Fetch the open-issue count for the target Sonar scope."""
+def _request_sonar_payload(auth: str, path: str) -> Dict[str, Any]:
+    """Request a SonarCloud payload from a validated API path."""
     target = build_https_request_target(
         host=HTTPSHost.SONARCLOUD,
-        path="/api/issues/search?" + urllib.parse.urlencode(issues_query),
+        path=path,
     )
-    issues_payload = request_json_https_target(
+    return request_json_https_target(
         target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
+        options=HTTPSRequestOptions(
+            method="GET",
+            headers={
+                "Authorization": auth,
+                "User-Agent": "airline-sonar-zero-gate",
+            },
+        ),
     )
-    paging = issues_payload.get("paging") or {}
+
+
+def _paged_total(payload: Dict[str, Any]) -> int:
+    """Extract a total result count from a paged Sonar payload."""
+    paging = payload.get("paging") or {}
     return int(paging.get("total") or 0)
+
+
+def _fetch_open_issues(auth: str, issues_query: QueryDict) -> int:
+    """Fetch the open-issue count for the target Sonar scope."""
+    payload = _request_sonar_payload(
+        auth,
+        "/api/issues/search?" + urllib.parse.urlencode(issues_query),
+    )
+    return _paged_total(payload)
 
 
 def _fetch_quality_gate(auth: str, gate_query: QueryDict) -> str:
     """Fetch the Sonar quality gate status for the target scope."""
-    target = build_https_request_target(
-        host=HTTPSHost.SONARCLOUD,
-        path="/api/qualitygates/project_status?" + urllib.parse.urlencode(gate_query),
+    payload = _request_sonar_payload(
+        auth,
+        "/api/qualitygates/project_status?" + urllib.parse.urlencode(gate_query),
     )
-    gate_payload = request_json_https_target(
-        target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
-    )
-    project_status = gate_payload.get("projectStatus") or {}
+    project_status = payload.get("projectStatus") or {}
     return str(project_status.get("status") or "UNKNOWN")
 
 
 def _fetch_unresolved_hotspots(auth: str, hotspots_query: QueryDict) -> int:
     """Fetch the unresolved hotspot count for the target Sonar scope."""
-    target = build_https_request_target(
-        host=HTTPSHost.SONARCLOUD,
-        path="/api/hotspots/search?" + urllib.parse.urlencode(hotspots_query),
+    payload = _request_sonar_payload(
+        auth,
+        "/api/hotspots/search?" + urllib.parse.urlencode(hotspots_query),
     )
-    hotspots_payload = request_json_https_target(
-        target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
-    )
-    paging = hotspots_payload.get("paging") or {}
-    return int(paging.get("total") or 0)
+    return _paged_total(payload)
 
 
 def _fetch_pr_analysis_sha(auth: str, project_key: str, pull_request: str) -> str:
     """Return the Sonar-analyzed commit SHA for a pull request scope."""
-    target = build_https_request_target(
-        host=HTTPSHost.SONARCLOUD,
-        path=(
-            "/api/project_pull_requests/list?"
-            + urllib.parse.urlencode({"project": project_key})
-        ),
-    )
-    payload = request_json_https_target(
-        target=target,
-        method="GET",
-        headers={
-            "Authorization": auth,
-            "User-Agent": "airline-sonar-zero-gate",
-        },
+    payload = _request_sonar_payload(
+        auth,
+        "/api/project_pull_requests/list?"
+        + urllib.parse.urlencode({"project": project_key}),
     )
     for item in payload.get("pullRequests") or []:
         if str(item.get("key") or "") == pull_request:
@@ -235,10 +223,7 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
                     None,
                     None,
                     [
-                        (
-                            "Sonar PR analysis did not reach the expected "
-                            "head SHA before timeout."
-                        ),
+                        "Sonar PR analysis did not reach the expected head SHA before timeout.",
                         f"Expected SHA: {expected_pr_sha}",
                         f"Observed SHA: {observed_sha or 'missing'}",
                     ],
@@ -246,7 +231,6 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
             time.sleep(max(args.poll_interval_seconds, 1))
 
     issues_query, gate_query, hotspots_query = _build_queries(args, project_key)
-
     open_issues = _fetch_open_issues(auth, issues_query)
     unresolved_hotspots = _fetch_unresolved_hotspots(auth, hotspots_query)
     quality_gate = _fetch_quality_gate(auth, gate_query)
@@ -291,7 +275,6 @@ def main() -> int:
     )
     out_md.write_text(_render_md(payload), encoding="utf-8")
     print(out_md.read_text(encoding="utf-8"), end="")
-
     return 0 if status == "pass" else 1
 
 

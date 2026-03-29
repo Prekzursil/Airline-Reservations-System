@@ -15,6 +15,81 @@ const bookingSelectStyles = {
 };
 
 /**
+ * Returns the booking request payload or a user-facing validation status.
+ *
+ * @param {?string} selectedSeatId The selected seat identifier.
+ * @param {?{value?: string}} customerIdForBooking The selected customer option.
+ * @param {string} flightNumber The active flight number.
+ * @returns {{status: string} | {bookingData: {customerId: string, flightNumber: string, seatId: string}}}
+ *   The next booking action.
+ */
+export function bookingRequestForSelection(selectedSeatId, customerIdForBooking, flightNumber) {
+    if (!selectedSeatId) {
+        return { status: 'Please select a seat first.' };
+    }
+    if (!customerIdForBooking?.value) {
+        return { status: 'Please select a Customer for booking.' };
+    }
+
+    return {
+        bookingData: {
+            customerId: customerIdForBooking.value,
+            flightNumber,
+            seatId: selectedSeatId,
+        },
+    };
+}
+
+/**
+ * Returns the background color for a seat based on availability and selection.
+ *
+ * @param {object} seat The seat being rendered.
+ * @param {?string} selectedSeatId The selected seat identifier.
+ * @returns {string} The computed seat background color.
+ */
+export function seatBackgroundColor(seat, selectedSeatId) {
+    let backgroundColor = 'lightgreen';
+    if (seat.isBooked) {
+        backgroundColor = 'lightcoral';
+    } else if (seat.seatClass === 'Business') {
+        backgroundColor = 'lightblue';
+    }
+
+    if (seat.seatId === selectedSeatId) {
+        return 'yellow';
+    }
+
+    return backgroundColor;
+}
+
+/**
+ * Returns the selection outcome for a clicked seat.
+ *
+ * @param {object} seat The clicked seat record.
+ * @returns {{selectedSeatId: ?string, status: string}} The resulting selection state.
+ */
+export function selectionStatusForSeat(seat) {
+    if (seat.isBooked) {
+        if (seat.bookedByCustomerId) {
+            return {
+                selectedSeatId: null,
+                status: `Seat ${seat.seatId}: Booked by Customer ID ${seat.bookedByCustomerId}.`,
+            };
+        }
+
+        return {
+            selectedSeatId: null,
+            status: `Seat ${seat.seatId}: This seat is already booked.`,
+        };
+    }
+
+    return {
+        selectedSeatId: seat.seatId,
+        status: `Selected seat: ${seat.seatId} (${seat.seatClass}, Price: $${seat.price})`,
+    };
+}
+
+/**
  * Renders the inline seat-cancellation controls.
  *
  * @param {object} props Component props.
@@ -320,17 +395,9 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
      */
     const handleSeatClick = (seat) => {
         setPendingCancellationId(null);
-        if (seat.isBooked) {
-            let statusMsg = `Seat ${seat.seatId}: This seat is already booked.`;
-            if (seat.bookedByCustomerId) {
-                statusMsg = `Seat ${seat.seatId}: Booked by Customer ID ${seat.bookedByCustomerId}.`;
-            }
-            setBookingStatus(statusMsg);
-            setSelectedSeatId(null);
-            return;
-        }
-        setSelectedSeatId(seat.seatId);
-        setBookingStatus(`Selected seat: ${seat.seatId} (${seat.seatClass}, Price: $${seat.price})`);
+        const nextSelection = selectionStatusForSeat(seat);
+        setSelectedSeatId(nextSelection.selectedSeatId);
+        setBookingStatus(nextSelection.status);
     };
 
     /**
@@ -378,22 +445,13 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
      * @returns {Promise<void>} A promise that settles after the booking request completes.
      */
     const handleConfirmBooking = async () => {
-        /* c8 ignore start - guarded by UI state; confirm button is only rendered/enabled when these are satisfied */
-        if (!selectedSeatId) {
-            setBookingStatus('Please select a seat first.');
+        const request = bookingRequestForSelection(selectedSeatId, customerIdForBooking, flightNumber);
+        if ('status' in request) {
+            setBookingStatus(request.status);
             return;
         }
-        if (!customerIdForBooking?.value) {
-            setBookingStatus('Please select a Customer for booking.');
-            return;
-        }
-        /* c8 ignore end */
 
-        const bookingData = {
-            customerId: customerIdForBooking.value,
-            flightNumber,
-            seatId: selectedSeatId,
-        };
+        const { bookingData } = request;
         try {
             setBookingStatus('Processing booking...');
             const result = await createBooking(bookingData);
@@ -417,23 +475,12 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
      * @returns {object} The seat container style.
      */
     const getSeatStyle = (seat) => {
-        let backgroundColor = 'lightgreen';
-        if (seat.isBooked) {
-            backgroundColor = 'lightcoral';
-        } else if (seat.seatClass === 'Business') {
-            backgroundColor = 'lightblue';
-        }
-
-        if (seat.seatId === selectedSeatId) {
-            backgroundColor = 'yellow';
-        }
-
         return {
             width: '60px',
             height: '60px',
             margin: '5px',
             border: '1px solid #ccc',
-            backgroundColor,
+            backgroundColor: seatBackgroundColor(seat, selectedSeatId),
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',

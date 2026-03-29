@@ -6,38 +6,18 @@ from __future__ import absolute_import, annotations, division
 import argparse
 import json
 import os
-import urllib.parse
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict
 
-from scripts.security_helpers import (
-    HTTPSHost,
-    HTTPSRequestTarget,
-    QualityArtifact,
-    build_https_request_target,
-    quality_artifact_paths,
-    quote_path_segment,
-    request_json_list_https_target,
-    require_slug,
+from scripts.security_helpers import QualityArtifact, quality_artifact_paths
+from scripts.quality.sentry_support import run_sentry_check
+from scripts.quality.sentry_targets import SentryConfig
+
+_SENTRY_CONFIG = SentryConfig(
+    org_label="Sentry org",
+    project_label="Sentry project",
+    user_agent="airline-sentry-zero-gate",
 )
-
-_SENTRY_ORG_LABEL = "Sentry org"
-_SENTRY_PROJECT_LABEL = "Sentry project"
-_SENTRY_USER_AGENT = "airline-sentry-zero-gate"
-Headers = Dict[str, str]
-ProjectResults = List[Dict[str, Any]]
-ProjectSelection = Tuple[
-    Optional[str],
-    Optional[List[Any]],
-    Headers,
-    Optional[Exception],
-]
-
-
-def _required_quoted_slug(value: str, *, label: str) -> str:
-    """Return a validated and URL-escaped slug for a Sentry path segment."""
-    slug = require_slug(value, label=label)
-    return quote_path_segment(slug, label=label)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -67,17 +47,6 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _hits_from_headers(headers: Headers) -> Optional[int]:
-    """Return the unresolved issue count advertised by Sentry response headers."""
-    raw = headers.get("x-hits")
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
-
-
 def _render_md(payload: Dict[str, Any]) -> str:
     """Render the gate outcome as a compact Markdown report."""
     lines = [
@@ -92,7 +61,6 @@ def _render_md(payload: Dict[str, Any]) -> str:
 
     for item in payload.get("projects", []):
         lines.append(f"- `{item['project']}` unresolved=`{item['unresolved']}`")
-
     if not payload.get("projects"):
         lines.append("- None")
 
@@ -106,287 +74,12 @@ def _render_md(payload: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _build_project_issues_path(org: str, project: str) -> str:
-    """Build the Sentry issues API path for a specific project."""
-    org_slug = _required_quoted_slug(org, label=_SENTRY_ORG_LABEL)
-    project_slug = _required_quoted_slug(project, label=_SENTRY_PROJECT_LABEL)
-    query = urllib.parse.urlencode({"query": "is:unresolved", "limit": "1"})
-    return f"/api/0/projects/{org_slug}/{project_slug}/issues/?{query}"
-
-
-def _build_project_issues_target(org: str, project: str) -> HTTPSRequestTarget:
-    """Build the HTTPS request target for project issue queries."""
-    return build_https_request_target(
-        host=HTTPSHost.SENTRY,
-        path=_build_project_issues_path(org, project),
-    )
-
-
-def _auth_headers(token: str) -> Dict[str, str]:
-    """Return authenticated HTTP headers for Sentry API requests."""
-    return {
-        "Authorization": f"Bearer {token}",
-        "User-Agent": _SENTRY_USER_AGENT,
-    }
-
-
-def _build_org_projects_target(org: str, project_query: str) -> HTTPSRequestTarget:
-    """Build the HTTPS request target for listing projects in a Sentry org."""
-    org_slug = _required_quoted_slug(org, label=_SENTRY_ORG_LABEL)
-    query = urllib.parse.urlencode({"query": project_query})
-    return build_https_request_target(
-        host=HTTPSHost.SENTRY,
-        path=f"/api/0/organizations/{org_slug}/projects/?{query}",
-    )
-
-
-def _fetch_org_projects(
-    org: str,
-    project_query: str,
-    token: str,
-) -> Optional[List[Any]]:
-    """Look up Sentry projects that may match the requested slug."""
-    target = _build_org_projects_target(org, project_query)
-    try:
-        projects, _ = request_json_list_https_target(
-            target=target,
-            method="GET",
-            headers=_auth_headers(token),
-        )
-    except (RuntimeError, ValueError):
-        return None
-    return projects
-
-
-def _project_slug_from_match(item: Any, target: str) -> Optional[str]:
-    """Extract the canonical slug when a project payload matches the target."""
-    if not isinstance(item, dict):
-        return None
-    slug = str(item.get("slug") or "").strip()
-    name = str(item.get("name") or "").strip()
-    if not slug:
-        return None
-    if slug.casefold() == target or name.casefold() == target:
-        return slug
-    return None
-
-
-def _resolve_project_slug(org: str, project: str, token: str) -> Optional[str]:
-    """Resolve a user-provided project identifier to a canonical Sentry slug."""
-    project_query = require_slug(project, label=_SENTRY_PROJECT_LABEL)
-    projects = _fetch_org_projects(org, project_query, token)
-    if projects is None:
-        return None
-
-    target = project_query.casefold()
-    for item in projects:
-        matched = _project_slug_from_match(item, target)
-        if matched:
-            return matched
-    return None
-
-
-def _project_candidates(org: str, project: str, token: str) -> List[str]:
-    """Return candidate project slugs to try before treating a project as missing."""
-    candidates = [
-        project,
-        project.lower(),
-        project.replace("_", "-"),
-        project.replace("_", "-").lower(),
-    ]
-    resolved = _resolve_project_slug(org, project, token)
-    if resolved:
-        candidates.insert(0, resolved)
-
-    deduped: List[str] = []
-    seen: Set[str] = set()
-    for candidate in candidates:
-        normalized = candidate.strip()
-        if not normalized:
-            continue
-        key = normalized.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(normalized)
-    return deduped
-
-
-def _is_not_found_error(exc: Exception) -> bool:
-    """Return whether an exception represents a Sentry 404 response."""
-    message = str(exc)
-    return "404" in message and "Not Found" in message
-
-
-def _projects_from_args_or_env(args: argparse.Namespace) -> List[str]:
-    """Return project slugs from CLI args or supported environment variables."""
-    projects = [project for project in args.project if project]
-    if projects:
-        return projects
-
-    env_projects: List[str] = []
-    for env_name in ("SENTRY_PROJECT_BACKEND", "SENTRY_PROJECT_WEB", "SENTRY_PROJECT"):
-        value = str(os.environ.get(env_name, "")).strip()
-        if value:
-            env_projects.append(value)
-    return env_projects
-
-
-def _validate_inputs(token: str, org: str, projects: List[str]) -> List[str]:
-    """Validate required Sentry configuration before network requests begin."""
-    findings: List[str] = []
-    if not token:
-        findings.append("SENTRY_AUTH_TOKEN is missing.")
-    if not org:
-        findings.append("SENTRY_ORG is missing.")
-    if not projects:
-        findings.append("No Sentry projects configured.")
-    return findings
-
-
-def _fetch_project_issues(
-    org: str,
-    project: str,
-    token: str,
-) -> Tuple[List[Any], Headers]:
-    """Fetch unresolved issues and headers for a single Sentry project."""
-    return request_json_list_https_target(
-        target=_build_project_issues_target(org, project),
-        method="GET",
-        headers=_auth_headers(token),
-    )
-
-
-def _select_project_payload(
-    org: str,
-    project: str,
-    token: str,
-) -> ProjectSelection:
-    """Return the first usable Sentry project payload among candidate slugs."""
-    last_error: Optional[Exception] = None
-    for candidate in _project_candidates(org, project, token):
-        try:
-            issues, headers = _fetch_project_issues(org, candidate, token)
-            return candidate, issues, headers, None
-        except (RuntimeError, ValueError) as exc:  # pragma: no cover - network surface
-            last_error = exc
-            if _is_not_found_error(exc):
-                continue
-            return None, None, {}, exc
-    return None, None, {}, last_error
-
-
-def _unresolved_count(
-    project: str,
-    issues: List[Any],
-    headers: Headers,
-    findings: List[str],
-) -> int:
-    """Return the unresolved issue count for a project response."""
-    unresolved = _hits_from_headers(headers)
-    if unresolved is not None:
-        return unresolved
-
-    unresolved = len(issues)
-    if unresolved >= 1:
-        findings.append(
-            "Sentry project "
-            f"{project} returned unresolved issues but no X-Hits header "
-            "for exact totals."
-        )
-    return unresolved
-
-
-def _append_project_fetch_failure(
-    project: str,
-    last_error: Optional[Exception],
-    org: str,
-    findings: List[str],
-) -> None:
-    """Record a fetch failure for a Sentry project lookup."""
-    if last_error is None:
-        findings.append(f"Sentry project {project} did not return data.")
-        return
-    if _is_not_found_error(last_error):
-        findings.append(f"Sentry project {project} not found in org {org}.")
-        return
-    findings.append(
-        f"Sentry project {project} request failed: {last_error}"
-    )
-
-
-def _evaluate_projects(
-    org: str,
-    projects: List[str],
-    token: str,
-) -> Tuple[ProjectResults, List[str]]:
-    """Evaluate every configured Sentry project and collect findings."""
-    findings: List[str] = []
-    project_results: ProjectResults = []
-
-    for project in projects:
-        resolved_project, issues, headers, last_error = _select_project_payload(
-            org,
-            project,
-            token,
-        )
-        if issues is None:
-            if last_error is not None and _is_not_found_error(last_error):
-                project_results.append(
-                    {
-                        "project": project,
-                        "resolved_project": project,
-                        "unresolved": 0,
-                        "status": "not_found",
-                    }
-                )
-                continue
-            _append_project_fetch_failure(project, last_error, org, findings)
-            continue
-
-        unresolved = _unresolved_count(project, issues, headers, findings)
-        if unresolved != 0:
-            findings.append(
-                f"Sentry project {project} has {unresolved} unresolved issues "
-                "(expected 0)."
-            )
-
-        project_results.append(
-            {
-                "project": project,
-                "resolved_project": resolved_project or project,
-                "unresolved": unresolved,
-                "status": "ok",
-            }
-        )
-
-    return project_results, findings
-
-
-def _run_sentry_check(
-    args: argparse.Namespace,
-) -> Tuple[str, str, ProjectResults, List[str]]:
-    """Run the Sentry zero check and return the computed gate payload."""
-    token = (args.token or os.environ.get("SENTRY_AUTH_TOKEN", "")).strip()
-    org = (args.org or os.environ.get("SENTRY_ORG", "")).strip()
-    projects = _projects_from_args_or_env(args)
-
-    findings = _validate_inputs(token, org, projects)
-    if findings:
-        return "fail", org, [], findings
-
-    project_results, project_findings = _evaluate_projects(org, projects, token)
-    findings.extend(project_findings)
-    status = "pass" if not findings else "fail"
-    return status, org, project_results, findings
-
-
 def main() -> int:
     """Run the Sentry zero gate and write result artifacts."""
     args = _parse_args()
 
     try:
-        status, org, project_results, findings = _run_sentry_check(args)
+        status, org, project_results, findings = run_sentry_check(args, _SENTRY_CONFIG)
     except (RuntimeError, ValueError) as exc:  # pragma: no cover - network surface
         status = "fail"
         org = (args.org or os.environ.get("SENTRY_ORG", "")).strip()
