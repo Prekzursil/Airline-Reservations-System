@@ -42,10 +42,12 @@ _SONAR_PROJECT_KEY = "_".join(("Prekzursil", "Airline-Reservations-System"))
 
 class _SecurityHelpersValidationTests(unittest.TestCase):
     def test_require_allowed_https_host_accepts_known_hosts(self) -> None:
+        """Accept allowlisted HTTPS hosts after normalization."""
         self.assertEqual(helpers.require_allowed_https_host("api.github.com"), "api.github.com")
         self.assertEqual(helpers.require_allowed_https_host("SENTRY.IO."), "sentry.io")
 
     def test_require_allowed_https_host_rejects_untrusted_hosts(self) -> None:
+        """Reject hostnames that are not on the HTTPS allowlist."""
         with self.assertRaises(ValueError):
             helpers.require_allowed_https_host("example.com")
         with self.assertRaises(ValueError):
@@ -54,6 +56,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
             helpers.require_allowed_https_host("127.0.0.1")
 
     def test_require_https_path_rejects_non_relative_or_unsafe_paths(self) -> None:
+        """Reject unsafe or absolute paths when constructing HTTPS requests."""
         with self.assertRaises(ValueError):
             helpers.require_https_path("https://api.github.com/repos/x/y")
         with self.assertRaises(ValueError):
@@ -64,9 +67,11 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
             helpers.require_https_path("/repos/x/y\nHeader: injected")
 
     def test_require_https_path_accepts_normal_api_path(self) -> None:
+        """Accept a normal relative API path."""
         self.assertEqual(helpers.require_https_path("/repos/org/repo/commits/abc1234?per_page=100"), "/repos/org/repo/commits/abc1234?per_page=100")
 
     def test_fixed_output_paths_rejects_filename_or_directory_traversal(self) -> None:
+        """Reject output paths that escape the expected artifact directories."""
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)
@@ -81,6 +86,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
                 os.chdir(previous)
 
     def test_build_https_request_target_requires_allowlisted_host_and_path(self) -> None:
+        """Build safe HTTPS targets only from allowlisted hosts and relative paths."""
         target = helpers.build_https_request_target(
             host=helpers.HTTPSHost.GITHUB_API,
             path="/repos/owner/repo/commits/a1b2c3d/status",
@@ -95,6 +101,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
             )
 
     def test_http_method_validation_enforces_known_verbs(self) -> None:
+        """Normalize and restrict HTTP verbs to the supported allowlist."""
         self.assertEqual(helpers._normalized_http_method("get"), "GET")
         self.assertEqual(helpers._normalized_http_method(" PATCH "), "PATCH")
 
@@ -104,6 +111,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
             helpers._normalized_http_method("")
 
     def test_timeout_validation_rejects_invalid_values(self) -> None:
+        """Clamp timeout inputs to the accepted safety range."""
         self.assertEqual(helpers._safe_timeout_seconds(1), 1)
         self.assertEqual(helpers._safe_timeout_seconds(300), 300)
 
@@ -113,6 +121,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
             helpers._safe_timeout_seconds(301)
 
     def test_header_validation_rejects_invalid_names_and_values(self) -> None:
+        """Allow only safe header names and single-line header values."""
         merged = helpers._merge_safe_headers({"X-Test": "token"}, include_json_content_type=False)
         self.assertEqual(merged["Accept"], "application/json")
         self.assertEqual(merged["X-Test"], "token")
@@ -124,6 +133,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
             helpers._merge_safe_headers({"X-Test": "line1\nline2"}, include_json_content_type=False)
 
     def test_quality_artifact_paths_are_fixed(self) -> None:
+        """Build quality artifact paths inside the expected fixed output directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)
@@ -139,6 +149,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
 
 class _ScriptPathBuilderTests(unittest.TestCase):
     def test_codacy_path_builder_validates_inputs(self) -> None:
+        """Build the Codacy issue path only from validated provider and slug parts."""
         path = codacy._build_issue_search_path("github", "Owner_1", "Repo-1")
         self.assertIn("/analysis/organizations/github/Owner_1/repositories/Repo-1/issues/search", path)
         target = codacy._build_issue_search_target("github", "Owner_1", "Repo-1")
@@ -151,6 +162,7 @@ class _ScriptPathBuilderTests(unittest.TestCase):
             codacy._build_issue_search_path("github", "owner/evil", "repo")
 
     def test_codacy_fetch_open_issues_forwards_branch_name(self) -> None:
+        """Forward the branch filter when querying Codacy open issues."""
         args = mock.Mock(provider="github", owner="Owner_1", repo="Repo-1", branch="feature/zero")
         captured: dict[str, object] = {}
 
@@ -168,6 +180,7 @@ class _ScriptPathBuilderTests(unittest.TestCase):
         self.assertEqual(captured["body"], {"branchName": "feature/zero"})
 
     def test_sentry_path_builder_rejects_invalid_project(self) -> None:
+        """Reject unsafe Sentry project slugs while allowing valid ones."""
         path = sentry._build_project_issues_path("org-name", "project_name")
         self.assertTrue(path.startswith("/api/0/projects/org-name/project_name/issues/?"))
 
@@ -177,6 +190,7 @@ class _ScriptPathBuilderTests(unittest.TestCase):
             sentry._resolve_project_slug("org-name", "bad/project", "token")
 
     def test_github_quality_scripts_build_path_not_full_url(self) -> None:
+        """Keep GitHub quality helpers on relative API paths instead of full URLs."""
         deepscan_path = deepscan._build_commit_api_path("owner/repo", "a1b2c3d")
         checks_path = required_checks._build_commit_api_path("owner/repo", "a1b2c3d")
 
@@ -198,6 +212,7 @@ class _ScriptPathBuilderTests(unittest.TestCase):
 
 class _QualitySecretsScriptTests(unittest.TestCase):
     def test_quality_secrets_summary_uses_counts_only(self) -> None:
+        """Expose only missing-count summaries for quality secret checks."""
         with mock.patch.dict(
             os.environ,
             {
@@ -222,6 +237,7 @@ class _QualitySecretsScriptTests(unittest.TestCase):
         )
 
     def test_quality_secrets_artifacts_exclude_present_secret_metadata(self) -> None:
+        """Omit present-secret metadata from written quality-secrets artifacts."""
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)
@@ -267,6 +283,7 @@ class _QualitySecretsScriptTests(unittest.TestCase):
 
 class _SonarZeroScriptTests(unittest.TestCase):
     def test_sonar_query_builders_include_hotspot_scope(self) -> None:
+        """Build Sonar issue, gate, and hotspot queries with the expected branch scope."""
         args = mock.Mock(
             branch="feature-hotspots",
             expected_pr_sha="",
@@ -285,11 +302,13 @@ class _SonarZeroScriptTests(unittest.TestCase):
         self.assertEqual(hotspots_query["branch"], "feature-hotspots")
 
     def test_sonar_findings_include_unresolved_hotspots(self) -> None:
+        """Treat unresolved Sonar hotspots as zero-gate findings."""
         findings = sonar._evaluate_findings(open_issues=0, unresolved_hotspots=2, quality_gate="OK")
 
         self.assertEqual(findings, ["Sonar reports 2 unresolved security hotspots (expected 0)."])
 
     def test_sonar_main_writes_hotspot_counts_into_artifacts(self) -> None:
+        """Persist hotspot counts into the Sonar zero-gate artifacts."""
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
             os.chdir(temp_dir)

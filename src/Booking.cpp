@@ -92,9 +92,9 @@ std::uint64_t bookingSuffixToken(
     const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
         timePoint.time_since_epoch()
     ).count();
-    const auto customerHash = static_cast<std::uint64_t>(std::hash<std::string_view>{}(customerId));
-    const auto flightHash = static_cast<std::uint64_t>(std::hash<std::string_view>{}(flightNumber));
-    const auto seatHash = static_cast<std::uint64_t>(std::hash<std::string_view>{}(seatId));
+    const auto customerHash = std::hash<std::string_view>{}(customerId);
+    const auto flightHash = std::hash<std::string_view>{}(flightNumber);
+    const auto seatHash = std::hash<std::string_view>{}(seatId);
 
     return static_cast<std::uint64_t>(microseconds)
         ^ (customerHash << 1U)

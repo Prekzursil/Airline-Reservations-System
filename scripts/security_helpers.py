@@ -224,10 +224,7 @@ def _normalize_suffix_allowlist(allowed_host_suffixes: Optional[Set[str]]) -> Se
 
 def _is_hostname_allowed_by_suffix(hostname: str, suffixes: Set[str]) -> bool:
     """Return whether a hostname matches any allowed suffix exactly or by subdomain."""
-    for suffix in suffixes:
-        if hostname == suffix or hostname.endswith(f".{suffix}"):
-            return True
-    return False
+    return any(hostname == suffix or hostname.endswith(f".{suffix}") for suffix in suffixes)
 
 
 def _ensure_host_allowlist(

@@ -13,6 +13,7 @@ from scripts.quality import assert_coverage_100, normalize_lcov
 
 class _NormalizeLcovTests(unittest.TestCase):
     def test_normalize_lcov_lines_strips_branch_records_only(self) -> None:
+        """Strip branch-only records while preserving line coverage content."""
         raw = [
             "TN:",
             "SF:src/example.cpp",
@@ -41,6 +42,7 @@ class _NormalizeLcovTests(unittest.TestCase):
         )
 
     def test_main_normalizes_lcov_from_stdin_to_stdout(self) -> None:
+        """Normalize LCOV input from stdin and report stripped records to stderr."""
         stdin = StringIO(
             "\n".join(
                 [
@@ -78,6 +80,7 @@ class _NormalizeLcovTests(unittest.TestCase):
 
 class _AssertCoverageParsingTests(unittest.TestCase):
     def test_include_lcov_line_skips_inline_and_block_exclusions(self) -> None:
+        """Ignore excluded lines while keeping normal source lines eligible for coverage."""
         source_lines = (
             "// GCOVR_EXCL_START",
             "int main() {",
@@ -94,6 +97,7 @@ class _AssertCoverageParsingTests(unittest.TestCase):
         self.assertTrue(assert_coverage_100._include_lcov_line(source_lines, 7))
 
     def test_parse_lcov_ignores_explicitly_excluded_lines(self) -> None:
+        """Count only non-excluded LCOV lines when building parsed coverage stats."""
         sample_lcov = "\n".join(
             [
                 "TN:",
@@ -130,6 +134,7 @@ class _AssertCoverageParsingTests(unittest.TestCase):
         self.assertEqual(stats.covered, 1)
 
     def test_lookup_repo_source_lines_strips_repo_prefix(self) -> None:
+        """Resolve cached repo source lines even when the LCOV path includes a repo prefix."""
         source_lines = ("int covered() { return 2; }",)
 
         with patch.dict(assert_coverage_100.REPO_SOURCE_LINES, {"src/example.cpp": source_lines}, clear=True):

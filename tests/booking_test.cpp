@@ -5,6 +5,7 @@
 #include <format>
 #include <regex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -12,6 +13,20 @@
 #include "../src/Booking.h"
 
 using enum BookingStatus;
+
+namespace {
+struct TransparentStringHash {
+    using is_transparent = void;
+
+    std::size_t operator()(std::string_view value) const noexcept {
+        return std::hash<std::string_view>{}(value);
+    }
+
+    std::size_t operator()(const std::string& value) const noexcept {
+        return operator()(std::string_view{value});
+    }
+};
+} // namespace
 
 class BookingTestAccess {
 public:
@@ -112,8 +127,8 @@ TEST_F(BookingTest, GenerateBookingIdUsesBkPrefixAndUniqueNumericSuffix) {
     }
 
     const std::regex booking_id_pattern(R"(^BK\d+-\d+$)");
-    std::unordered_set<std::string> unique_ids;
-    std::unordered_set<std::string> unique_suffixes;
+    std::unordered_set<std::string, TransparentStringHash, std::equal_to<>> unique_ids;
+    std::unordered_set<std::string, TransparentStringHash, std::equal_to<>> unique_suffixes;
     for (const std::string& booking_id : generated_ids) {
         ASSERT_TRUE(std::regex_match(booking_id, booking_id_pattern)) << booking_id;
         EXPECT_TRUE(unique_ids.insert(booking_id).second) << booking_id;
