@@ -2,44 +2,32 @@
 
 ## Supported Versions
 
-Security updates are provided for the current default branch.
+Security fixes are applied to the `main` branch.
 
-| Version                  | Supported          |
-| ------------------------ | ------------------ |
-| `master` (latest commit) | :white_check_mark: |
-| Older branches/tags      | :x:                |
+| Version | Supported |
+| --- | --- |
+| `main` | :white_check_mark: |
+| Other branches/tags | :x: |
 
 ## Reporting a Vulnerability
 
-Report vulnerabilities through GitHub private advisories:
+Please do **not** open public GitHub issues for undisclosed security findings.
 
-- https://github.com/Prekzursil/Airline-Reservations-System/security/advisories/new
+Use GitHub Private Vulnerability Reporting for this repository:
+<https://github.com/Prekzursil/Airline-Reservations-System/security/advisories/new>
 
-Do not open a public issue for undisclosed vulnerabilities.
-
-## What To Include
+If private advisory reporting is unavailable, contact the maintainer privately on GitHub (`@Prekzursil`).
 
 When reporting, include:
 
-- Affected component (backend C++, GUI frontend, workflow, or dependency).
-- Reproduction steps or proof-of-concept.
-- Security impact (confidentiality, integrity, availability).
-- Suggested mitigation if available.
+- the affected component, file, workflow, or dependency
+- the exact commit, branch, or release if known
+- clear reproduction or proof-of-concept steps
+- impact details covering confidentiality, integrity, or availability
+- any suggested mitigation if known
 
-## Response Targets
+## Disclosure Expectations
 
-Best-effort response timelines:
-
-- Initial triage acknowledgment: within 3 business days.
-- Severity assessment and next steps: within 7 business days.
-- Patch/mitigation plan for confirmed issues: as soon as practical based on severity and exploitability.
-
-## Coordinated Disclosure
-
-- Give maintainers reasonable time to investigate and patch before public disclosure.
-- After a fix is available, maintainers may publish a security advisory with remediation details.
-
-## Scope Notes
-
-- Third-party dependency issues are triaged in-scope when they affect this repository.
-- Reports that only describe unsupported environments or already-public known issues may be closed as informational.
+- Initial acknowledgment: best effort within 3 business days.
+- Triage update: best effort within 7 business days.
+- Coordinated disclosure is expected; please allow time to investigate and patch before public disclosure.
