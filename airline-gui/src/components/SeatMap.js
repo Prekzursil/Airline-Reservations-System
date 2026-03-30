@@ -227,7 +227,7 @@ SeatRow.propTypes = {
 function SeatGrid({ getSeatButtonStyle, getSeatStyle, handleSeatClick, keepSeatBooking, onConfirmCancellation, pendingCancellationId, requestSeatCancellation, rows, selectedSeatId }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {rows.map((row, rowIndex) => (
+            {rows.map((row, _rowIndex) => (
                 <SeatRow
                     key={`seat-row-${row.map((seat) => seat.seatId).join('-')}`}
                     getSeatButtonStyle={getSeatButtonStyle}

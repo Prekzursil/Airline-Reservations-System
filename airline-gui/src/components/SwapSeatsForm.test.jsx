@@ -50,8 +50,8 @@ const bookings = [
 describe('SwapSeatsForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => { /* intentionally empty */ });
+    vi.spyOn(console, 'log').mockImplementation(() => { /* intentionally empty */ });
   });
 
   afterEach(() => {

@@ -1,3 +1,4 @@
+/** @file Unit tests for the API service module. */
 import {
   __internal,
   addCustomer,
@@ -11,6 +12,12 @@ import {
   swapSeats
 } from './apiService';
 
+/**
+ * Creates a fake fetch Response for test assertions.
+ *
+ * @param {object} options Response configuration.
+ * @returns {object} A minimal Response-compatible object.
+ */
 const makeResponse = ({ ok = true, status = 200, body = {}, jsonReject = false } = {}) => ({
   ok,
   status,
@@ -19,10 +26,12 @@ const makeResponse = ({ ok = true, status = 200, body = {}, jsonReject = false }
     : vi.fn().mockResolvedValue(body)
 });
 
+/** @param {object} body The response body to enqueue. */
 const queueSuccess = (body) => {
   globalThis.fetch.mockResolvedValueOnce(makeResponse({ body }));
 };
 
+/** @param {object} options Error response configuration. */
 const queueHttpError = ({ status, body, jsonReject = false }) => {
   globalThis.fetch.mockResolvedValueOnce(makeResponse({ ok: false, status, body, jsonReject }));
 };
@@ -67,11 +76,13 @@ const loadModuleWithBaseUrl = async ({ baseUrl, locationOrigin }) => {
 
 describe('apiService', () => {
   beforeEach(() => {
+    // Reset mocks and install a fresh fetch stub for each test.
     vi.restoreAllMocks();
     globalThis.fetch = vi.fn();
   });
 
   afterEach(() => {
+    // Restore original state so tests remain isolated.
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();

@@ -16,22 +16,25 @@ MODULE_SPEC = importlib.util.spec_from_file_location(
     MODULE_PATH,
 )
 if MODULE_SPEC is None or MODULE_SPEC.loader is None:  # pragma: no cover - import guard
-    raise RuntimeError(f"Unable to load test helper module from {MODULE_PATH}")
+    raise RuntimeError(
+        f"Unable to load test helper module from {MODULE_PATH}"
+    )
 run_cli_scenario = importlib.util.module_from_spec(MODULE_SPEC)
 sys.modules[MODULE_SPEC.name] = run_cli_scenario
 MODULE_SPEC.loader.exec_module(run_cli_scenario)
 
 
 def _write_empty_binary(path: Path) -> None:
+    """Write a zero-byte binary fixture."""
     with open(os.fspath(path), "wb") as handle:
         handle.write(b"")
 
 
 class RunCliScenarioScriptTests(unittest.TestCase):
-    """Exercise the allowlisted resolver helpers exposed by the CLI scenario module."""
+    """Exercise the allowlisted resolver helpers."""
 
     def test_resolve_scenario_uses_allowlisted_inputs(self) -> None:
-        """Resolve a named scenario to its checked-in input file and fragments."""
+        """Resolve a named scenario to its input file."""
         scenario = run_cli_scenario._resolve_scenario("cli_exit")
 
         self.assertEqual(

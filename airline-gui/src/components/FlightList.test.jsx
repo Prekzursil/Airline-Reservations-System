@@ -19,7 +19,7 @@ vi.mock('./SeatMap', () => ({
 describe('FlightList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => { /* intentionally empty */ });
   });
 
   afterEach(() => {
