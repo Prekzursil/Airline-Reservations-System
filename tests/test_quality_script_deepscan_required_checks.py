@@ -1,3 +1,5 @@
+"""Tests for DeepScan and required-checks quality gates."""
+
 from __future__ import absolute_import, division
 
 import json
@@ -15,7 +17,9 @@ from scripts.quality import check_required_checks as required_checks
 
 REPO = "owner/repo"
 SHA = "a1b2c3d"
-DEEPSCAN_ARGV = ["check_deepscan_zero.py", "--repo", REPO, "--sha", SHA]
+DEEPSCAN_ARGV = [
+    "check_deepscan_zero.py", "--repo", REPO, "--sha", SHA,
+]
 REQUIRED_CONTEXT = "Codecov Analytics"
 REQUIRED_CHECKS_ARGV = [
     "check_required_checks.py",
@@ -29,6 +33,7 @@ REQUIRED_CHECKS_ARGV = [
 
 
 def _deepscan_args(**overrides):
+    """Build a DeepScan gate argparse namespace."""
     values = {
         "repo": REPO,
         "sha": SHA,
@@ -41,6 +46,7 @@ def _deepscan_args(**overrides):
 
 
 def _required_checks_args(**overrides):
+    """Build a required-checks gate argparse namespace."""
     values = {
         "repo": REPO,
         "sha": SHA,
@@ -50,8 +56,12 @@ def _required_checks_args(**overrides):
     values.update(overrides)
     return Namespace(**values)
 
+
 class DeepScanAndRequiredChecksTests(unittest.TestCase):
+    """Exercise DeepScan and required-checks gate scripts."""
+
     def test_deepscan_pending_and_context_helpers(self) -> None:
+        """Cover pending failure messages and context helpers."""
         self.assertEqual(
             deepscan._pending_failure_message(
                 "DeepScan",
@@ -67,9 +77,15 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             "DeepScan state is pending (expected success)",
         )
         self.assertTrue(
-            deepscan._is_pending_context({"source": "check_run", "state": "in_progress"})
+            deepscan._is_pending_context(
+                {"source": "check_run", "state": "in_progress"},
+            )
         )
-        self.assertTrue(deepscan._is_pending_context({"source": "status", "conclusion": "pending"}))
+        self.assertTrue(
+            deepscan._is_pending_context(
+                {"source": "status", "conclusion": "pending"},
+            )
+        )
         self.assertEqual(
             deepscan._context_outcome(
                 "DeepScan",
@@ -90,6 +106,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         )
 
     def test_run_deepscan_check_handles_missing_pending_and_success(self) -> None:
+        """Cover missing, pending, and success context paths."""
         args = _deepscan_args()
         with (
             mock.patch.object(deepscan, "_api_get", return_value={}),
@@ -135,12 +152,17 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         )
 
     def test_deepscan_parse_api_and_render_helpers(self) -> None:
+        """Cover CLI parsing, API get, and markdown rendering."""
         with mock.patch.object(sys, "argv", DEEPSCAN_ARGV):
             args = deepscan._parse_args()
         self.assertEqual(args.required_context, "DeepScan")
 
         target_payload = {"ok": True}
-        with mock.patch.object(deepscan, "request_json_https_target", return_value=target_payload):
+        with mock.patch.object(
+            deepscan,
+            "request_json_https_target",
+            return_value=target_payload,
+        ):
             self.assertEqual(
                 deepscan._api_get(
                     helpers.HTTPSRequestTarget(
@@ -166,7 +188,10 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             ("fail", "DeepScan conclusion is failure (expected success)"),
         )
         self.assertEqual(
-            deepscan._context_outcome("DeepScan", {"source": "status", "conclusion": "success"}),
+            deepscan._context_outcome(
+                "DeepScan",
+                {"source": "status", "conclusion": "success"},
+            ),
             ("pass", None),
         )
 
@@ -183,6 +208,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         self.assertIn("- None", rendered)
 
     def test_deepscan_run_check_passes_after_pending_context(self) -> None:
+        """Cover the transition from pending to success."""
         args = _deepscan_args(max_wait_seconds=1)
         pending_context = {
             "DeepScan": {
@@ -214,6 +240,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         )
 
     def test_deepscan_run_check_fails_after_missing_context_timeout(self) -> None:
+        """Cover the missing-context timeout failure path."""
         args = _deepscan_args(max_wait_seconds=1)
         with (
             mock.patch.object(deepscan, "_api_get", return_value={}),
@@ -225,6 +252,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         self.assertEqual(findings, ["Missing required context: DeepScan"])
 
     def test_deepscan_run_check_returns_existing_failure_context(self) -> None:
+        """Cover the already-failed context outcome."""
         args = _deepscan_args(max_wait_seconds=1)
         failing_context = {
             "DeepScan": {
@@ -242,10 +270,13 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         self.assertIn("expected success", findings[0])
 
     def test_deepscan_main_failure_paths(self) -> None:
-        with self.assertRaises(SystemExit):
-            with mock.patch.object(sys, "argv", DEEPSCAN_ARGV):
-                with mock.patch.dict(os.environ, {}, clear=True):
-                    deepscan.main()
+        """Cover missing-token and failure artifact paths."""
+        with (
+            self.assertRaises(SystemExit),
+            mock.patch.object(sys, "argv", DEEPSCAN_ARGV),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            deepscan.main()
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -275,6 +306,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             self.assertIn("broken", out_md.read_text(encoding="utf-8"))
 
     def test_required_checks_api_retry_and_success_payload(self) -> None:
+        """Cover transient retry and successful context poll."""
         response = {"ok": True}
         transient_error = helpers.HTTPSRequestError(503, "busy", "wait")
         with (
@@ -316,6 +348,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         self.assertEqual(payload["status"], "pass")
 
     def test_required_checks_collect_payload_missing_context(self) -> None:
+        """Cover the missing-context polling timeout."""
         args = _required_checks_args()
         required = [REQUIRED_CONTEXT]
         with (
@@ -331,6 +364,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         sleep_mock.assert_called_once_with(1)
 
     def test_required_checks_main_writes_pass_report(self) -> None:
+        """Cover the passing CLI entrypoint artifact output."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             out_json = temp_path / "required.json"
@@ -362,6 +396,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             self.assertIn("Status: `pass`", out_md.read_text(encoding="utf-8"))
 
     def test_required_checks_parse_args_and_api_retry_errors(self) -> None:
+        """Cover CLI parsing and exhausted-retry error paths."""
         with mock.patch.object(sys, "argv", REQUIRED_CHECKS_ARGV):
             args = required_checks._parse_args()
         self.assertEqual(args.timeout_seconds, 900)
@@ -398,6 +433,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                 )
 
     def test_required_checks_render_and_fetch_payload_helpers(self) -> None:
+        """Cover markdown rendering and fetch payload helpers."""
         rendered = required_checks._render_md(
             {
                 "status": "fail",
@@ -422,6 +458,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             )
 
     def test_required_checks_failure_and_input_paths(self) -> None:
+        """Cover failure outcomes and missing-input guards."""
         failing_args = _required_checks_args()
         with (
             mock.patch.object(required_checks, "_fetch_check_payloads", return_value=({}, {})),
@@ -457,17 +494,25 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                     "token",
                 )
 
-        with self.assertRaises(SystemExit):
-            with mock.patch.object(
+        with (
+            self.assertRaises(SystemExit),
+            mock.patch.object(
                 sys,
                 "argv",
-                ["check_required_checks.py", "--repo", REPO, "--sha", SHA],
-            ):
-                required_checks.main()
-        with self.assertRaises(SystemExit):
-            with mock.patch.object(sys, "argv", REQUIRED_CHECKS_ARGV):
-                with mock.patch.dict(os.environ, {}, clear=True):
-                    required_checks.main()
+                [
+                    "check_required_checks.py",
+                    "--repo", REPO,
+                    "--sha", SHA,
+                ],
+            ),
+        ):
+            required_checks.main()
+        with (
+            self.assertRaises(SystemExit),
+            mock.patch.object(sys, "argv", REQUIRED_CHECKS_ARGV),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            required_checks.main()
 
 
 

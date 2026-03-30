@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""CLI scenario runner for the airline reservation system binary."""
+
 from __future__ import absolute_import, division
 
 import subprocess  # nosec B404 - test harness executes a locally built allowlisted binary without shell expansion
@@ -42,6 +44,7 @@ SCENARIOS = {
 
 
 def _print_usage(program_name: str) -> int:
+    """Print CLI usage and return an error exit code."""
     available = ", ".join(sorted(SCENARIOS))
     print(f"usage: {program_name} <scenario>", file=sys.stderr)
     print(f"available scenarios: {available}", file=sys.stderr)
@@ -49,6 +52,7 @@ def _print_usage(program_name: str) -> int:
 
 
 def _resolve_scenario(name: str) -> Scenario:
+    """Resolve a named scenario from the known set."""
     scenario = SCENARIOS.get(name)
     if scenario is None:
         available = ", ".join(sorted(SCENARIOS))
@@ -57,6 +61,7 @@ def _resolve_scenario(name: str) -> Scenario:
 
 
 def _binary_candidates(binary_dir: Path) -> List[Path]:
+    """List all allowlisted binary search paths."""
     candidates: List[Path] = []
     for subdirectory in KNOWN_BUILD_SUBDIRECTORIES:
         search_root = binary_dir if not subdirectory else binary_dir / subdirectory
@@ -66,15 +71,25 @@ def _binary_candidates(binary_dir: Path) -> List[Path]:
 
 
 def _resolve_binary(binary_dir: Path) -> Path:
+    """Locate the compiled airline CLI binary."""
     resolved_binary_dir = binary_dir.resolve()
     for candidate in _binary_candidates(resolved_binary_dir):
         if candidate.is_file():
             return candidate
-    searched = ", ".join(str(candidate) for candidate in _binary_candidates(resolved_binary_dir))
-    raise ValueError(f"unable to locate allowlisted airline CLI binary. Searched: {searched}")
+    searched = ", ".join(
+        str(c) for c in _binary_candidates(resolved_binary_dir)
+    )
+    raise ValueError(
+        "unable to locate allowlisted airline CLI "
+        f"binary. Searched: {searched}"
+    )
 
 
-def _run_binary(binary: Path, scenario: Scenario) -> subprocess.CompletedProcess:
+def _run_binary(
+    binary: Path,
+    scenario: Scenario,
+) -> subprocess.CompletedProcess:
+    """Execute the binary with the scenario input."""
     input_text = scenario.input_file.read_text(encoding="utf-8")
     return subprocess.run(  # nosec B603 - _resolve_binary restricts execution to a fixed local allowlist
         [str(binary)],
@@ -86,6 +101,7 @@ def _run_binary(binary: Path, scenario: Scenario) -> subprocess.CompletedProcess
 
 
 def _print_process_output(output: str, error_output: str) -> None:
+    """Print captured process output to stderr."""
     if output:
         print(output, file=sys.stderr, end="" if output.endswith("\n") else "\n")
     if error_output:
@@ -96,7 +112,11 @@ def _print_process_output(output: str, error_output: str) -> None:
         )
 
 
-def _assert_expected_fragments(output: str, expected_fragments: List[str]) -> int:
+def _assert_expected_fragments(
+    output: str,
+    expected_fragments: List[str],
+) -> int:
+    """Assert all expected fragments appear in the output."""
     for expected in expected_fragments:
         if expected not in output:
             print(f"missing expected output fragment: {expected}", file=sys.stderr)
@@ -107,6 +127,7 @@ def _assert_expected_fragments(output: str, expected_fragments: List[str]) -> in
 
 
 def main(argv: List[str]) -> int:
+    """Run a named CLI scenario and validate expected output."""
     if len(argv) != 2:
         return _print_usage(argv[0])
 

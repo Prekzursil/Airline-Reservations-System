@@ -1,3 +1,5 @@
+"""GitHub commit-context collection helpers for quality gates."""
+
 from __future__ import absolute_import, annotations, division
 
 from dataclasses import dataclass
@@ -6,6 +8,8 @@ from typing import Any, Dict, Iterable, Optional
 
 @dataclass(frozen=True)
 class ContextSourceSpec:
+    """Mapping rules for extracting context entries from a payload."""
+
     name_field: str
     state_field: str
     conclusion_field: Optional[str]
@@ -28,10 +32,17 @@ STATUS_SPEC = ContextSourceSpec(
 
 
 def _context_name(value: Any) -> str:
+    """Normalize a context name to a stripped string."""
     return str(value or "").strip()
 
 
-def _build_context_entry(*, state: Any, conclusion: Any, source: str) -> Dict[str, str]:
+def _build_context_entry(
+    *,
+    state: Any,
+    conclusion: Any,
+    source: str,
+) -> Dict[str, str]:
+    """Build a normalized context entry dictionary."""
     return {
         "state": str(state or ""),
         "conclusion": str(conclusion or ""),
@@ -39,7 +50,11 @@ def _build_context_entry(*, state: Any, conclusion: Any, source: str) -> Dict[st
     }
 
 
-def collect_context_entries(items: Iterable[Any], spec: ContextSourceSpec) -> Dict[str, Dict[str, str]]:
+def collect_context_entries(
+    items: Iterable[Any],
+    spec: ContextSourceSpec,
+) -> Dict[str, Dict[str, str]]:
+    """Extract named context entries from a payload."""
     contexts: Dict[str, Dict[str, str]] = {}
     for item in items:
         if not isinstance(item, dict):
@@ -48,12 +63,34 @@ def collect_context_entries(items: Iterable[Any], spec: ContextSourceSpec) -> Di
         if not name:
             continue
         state = item.get(spec.state_field)
-        conclusion = state if spec.conclusion_field is None else item.get(spec.conclusion_field)
-        contexts[name] = _build_context_entry(state=state, conclusion=conclusion, source=spec.source)
+        conclusion = (
+            state
+            if spec.conclusion_field is None
+            else item.get(spec.conclusion_field)
+        )
+        contexts[name] = _build_context_entry(
+            state=state,
+            conclusion=conclusion,
+            source=spec.source,
+        )
     return contexts
 
 
-def collect_contexts(check_runs_payload: Dict[str, Any], status_payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-    contexts = collect_context_entries(check_runs_payload.get("check_runs", []) or [], CHECK_RUN_SPEC)
-    contexts.update(collect_context_entries(status_payload.get("statuses", []) or [], STATUS_SPEC))
+def collect_contexts(
+    check_runs_payload: Dict[str, Any],
+    status_payload: Dict[str, Any],
+) -> Dict[str, Dict[str, str]]:
+    """Merge check-run and status contexts into one map."""
+    check_runs = (
+        check_runs_payload.get("check_runs", []) or []
+    )
+    contexts = collect_context_entries(
+        check_runs, CHECK_RUN_SPEC,
+    )
+    statuses = (
+        status_payload.get("statuses", []) or []
+    )
+    contexts.update(
+        collect_context_entries(statuses, STATUS_SPEC),
+    )
     return contexts

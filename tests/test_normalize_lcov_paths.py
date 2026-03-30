@@ -1,3 +1,5 @@
+"""Tests for LCOV path normalization with repo file indexes."""
+
 from __future__ import absolute_import, division
 
 from pathlib import Path
@@ -8,6 +10,8 @@ from scripts.quality import normalize_lcov
 
 
 class NormalizeLcovPathTests(unittest.TestCase):
+    """Verify LCOV path rewriting with repo file indexes."""
+
     def test_normalize_lcov_lines_rewrites_unique_repo_basenames(self) -> None:
         raw = [
             "TN:",

@@ -1,6 +1,8 @@
+/** @file Vite configuration for the airline GUI application. */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+/** @returns {import('vite').UserConfig} The Vite configuration. */
 export default defineConfig({
   plugins: [react()],
   esbuild: {
