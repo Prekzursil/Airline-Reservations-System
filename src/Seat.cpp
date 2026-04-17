@@ -2,23 +2,6 @@
 #include "Seat.h"
 #include <iomanip> // For std::setprecision
 
-namespace {
-void assignSeatValues(
-    std::string_view id,
-    SeatClass sc,
-    double basePrice,
-    std::string& seatIdOut,
-    bool& bookedOut,
-    double& priceOut,
-    SeatClass& seatClassOut
-) {
-    seatIdOut = id;
-    bookedOut = false;
-    seatClassOut = sc;
-    priceOut = (sc == SeatClass::BUSINESS) ? (basePrice * 2.0) : basePrice;
-}
-} // namespace
-
 // Helper function to convert SeatClass enum to string (can be outside class or static member)
 std::string seatClassToString(SeatClass sc) {
     using enum SeatClass;
@@ -31,9 +14,11 @@ std::string seatClassToString(SeatClass sc) {
 }
 
 // Constructor
-Seat::Seat(std::string_view id, SeatClass sc, double basePrice) {
-    assignSeatValues(id, sc, basePrice, seatId, isBooked, price, seatClass);
-}
+Seat::Seat(std::string_view id, SeatClass sc, double basePrice)
+    : seatId(id),
+      isBooked(false),
+      price(sc == SeatClass::BUSINESS ? basePrice * 2.0 : basePrice),
+      seatClass(sc) {}
 
 // Destructor
 Seat::~Seat() = default;

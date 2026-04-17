@@ -6,10 +6,9 @@ import contextlib
 import json
 import os
 import tempfile
-import unittest
 from pathlib import Path
 from typing import List
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts.quality import coverage_parsers as parsers
 from scripts.quality import normalize_lcov
@@ -114,7 +113,7 @@ def _coverage_parser_fixture():
         yield lcov_path, summary_path, fallback_summary, final_path
 
 
-class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
+class CoverageParsersAndNormalizeLCOVTests(TestCase):
     """Exercise path and coverage helpers that feed the repo quality gates."""
 
     def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(
@@ -375,7 +374,7 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
         self.assertEqual((summary_stats.covered, summary_stats.total), (4, 5))
         self.assertEqual((fallback_stats.covered, fallback_stats.total), (3, 4))
         self.assertEqual((final_stats.covered, final_stats.total), (2, 3))
-        self.assertIsNone(parsers._lookup_repo_source_lines("/abs/path.cpp"))
+        self.assertIsNone(parsers.lookup_repo_source_lines("/abs/path.cpp"))
         self.assertEqual(parsers._safe_int("bad"), 0)
 
     def test_parser_helper_branches_cover_empty_inputs_and_escape_paths(self) -> None:
@@ -389,15 +388,15 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
             ).percent,
             100.0,
         )
-        self.assertTrue(parsers._include_lcov_line(None, 0))
-        self.assertIsNone(parsers._lookup_repo_source_lines("../escape.cpp"))
+        self.assertTrue(parsers.include_lcov_line(None, 0))
+        self.assertIsNone(parsers.lookup_repo_source_lines("../escape.cpp"))
         with mock.patch.dict(
             parsers.REPO_SOURCE_LINES,
             {"src/ReservationSystem.cpp": ("int handleReservation();",)},
             clear=False,
         ):
             self.assertEqual(
-                parsers._lookup_repo_source_lines("./src/ReservationSystem.cpp"),
+                parsers.lookup_repo_source_lines("./src/ReservationSystem.cpp"),
                 ("int handleReservation();",),
             )
 
@@ -412,11 +411,11 @@ class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
             clear=False,
         ):
             self.assertEqual(
-                parsers._lookup_repo_source_lines(repo_prefixed),
+                parsers.lookup_repo_source_lines(repo_prefixed),
                 sample_lines,
             )
             self.assertEqual(
-                parsers._lookup_repo_source_lines(f"repo/{repo_relative}"),
+                parsers.lookup_repo_source_lines(f"repo/{repo_relative}"),
                 sample_lines,
             )
 

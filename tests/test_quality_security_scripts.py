@@ -7,9 +7,8 @@ import json
 import os
 import sys
 import tempfile
-import unittest
 from pathlib import Path
-from unittest import mock
+from unittest import TestCase, main, mock
 
 from scripts import security_http_support as http_support
 from scripts import security_validation_support as validation_support
@@ -62,7 +61,7 @@ _STATUS_KEY = "status"
 _SONAR_PROJECT_KEY = "_".join(("Prekzursil", "Airline-Reservations-System"))
 
 
-class _SecurityHelpersValidationTests(unittest.TestCase):
+class _SecurityHelpersValidationTests(TestCase):
     """Validate the shared HTTPS and artifact path safety helpers."""
 
     def test_require_allowed_https_host_accepts_known_hosts(self) -> None:
@@ -316,7 +315,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
         self.assertEqual(helpers.basic_auth_header("token"), "Basic dG9rZW46")
 
 
-class _ScriptPathBuilderTests(unittest.TestCase):
+class _ScriptPathBuilderTests(TestCase):
     """Cover path-building helpers used by the quality scripts."""
 
     def test_codacy_path_builder_validates_inputs(self) -> None:
@@ -405,7 +404,7 @@ class _ScriptPathBuilderTests(unittest.TestCase):
             required_checks._build_commit_api_path("owner/repo/extra", "a1b2c3d")
 
 
-class _QualitySecretsScriptTests(unittest.TestCase):
+class _QualitySecretsScriptTests(TestCase):
     """Verify quality-secrets reporting omits secret-derived detail."""
 
     def test_quality_secrets_summary_uses_counts_only(self) -> None:
@@ -496,7 +495,7 @@ class _QualitySecretsScriptTests(unittest.TestCase):
                 os.chdir(previous)
 
 
-class _SonarZeroScriptTests(unittest.TestCase):
+class _SonarZeroScriptTests(TestCase):
     """Verify the Sonar zero-gate query and artifact behavior."""
 
     def test_sonar_query_builders_include_hotspot_scope(self) -> None:
@@ -588,4 +587,4 @@ class _SonarZeroScriptTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

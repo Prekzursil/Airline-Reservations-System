@@ -6,11 +6,10 @@ import os
 import json
 import sys
 import tempfile
-import unittest
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import Iterator, List
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts.quality import assert_coverage_100 as airline_coverage_gate
 
@@ -81,7 +80,7 @@ def _patched_gate_paths(
         yield
 
 
-class AirlineCoverageGateTests(unittest.TestCase):
+class AirlineCoverageGateTests(TestCase):
     """Exercise the repo's strict line and branch coverage gate script."""
 
     def _assert_node_stats_fallbacks(

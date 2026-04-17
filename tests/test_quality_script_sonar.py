@@ -5,11 +5,10 @@ from __future__ import absolute_import, division
 import os
 import sys
 import tempfile
-import unittest
 from argparse import Namespace
 from contextlib import ExitStack
 from pathlib import Path
-from unittest import mock
+from unittest import TestCase, main, mock
 
 from scripts import security_helpers as helpers
 from scripts.quality import check_sonar_zero as sonar
@@ -32,7 +31,7 @@ def _sonar_args(**overrides):
     return Namespace(**values)
 
 
-class SonarScriptTests(unittest.TestCase):
+class SonarScriptTests(TestCase):
     """Exercise the hosted Sonar zero-check helper script."""
 
     def _assert_pull_request_scoped_run(self, args: Namespace) -> None:
@@ -303,4 +302,4 @@ class SonarScriptTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

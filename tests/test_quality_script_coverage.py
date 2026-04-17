@@ -8,10 +8,9 @@ import contextlib
 import http.client
 import os
 import tempfile
-import unittest
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts import security_helpers as helpers
 from scripts import security_http_support as http_support
@@ -30,8 +29,9 @@ from tests.test_quality_script_sentry_sonar import SentryAndSonarScriptTests
 
 # Keep the strict-zero profile's narrowed Python coverage command honest by making
 # the companion script test cases visible when this module is the only quality
-# script test file selected.
-_PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
+# script test file selected. The tuple is referenced in __all__ below so the
+# underscored imports are not flagged as dead by CodeQL's py/unused-global-variable.
+PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
     CoverageParsersAndNormalizeLCOVTests,
     DeepScanAndRequiredChecksTests,
     GitHubContextSupportTests,
@@ -40,6 +40,18 @@ _PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
     SentryAndSonarScriptTests,
     AirlineCoverageGateTests,
 )
+__all__ = [
+    "PROFILE_COVERAGE_IMPORTED_TEST_CASES",
+    "CoverageParsersAndNormalizeLCOVTests",
+    "DeepScanAndRequiredChecksTests",
+    "GitHubContextSupportTests",
+    "QualitySecretsAndCodacyTests",
+    "SonarScriptTests",
+    "SentryAndSonarScriptTests",
+    "AirlineCoverageGateTests",
+    "SecurityValidationSupportTests",
+    "SecurityHTTPAndHelpersTests",
+]
 
 
 @contextlib.contextmanager
@@ -135,7 +147,7 @@ class _FakeHTTPSConnection:
         self.closed = True
 
 
-class SecurityValidationSupportTests(unittest.TestCase):
+class SecurityValidationSupportTests(TestCase):
     """Cover validation helper branches used by quality gate scripts."""
 
     def test_normalize_https_url_accepts_allowlisted_suffixes_and_rejects_local_hosts(
@@ -244,7 +256,7 @@ class SecurityValidationSupportTests(unittest.TestCase):
             validation_support.require_https_path("/safe/../bad")
 
 
-class SecurityHTTPAndHelpersTests(unittest.TestCase):
+class SecurityHTTPAndHelpersTests(TestCase):
     """Cover HTTP wrapper behavior used by the quality scripts."""
 
     def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(

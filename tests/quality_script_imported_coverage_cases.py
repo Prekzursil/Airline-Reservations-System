@@ -8,11 +8,10 @@ import json
 import os
 import sys
 import tempfile
-import unittest
 from argparse import Namespace
 from pathlib import Path
 from typing import List
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts import security_helpers as helpers
 from scripts.quality import check_codacy_zero as codacy
@@ -42,7 +41,7 @@ def _temporary_cwd(path: Path):
         os.chdir(previous)
 
 
-class GitHubContextSupportTests(unittest.TestCase):
+class GitHubContextSupportTests(TestCase):
     """Exercise context collection helpers used by the required-checks gate."""
 
     def test_collect_context_entries_and_required_context_evaluation(self) -> None:
@@ -106,7 +105,7 @@ class GitHubContextSupportTests(unittest.TestCase):
         )
 
 
-class QualitySecretsAndCodacyTests(unittest.TestCase):
+class QualitySecretsAndCodacyTests(TestCase):
     """Cover quality-secrets and Codacy zero helper branches."""
 
     def test_quality_secret_helpers_cover_dedupe_presence_and_main_success(

@@ -2,6 +2,7 @@
 #include "ReservationSystemHelpers.h"
 #include <array>
 #include <format>
+#include <span>
 #include <string_view>
 
 namespace reservation_system_helpers {
@@ -59,15 +60,13 @@ std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::str
     return value;
 }
 
-AutoCustomerData generateAutoCustomerData(const std::string& newId) {
-    static const std::array<std::string_view, 5> firstNames = {
-        "AutoPat",
-        "RoboUser",
-        "GenClient",
-        "SysPerson",
-        "BotPassenger",
-    };
-    const SeedValue seed = buildDeterministicSeed(newId, 0x9E3779B97F4A7C15ULL);
+namespace {
+AutoCustomerData generateAutoCustomerDataFromPool(
+    const std::string& newId,
+    SeedValue seedConstant,
+    std::span<const std::string_view> firstNames
+) {
+    const SeedValue seed = buildDeterministicSeed(newId, seedConstant);
     const std::string name = buildDeterministicAutoName(
         {firstNames.begin(), firstNames.end()},
         newId,
@@ -76,23 +75,28 @@ AutoCustomerData generateAutoCustomerData(const std::string& newId) {
     const double money = buildDeterministicAutoMoney(seed >> 16U);
     return {name, age, money};
 }
+} // namespace
+
+AutoCustomerData generateAutoCustomerData(const std::string& newId) {
+    static constexpr std::array<std::string_view, 5> firstNames = {
+        "AutoPat",
+        "RoboUser",
+        "GenClient",
+        "SysPerson",
+        "BotPassenger",
+    };
+    return generateAutoCustomerDataFromPool(newId, 0x9E3779B97F4A7C15ULL, firstNames);
+}
 
 AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
-    static const std::array<std::string_view, 5> firstNames = {
+    static constexpr std::array<std::string_view, 5> firstNames = {
         "ApiPat",
         "WebServiceUser",
         "JsonGenClient",
         "SystemPerson",
         "BackendBot",
     };
-    const SeedValue seed = buildDeterministicSeed(newId, 0xD1B54A32D192ED03ULL);
-    const std::string name = buildDeterministicAutoName(
-        {firstNames.begin(), firstNames.end()},
-        newId,
-        seed);
-    const int age = buildDeterministicAutoAge(seed >> 8U);
-    const double money = buildDeterministicAutoMoney(seed >> 16U);
-    return {name, age, money};
+    return generateAutoCustomerDataFromPool(newId, 0xD1B54A32D192ED03ULL, firstNames);
 }
 
 std::string formatCustomerId(int counter) {
