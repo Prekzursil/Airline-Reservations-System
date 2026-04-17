@@ -104,7 +104,7 @@ TEST(ApiServerHelpersTest, DetailBuildersReturnExpectedPayloads) {
     EXPECT_EQ(airplane_details.at("capacity"), flight->getCapacity());
     EXPECT_EQ(airplane_details.at("bookedSeatsCount"), flight->getBookedSeatsCount());
     EXPECT_EQ(airplane_details.at("isFull"), flight->isFull());
-    const auto seat_it = std::ranges::find_if(
+    [[maybe_unused]] const auto seat_it = std::ranges::find_if(
         airplane_details.at("seats"),
         [](const json& seat_details) { return seat_details.at("seatId") == "4A"; });
     ASSERT_NE(seat_it, airplane_details.at("seats").end());
@@ -163,9 +163,9 @@ TEST(ApiServerHelpersTest, DetailBuildersCoverLookupAndFilterBranches) {
 
     const Airplane* airplane = reservation_system.findAirplaneByFlightNumber("FL101");
     ASSERT_NE(airplane, nullptr);
-    const json airplane_details = build_airplane_details(reservation_system, *airplane);
+    [[maybe_unused]] const json airplane_details = build_airplane_details(reservation_system, *airplane);
     ASSERT_TRUE(airplane_details.contains("seats"));
-    const auto seat_it = std::ranges::find_if(
+    [[maybe_unused]] const auto seat_it = std::ranges::find_if(
         airplane_details.at("seats"),
         [](const json& seat_details) { return seat_details.at("seatId") == "4A"; });
     ASSERT_NE(seat_it, airplane_details.at("seats").end());
@@ -214,7 +214,7 @@ TEST(ApiServerEntryTest, MainReturnsSuccessWhenListenHookSucceeds) {
     ReservationSystem reservation_system(input, output_stream);
     httplib::Server server;
 
-    const int exit_code = run_api_server_with_listener(
+    [[maybe_unused]] const int exit_code = run_api_server_with_listener(
         reservation_system,
         server,
         output_stream,
@@ -324,7 +324,7 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     server.stop();
 
     ASSERT_EQ(exit_code_future.wait_for(kStartupTimeout), std::future_status::ready);
-    const int exit_code = exit_code_future.get();
+    [[maybe_unused]] const int exit_code = exit_code_future.get();
     if (exit_code == 0) {
         EXPECT_TRUE(observed_healthy);
         EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
