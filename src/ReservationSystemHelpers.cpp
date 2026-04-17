@@ -2,7 +2,6 @@
 #include "ReservationSystemHelpers.h"
 #include <array>
 #include <format>
-#include <span>
 #include <string_view>
 
 namespace reservation_system_helpers {
@@ -61,10 +60,12 @@ std::string readNonEmptyLine(std::istream& in, std::ostream& out, const std::str
 }
 
 namespace {
+using AutoFirstNamePool = std::array<std::string_view, 5>;
+
 AutoCustomerData generateAutoCustomerDataFromPool(
     const std::string& newId,
     SeedValue seedConstant,
-    std::span<const std::string_view> firstNames
+    const AutoFirstNamePool& firstNames
 ) {
     const SeedValue seed = buildDeterministicSeed(newId, seedConstant);
     const std::string name = buildDeterministicAutoName(
@@ -77,26 +78,30 @@ AutoCustomerData generateAutoCustomerDataFromPool(
 }
 } // namespace
 
+namespace {
+constexpr AutoFirstNamePool kDefaultFirstNames = {
+    "AutoPat",
+    "RoboUser",
+    "GenClient",
+    "SysPerson",
+    "BotPassenger",
+};
+
+constexpr AutoFirstNamePool kApiFirstNames = {
+    "ApiPat",
+    "WebServiceUser",
+    "JsonGenClient",
+    "SystemPerson",
+    "BackendBot",
+};
+} // namespace
+
 AutoCustomerData generateAutoCustomerData(const std::string& newId) {
-    static constexpr std::array<std::string_view, 5> firstNames = {
-        "AutoPat",
-        "RoboUser",
-        "GenClient",
-        "SysPerson",
-        "BotPassenger",
-    };
-    return generateAutoCustomerDataFromPool(newId, 0x9E3779B97F4A7C15ULL, firstNames);
+    return generateAutoCustomerDataFromPool(newId, 0x9E3779B97F4A7C15ULL, kDefaultFirstNames);
 }
 
 AutoCustomerData generateApiAutoCustomerData(const std::string& newId) {
-    static constexpr std::array<std::string_view, 5> firstNames = {
-        "ApiPat",
-        "WebServiceUser",
-        "JsonGenClient",
-        "SystemPerson",
-        "BackendBot",
-    };
-    return generateAutoCustomerDataFromPool(newId, 0xD1B54A32D192ED03ULL, firstNames);
+    return generateAutoCustomerDataFromPool(newId, 0xD1B54A32D192ED03ULL, kApiFirstNames);
 }
 
 std::string formatCustomerId(int counter) {
