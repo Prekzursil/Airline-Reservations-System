@@ -22,6 +22,8 @@ private:
     double price;
     SeatClass seatClass;
 
+    void applyIdentityAndPrice(std::string_view id, SeatClass sc, double basePrice); // Populate state after partial init
+
 public:
     // Constructor
     explicit Seat(std::string_view id = "N/A", SeatClass sc = SeatClass::ECONOMY, double basePrice = 50.0);

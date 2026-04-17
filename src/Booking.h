@@ -25,6 +25,7 @@ private:
     BookingStatus status;
 
     std::string generateBookingId() const; // Helper to create a unique ID
+    void applyFlightAndSeat(std::string_view flightNum, std::string_view seatNum); // Helper to populate state
 
     friend class BookingTestAccess;
 

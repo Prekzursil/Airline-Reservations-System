@@ -121,8 +121,12 @@ std::string Booking::generateBookingId() const {
     return stream.str();
 }
 
-Booking::Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum) {
-    customerId = custId;
+Booking::Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum)
+    : customerId(custId) {
+    applyFlightAndSeat(flightNum, seatNum);
+}
+
+void Booking::applyFlightAndSeat(std::string_view flightNum, std::string_view seatNum) {
     flightNumber = flightNum;
     seatId = seatNum;
     bookingDate = std::chrono::system_clock::now();

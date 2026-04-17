@@ -14,9 +14,13 @@ std::string seatClassToString(SeatClass sc) {
 }
 
 // Constructor
-Seat::Seat(std::string_view id, SeatClass sc, double basePrice) {
+Seat::Seat(std::string_view id, SeatClass sc, double basePrice)
+    : isBooked(false) {
+    applyIdentityAndPrice(id, sc, basePrice);
+}
+
+void Seat::applyIdentityAndPrice(std::string_view id, SeatClass sc, double basePrice) {
     seatId = id;
-    isBooked = false;
     price = (sc == SeatClass::BUSINESS) ? basePrice * 2.0 : basePrice;
     seatClass = sc;
 }
