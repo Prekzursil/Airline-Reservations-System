@@ -31,7 +31,7 @@ private:
 
 public:
     // Constructor
-    Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum);
+    Booking(std::string_view custId, std::string_view flightNum, std::string_view seatNum);
 
     // Destructor
     ~Booking();

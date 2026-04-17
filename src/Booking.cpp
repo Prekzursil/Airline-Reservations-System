@@ -121,7 +121,7 @@ std::string Booking::generateBookingId() const {
     return stream.str();
 }
 
-Booking::Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum)
+Booking::Booking(std::string_view custId, std::string_view flightNum, std::string_view seatNum)
     : customerId(custId) {
     applyFlightAndSeat(flightNum, seatNum);
 }
