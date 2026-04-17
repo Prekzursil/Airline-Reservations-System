@@ -163,15 +163,13 @@ TEST(ApiServerHelpersTest, DetailBuildersCoverLookupAndFilterBranches) {
 
     const Airplane* airplane = reservation_system.findAirplaneByFlightNumber("FL101");
     ASSERT_NE(airplane, nullptr);
-    const json airplane_details = build_airplane_details(reservation_system, *airplane);
-    ASSERT_TRUE(airplane_details.contains("seats"));
-    const auto& airplane_seats = airplane_details.at("seats");
-    const auto seat_it = std::ranges::find_if(
-        airplane_seats,
-        [](const json& seat_details) { return seat_details.at("seatId") == "4A"; });
-    ASSERT_NE(seat_it, airplane_seats.end());
-    EXPECT_FALSE(seat_it->contains("bookedByCustomerId"));
-    EXPECT_FALSE(seat_it->contains("bookingId"));
+    EXPECT_TRUE(std::ranges::any_of(
+        build_airplane_details(reservation_system, *airplane).at("seats"),
+        [](const json& seat_details) {
+            return seat_details.at("seatId") == "4A"
+                && !seat_details.contains("bookedByCustomerId")
+                && !seat_details.contains("bookingId");
+        }));
 }
 
 TEST(ApiServerHelpersTest, RespondJsonSetsContentTypeAndCorsHeaders) {
@@ -325,16 +323,18 @@ TEST(ApiServerEntryTest, RunApiServerUsesDefaultListenWrapper) {
     server.stop();
 
     ASSERT_EQ(exit_code_future.wait_for(kStartupTimeout), std::future_status::ready);
-    const int exit_code = exit_code_future.get();
-    if (exit_code == 0) {
-        EXPECT_TRUE(observed_healthy);
-        EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
-        EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
-        EXPECT_TRUE(error_stream.str().empty());
-        return;
+    switch (exit_code_future.get()) {
+        case 0:
+            EXPECT_TRUE(observed_healthy);
+            EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+            EXPECT_NE(log_stream.str().find("HTTP GET /api/airplanes -> 200"), std::string::npos);
+            EXPECT_TRUE(error_stream.str().empty());
+            break;
+        case 1:
+            EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
+            EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
+            break;
+        default:
+            FAIL() << "Unexpected exit code from run_api_server";
     }
-
-    EXPECT_EQ(exit_code, 1);
-    EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
-    EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 }

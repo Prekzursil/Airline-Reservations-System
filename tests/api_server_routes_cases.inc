@@ -171,11 +171,13 @@ TEST_F(ApiServerRoutesTest, SwapRoutesMapErrorsAndSuccess) {
     ASSERT_NE(refreshed_first_booking, nullptr);
     const std::string refreshed_first_booking_id = refreshed_first_booking->getBookingId();
 
-    const json successful_swap_body = parse_json_response(
-        swap_bookings_via_route(client, refreshed_first_booking_id, second_booking_id),
-        200);
     EXPECT_NE(
-        successful_swap_body.at("message").get<std::string>().find("Seat swap successful"),
+        parse_json_response(
+            swap_bookings_via_route(client, refreshed_first_booking_id, second_booking_id),
+            200)
+            .at("message")
+            .get<std::string>()
+            .find("Seat swap successful"),
         std::string::npos
     );
 }
