@@ -63,6 +63,7 @@ _SONAR_PROJECT_KEY = "_".join(("Prekzursil", "Airline-Reservations-System"))
 
 
 class _SecurityHelpersValidationTests(unittest.TestCase):
+
     """Validate the shared HTTPS and artifact path safety helpers."""
 
     def test_require_allowed_https_host_accepts_known_hosts(self) -> None:
@@ -317,6 +318,7 @@ class _SecurityHelpersValidationTests(unittest.TestCase):
 
 
 class _ScriptPathBuilderTests(unittest.TestCase):
+
     """Cover path-building helpers used by the quality scripts."""
 
     def test_codacy_path_builder_validates_inputs(self) -> None:
@@ -406,6 +408,7 @@ class _ScriptPathBuilderTests(unittest.TestCase):
 
 
 class _QualitySecretsScriptTests(unittest.TestCase):
+
     """Verify quality-secrets reporting omits secret-derived detail."""
 
     def test_quality_secrets_summary_uses_counts_only(self) -> None:
@@ -497,6 +500,7 @@ class _QualitySecretsScriptTests(unittest.TestCase):
 
 
 class _SonarZeroScriptTests(unittest.TestCase):
+
     """Verify the Sonar zero-gate query and artifact behavior."""
 
     def test_sonar_query_builders_include_hotspot_scope(self) -> None:

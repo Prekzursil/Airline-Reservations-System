@@ -31,6 +31,7 @@ def _write_empty_binary(path: Path) -> None:
 
 
 class RunCliScenarioScriptTests(unittest.TestCase):
+
     """Exercise the allowlisted resolver helpers."""
 
     def test_resolve_scenario_uses_allowlisted_inputs(self) -> None:

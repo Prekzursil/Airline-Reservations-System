@@ -43,6 +43,7 @@ def _temporary_cwd(path: Path):
 
 
 class GitHubContextSupportTests(unittest.TestCase):
+
     """Exercise context collection helpers used by the required-checks gate."""
 
     def test_collect_context_entries_and_required_context_evaluation(self) -> None:
@@ -107,6 +108,7 @@ class GitHubContextSupportTests(unittest.TestCase):
 
 
 class QualitySecretsAndCodacyTests(unittest.TestCase):
+
     """Cover quality-secrets and Codacy zero helper branches."""
 
     def test_quality_secret_helpers_cover_dedupe_presence_and_main_success(

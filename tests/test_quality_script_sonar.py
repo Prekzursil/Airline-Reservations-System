@@ -31,6 +31,7 @@ def _sonar_args(**overrides):
 
 
 class SonarScriptTests(unittest.TestCase):
+
     """Exercise the hosted Sonar zero-check helper script."""
 
     def _assert_pull_request_scoped_run(self, args: Namespace) -> None:
