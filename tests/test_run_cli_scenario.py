@@ -19,6 +19,8 @@ KNOWN_BUILD_SUBDIRECTORIES = ("", "Debug", "Release", "RelWithDebInfo", "MinSize
 
 @dataclass(frozen=True)
 class Scenario:
+    """Describe one CLI scenario input file and the text it should emit."""
+
     input_file: Path
     expected_fragments: Tuple[str, ...]
 
