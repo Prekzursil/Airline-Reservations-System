@@ -98,9 +98,11 @@ class _FakeHTTPResponse:
         self._headers = headers or {}
 
     def read(self) -> bytes:
+        """Return the response body encoded as bytes."""
         return self._body.encode("utf-8")
 
     def getheaders(self) -> List[Tuple[str, str]]:
+        """Return the response headers as a list of (name, value) tuples."""
         return list(self._headers.items())
 
 
@@ -121,12 +123,15 @@ class _FakeHTTPSConnection:
         body: Optional[bytes] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> None:
+        """Record the HTTP request arguments for later inspection in a test."""
         self.request_args = (method, path, body, headers)
 
     def getresponse(self) -> _FakeHTTPResponse:
+        """Return the pre-configured fake response."""
         return self.response
 
     def close(self) -> None:
+        """Mark the connection as closed so tests can assert cleanup."""
         self.closed = True
 
 
