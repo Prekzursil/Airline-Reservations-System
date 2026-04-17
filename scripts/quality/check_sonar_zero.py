@@ -204,7 +204,7 @@ def _evaluate_findings(
 def _wait_for_pr_sha(
     args: argparse.Namespace, auth: str, project_key: str
 ) -> Optional[List[str]]:
-    """Block until Sonar indexes the expected PR head SHA, or return findings on timeout."""
+    """Wait for the expected PR head SHA, returning findings if the deadline lapses."""
     expected_pr_sha = args.expected_pr_sha.strip()
     if not (args.pull_request and expected_pr_sha):
         return None
