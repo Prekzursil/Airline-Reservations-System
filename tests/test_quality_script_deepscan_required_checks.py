@@ -6,10 +6,9 @@ import json
 import os
 import sys
 import tempfile
-import unittest
 from argparse import Namespace
 from pathlib import Path
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts import security_helpers as helpers
 from scripts.quality import check_deepscan_zero as deepscan
@@ -58,7 +57,7 @@ def _required_checks_args(**overrides):
     return Namespace(**values)
 
 
-class DeepScanAndRequiredChecksTests(unittest.TestCase):
+class DeepScanAndRequiredChecksTests(TestCase):
     """Exercise DeepScan and required-checks gate scripts."""
 
     def test_deepscan_pending_and_context_helpers(self) -> None:

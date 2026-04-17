@@ -7,11 +7,10 @@ from __future__ import absolute_import, division
 import os
 import sys
 import tempfile
-import unittest
 from argparse import Namespace
 from pathlib import Path
 from typing import List
-from unittest import mock
+from unittest import TestCase, main, mock
 
 from scripts import security_helpers as helpers
 from scripts.quality import check_sentry_zero as sentry
@@ -33,7 +32,7 @@ def _sentry_config():
     )
 
 
-class SentryAndSonarScriptTests(unittest.TestCase):
+class SentryAndSonarScriptTests(TestCase):
     """Cover Sentry helper logic that feeds the zero-issue gate."""
 
     def test_sentry_target_helpers(self) -> None:
@@ -394,4 +393,4 @@ class SentryAndSonarScriptTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

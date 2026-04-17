@@ -6,10 +6,9 @@ import contextlib
 import json
 import os
 import tempfile
-import unittest
 from pathlib import Path
 from typing import List
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts.quality import coverage_parsers as parsers
 from scripts.quality import normalize_lcov
@@ -114,7 +113,7 @@ def _coverage_parser_fixture():
         yield lcov_path, summary_path, fallback_summary, final_path
 
 
-class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
+class CoverageParsersAndNormalizeLCOVTests(TestCase):
     """Exercise path and coverage helpers that feed the repo quality gates."""
 
     def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(

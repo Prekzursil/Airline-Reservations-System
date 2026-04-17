@@ -8,10 +8,9 @@ import contextlib
 import http.client
 import os
 import tempfile
-import unittest
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from unittest import mock
+from unittest import TestCase, mock
 
 from scripts import security_helpers as helpers
 from scripts import security_http_support as http_support
@@ -135,7 +134,7 @@ class _FakeHTTPSConnection:
         self.closed = True
 
 
-class SecurityValidationSupportTests(unittest.TestCase):
+class SecurityValidationSupportTests(TestCase):
     """Cover validation helper branches used by quality gate scripts."""
 
     def test_normalize_https_url_accepts_allowlisted_suffixes_and_rejects_local_hosts(
@@ -244,7 +243,7 @@ class SecurityValidationSupportTests(unittest.TestCase):
             validation_support.require_https_path("/safe/../bad")
 
 
-class SecurityHTTPAndHelpersTests(unittest.TestCase):
+class SecurityHTTPAndHelpersTests(TestCase):
     """Cover HTTP wrapper behavior used by the quality scripts."""
 
     def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(
