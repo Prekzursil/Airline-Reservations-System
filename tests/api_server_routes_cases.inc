@@ -164,14 +164,16 @@ TEST_F(ApiServerRoutesTest, SwapRoutesMapErrorsAndSuccess) {
     const auto same_booking_swap = swap_bookings_via_route(client, second_booking_id, second_booking_id);
     expect_response_status(same_booking_swap, 400);
 
-    [[maybe_unused]] const auto different_flights_swap = swap_bookings_via_route(client, second_booking_id, third_booking_id);
+    [[maybe_unused]] const auto different_flights_swap =
+        swap_bookings_via_route(client, second_booking_id, third_booking_id);
     expect_response_status(different_flights_swap, 400);
 
     Booking* refreshed_first_booking = createBooking(first_customer->getPersonId(), "FL101", "5C");
     ASSERT_NE(refreshed_first_booking, nullptr);
     const std::string refreshed_first_booking_id = refreshed_first_booking->getBookingId();
 
-    [[maybe_unused]] const auto successful_swap = swap_bookings_via_route(client, refreshed_first_booking_id, second_booking_id);
+    [[maybe_unused]] const auto successful_swap =
+        swap_bookings_via_route(client, refreshed_first_booking_id, second_booking_id);
     expect_response_status(successful_swap, 200);
     EXPECT_NE(
         json::parse(successful_swap->body).at("message").get<std::string>().find(

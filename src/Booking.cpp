@@ -101,13 +101,14 @@ std::uint64_t bookingSuffixToken(
 } // namespace
 
 std::string bookingStatusToString(BookingStatus status) {
-    if (status == BookingStatus::CONFIRMED) {
+    using enum BookingStatus;
+    if (status == CONFIRMED) {
         return "Confirmed";
     }
-    if (status == BookingStatus::CANCELLED) {
+    if (status == CANCELLED) {
         return "Cancelled";
     }
-    if (status == BookingStatus::PENDING) {
+    if (status == PENDING) {
         return "Pending";
     }
     return "Unknown";
