@@ -103,16 +103,16 @@ class _AssertCoverageParsingTests(unittest.TestCase):
         )
 
         self.assertFalse(
-            assert_coverage_100._include_lcov_line(source_lines, 2)
+            assert_coverage_100.include_lcov_line(source_lines, 2)
         )
         self.assertFalse(
-            assert_coverage_100._include_lcov_line(source_lines, 3)
+            assert_coverage_100.include_lcov_line(source_lines, 3)
         )
         self.assertFalse(
-            assert_coverage_100._include_lcov_line(source_lines, 6)
+            assert_coverage_100.include_lcov_line(source_lines, 6)
         )
         self.assertTrue(
-            assert_coverage_100._include_lcov_line(source_lines, 7)
+            assert_coverage_100.include_lcov_line(source_lines, 7)
         )
 
     def test_parse_lcov_ignores_explicitly_excluded_lines(self) -> None:
@@ -164,7 +164,7 @@ class _AssertCoverageParsingTests(unittest.TestCase):
             {"src/example.cpp": source_lines},
             clear=True,
         ):
-            resolved = assert_coverage_100._lookup_repo_source_lines(
+            resolved = assert_coverage_100.lookup_repo_source_lines(
                 "repo/src/example.cpp"
             )
 

@@ -29,8 +29,9 @@ from tests.test_quality_script_sentry_sonar import SentryAndSonarScriptTests
 
 # Keep the strict-zero profile's narrowed Python coverage command honest by making
 # the companion script test cases visible when this module is the only quality
-# script test file selected.
-_PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
+# script test file selected. The tuple is referenced in __all__ below so the
+# underscored imports are not flagged as dead by CodeQL's py/unused-global-variable.
+PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
     CoverageParsersAndNormalizeLCOVTests,
     DeepScanAndRequiredChecksTests,
     GitHubContextSupportTests,
@@ -39,6 +40,18 @@ _PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
     SentryAndSonarScriptTests,
     AirlineCoverageGateTests,
 )
+__all__ = [
+    "PROFILE_COVERAGE_IMPORTED_TEST_CASES",
+    "CoverageParsersAndNormalizeLCOVTests",
+    "DeepScanAndRequiredChecksTests",
+    "GitHubContextSupportTests",
+    "QualitySecretsAndCodacyTests",
+    "SonarScriptTests",
+    "SentryAndSonarScriptTests",
+    "AirlineCoverageGateTests",
+    "SecurityValidationSupportTests",
+    "SecurityHTTPAndHelpersTests",
+]
 
 
 @contextlib.contextmanager
