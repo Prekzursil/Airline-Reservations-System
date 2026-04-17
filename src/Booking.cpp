@@ -101,13 +101,16 @@ std::uint64_t bookingSuffixToken(
 } // namespace
 
 std::string bookingStatusToString(BookingStatus status) {
-    using enum BookingStatus;
-    switch (status) {
-        case CONFIRMED: return "Confirmed";
-        case CANCELLED: return "Cancelled";
-        case PENDING: return "Pending";
-        default: return "Unknown";
+    if (status == BookingStatus::CONFIRMED) {
+        return "Confirmed";
     }
+    if (status == BookingStatus::CANCELLED) {
+        return "Cancelled";
+    }
+    if (status == BookingStatus::PENDING) {
+        return "Pending";
+    }
+    return "Unknown";
 }
 
 std::string Booking::generateBookingId() const {

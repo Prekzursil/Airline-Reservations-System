@@ -4,13 +4,13 @@
 
 // Helper function to convert SeatClass enum to string (can be outside class or static member)
 std::string seatClassToString(SeatClass sc) {
-    using enum SeatClass;
-
-    switch (sc) {
-        case ECONOMY: return "Economy";
-        case BUSINESS: return "Business";
-        default: return "Unknown";
+    if (sc == SeatClass::ECONOMY) {
+        return "Economy";
     }
+    if (sc == SeatClass::BUSINESS) {
+        return "Business";
+    }
+    return "Unknown";
 }
 
 // Constructor
