@@ -18,9 +18,7 @@
 
 #include "auto_generated_customer_test_helpers.h"
 
-#define main airline_api_server_entry_main
-#include "../src/api_server_main.cpp"
-#undef main
+#include "../src/api_server_main_body.h"
 
 #include "api_server_test_support.h"
 

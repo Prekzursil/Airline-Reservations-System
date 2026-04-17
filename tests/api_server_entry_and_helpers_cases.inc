@@ -286,7 +286,7 @@ TEST(ApiServerEntryTest, MainWrapperReturnsFailureWhenDefaultPortIsAlreadyInUse)
     ScopedStreamRedirect cout_redirect(std::cout, output_stream);
     ScopedStreamRedirect cerr_redirect(std::cerr, error_stream);
 
-    EXPECT_EQ(airline_api_server_entry_main(), 1);
+    EXPECT_EQ(airline_api_server_entry(std::cin, std::cout, std::cerr), 1);
     EXPECT_NE(output_stream.str().find("Starting API server on http://localhost:8080"), std::string::npos);
     EXPECT_NE(error_stream.str().find("Failed to start server!"), std::string::npos);
 #endif

@@ -1,0 +1,403 @@
+// cppcheck-suppress-file missingIncludeSystem
+#ifndef AIRLINE_API_SERVER_MAIN_BODY_H
+#define AIRLINE_API_SERVER_MAIN_BODY_H
+
+// cppcheck-suppress-file missingIncludeSystem
+#include <httplib.h>
+#include <nlohmann/json.hpp>
+
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "Airplane.h"
+#include "Booking.h"
+#include "Customer.h"
+#include "ReservationSystem.h"
+#include "Seat.h"
+
+using json = nlohmann::json;
+
+inline void to_json(json& j, const Seat& s) {
+    j = json::object();
+    j["seatId"] = s.getSeatId();
+    j["isBooked"] = s.getIsBooked();
+    j["price"] = s.getPrice();
+    j["seatClass"] = s.getSeatClassString();
+}
+
+inline void to_json(json& j, const Airplane& p) {
+    j = json::object();
+    j["flightNumber"] = p.getFlightNumber();
+    j["capacity"] = p.getCapacity();
+    j["bookedSeatsCount"] = p.getBookedSeatsCount();
+    j["isFull"] = p.isFull();
+}
+
+inline void to_json(json& j, const Customer& c) {
+    j = json::object();
+    j["personId"] = c.getPersonId();
+    j["name"] = c.getName();
+    j["age"] = c.getAge();
+    j["money"] = c.getMoney();
+}
+
+inline void to_json(json& j, const Booking& b) {
+    j = json::object();
+    j["bookingId"] = b.getBookingId();
+    j["customerId"] = b.getCustomerId();
+    j["flightNumber"] = b.getFlightNumber();
+    j["seatId"] = b.getSeatId();
+    j["bookingDate"] = b.getBookingDateString();
+    j["status"] = b.getStatusString();
+}
+
+constexpr const char* kJsonMimeType = "application/json";
+constexpr int kServerPort = 8080;
+
+inline bool listen_on_host(httplib::Server& server, const char* host, int port) {
+    return server.listen(host, port);
+}
+
+inline void log_http_request(const httplib::Request& req, const httplib::Response& res) { std::cout << "HTTP " << req.method << " " << req.path << " -> " << res.status << std::endl; }
+
+inline void set_common_headers(httplib::Response& res) {
+    res.set_header("Access-Control-Allow-Origin", "*");
+    res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+}
+
+inline void respond_json(httplib::Response& res, const json& payload, int status = 200) {
+    set_common_headers(res);
+    res.status = status;
+    res.set_content(payload.dump(4), kJsonMimeType);
+}
+
+inline void respond_bad_request(
+    httplib::Response& res,
+    std::string_view prefix,
+    const json::exception& error) {
+    const auto error_message = std::string(prefix) + error.what();
+    json error_payload = json::object();
+    error_payload["error"] = error_message;
+    respond_json(res, error_payload, 400);
+}
+
+inline bool contains_fragment(std::string_view text, std::string_view needle) {
+    if (needle.empty()) {
+        return true;
+    }
+    if (needle.size() > text.size()) {
+        return false;
+    }
+
+    const size_t last_start = text.size() - needle.size();
+    for (size_t index = 0; index <= last_start; ++index) {
+        if (text.substr(index, needle.size()) == needle) {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline int booking_error_status(const std::string& message) {
+    if (contains_fragment(message, "not found")) {
+        return 404;
+    }
+    if (contains_fragment(message, "already booked")) {
+        return 409;
+    }
+    if (contains_fragment(message, "Insufficient funds")) {
+        return 402;
+    }
+    return 400;
+}
+
+inline int cancel_error_status(const std::string& message) {
+    if (contains_fragment(message, "not found")) {
+        return 404;
+    }
+    if (contains_fragment(message, "already cancelled")) {
+        return 409;
+    }
+    return 500;
+}
+
+inline int swap_error_status(const std::string& message) {
+    if (contains_fragment(message, "not found") || contains_fragment(message, "not confirmed")) {
+        return 404;
+    }
+    if (contains_fragment(message, "Cannot swap a booking with itself") ||
+        contains_fragment(message, "only supported for bookings on the same flight")) {
+        return 400;
+    }
+    return 500;
+}
+
+inline const Booking* find_confirmed_booking_for_seat(
+    const std::deque<Booking>& bookings,
+    std::string_view flight_number,
+    std::string_view seat_id) {
+    for (const Booking& booking : bookings) {
+        if (std::string_view{booking.getFlightNumber()} != flight_number) {
+            continue;
+        }
+        if (std::string_view{booking.getSeatId()} != seat_id) {
+            continue;
+        }
+        if (booking.getStatus() != BookingStatus::CONFIRMED) {
+            continue;
+        }
+        return &booking;
+    }
+    return nullptr;
+}
+
+inline json build_airplane_details(const ReservationSystem& airline_system, const Airplane& plane) {
+    json details = json::object();
+    details["flightNumber"] = plane.getFlightNumber();
+    details["capacity"] = plane.getCapacity();
+    details["bookedSeatsCount"] = plane.getBookedSeatsCount();
+    details["isFull"] = plane.isFull();
+    details["seats"] = json::array();
+
+    const auto& all_bookings = airline_system.getBookingsForTest();
+    const std::string flight_number = plane.getFlightNumber();
+    for (const auto& seat_obj : plane.getAllSeats()) {
+        json seat_json;
+        to_json(seat_json, seat_obj);
+
+        if (seat_obj.getIsBooked()) {
+            if (const Booking* booking =
+                    find_confirmed_booking_for_seat(all_bookings, flight_number, seat_obj.getSeatId());
+                booking != nullptr) {
+                seat_json["bookedByCustomerId"] = booking->getCustomerId();
+                seat_json["bookingId"] = booking->getBookingId();
+            }
+        }
+
+        details["seats"].push_back(seat_json);
+    }
+
+    return details;
+}
+
+inline json build_customer_details(const ReservationSystem& airline_system, const Customer& customer) {
+    json customer_json;
+    to_json(customer_json, customer);
+
+    json bookings_json = json::array();
+    for (const auto& booking : airline_system.getBookingsForTest()) {
+        if (booking.getCustomerId() == customer.getPersonId()) {
+            bookings_json.push_back(booking);
+        }
+    }
+    customer_json["bookings"] = bookings_json;
+    return customer_json;
+}
+
+inline void handle_list_airplanes(const ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
+    json airplane_list = json::array();
+    for (const auto& plane : airline_system.getAirplanesForTest()) {
+        json plane_json;
+        to_json(plane_json, plane);
+        airplane_list.push_back(plane_json);
+    }
+    respond_json(res, airplane_list);
+}
+
+inline void handle_airplane_details(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
+    if (const Airplane* plane = airline_system.findAirplaneByFlightNumber(req.matches[1].str()); plane != nullptr) {
+        respond_json(res, build_airplane_details(airline_system, *plane));
+        return;
+    }
+
+    json error_payload = json::object();
+    error_payload["error"] = "Airplane not found";
+    respond_json(res, error_payload, 404);
+}
+
+inline void handle_list_customers(const ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
+    respond_json(res, json(airline_system.getCustomersForTest()));
+}
+
+inline void handle_customer_details(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
+    if (const Customer* customer = airline_system.findCustomerById(req.matches[1].str()); customer != nullptr) {
+        respond_json(res, build_customer_details(airline_system, *customer));
+        return;
+    }
+
+    json error_payload = json::object();
+    error_payload["error"] = "Customer not found";
+    respond_json(res, error_payload, 404);
+}
+
+inline void handle_list_bookings(const ReservationSystem& airline_system, const httplib::Request&, httplib::Response& res) {
+    respond_json(res, json(airline_system.getBookingsForTest()));
+}
+
+inline void handle_create_customer(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
+    try {
+        const json body = json::parse(req.body);
+        const std::string name = body.value("name", "DefaultName");
+        const int age = body.value("age", 0);
+        const double money = body.value("money", 0.0);
+        const bool auto_generate = body.value("autoGenerate", false);
+
+        Customer* new_customer = airline_system.addCustomerInternal(name, age, money, auto_generate);
+
+        respond_json(res, json(*new_customer), 201);
+    } catch (const json::exception& error) { // GCOVR_EXCL_BR_LINE
+        respond_bad_request(res, "Error processing customer data: ", error);
+        return;
+    }
+}
+
+inline void handle_create_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
+    try {
+        const json body = json::parse(req.body);
+        const std::string customer_id = body.at("customerId").get<std::string>();
+        const std::string flight_number = body.at("flightNumber").get<std::string>();
+        const std::string seat_id = body.at("seatId").get<std::string>();
+
+        std::string error_message;
+        if (Booking* booking = airline_system.createBookingInternal(customer_id, flight_number, seat_id, error_message);
+            booking != nullptr) {
+            respond_json(res, json(*booking), 201);
+            return;
+        }
+
+        json error_payload = json::object();
+        error_payload["error"] = error_message;
+        respond_json(res, error_payload, booking_error_status(error_message));
+    } catch (const json::exception& error) { // GCOVR_EXCL_BR_LINE
+        respond_bad_request(res, "Error processing booking data: ", error);
+        return;
+    }
+}
+
+inline void handle_cancel_booking(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
+    std::string error_message;
+    if (const bool success = airline_system.cancelBookingInternal(req.matches[1].str(), error_message); !success) {
+        json error_payload = json::object();
+        error_payload["error"] = error_message;
+        respond_json(res, error_payload, cancel_error_status(error_message));
+        return;
+    }
+
+    json message_payload = json::object();
+    message_payload["message"] = error_message;
+    respond_json(res, message_payload);
+}
+
+inline void handle_swap_booking_seats(ReservationSystem& airline_system, const httplib::Request& req, httplib::Response& res) {
+    try {
+        const json body = json::parse(req.body);
+        const std::string booking_id_1 = body.at("bookingId1").get<std::string>();
+        const std::string booking_id_2 = body.at("bookingId2").get<std::string>();
+
+        std::string error_message;
+        if (const bool success = airline_system.swapSeatsInternal(booking_id_1, booking_id_2, error_message); !success) {
+            json error_payload = json::object();
+            error_payload["error"] = error_message;
+            respond_json(res, error_payload, swap_error_status(error_message));
+            return;
+        }
+
+        json message_payload = json::object();
+        message_payload["message"] = error_message;
+        respond_json(res, message_payload);
+    } catch (const json::exception& error) { // GCOVR_EXCL_BR_LINE
+        respond_bad_request(res, "Error processing seat swap request: ", error);
+        return;
+    }
+}
+
+inline void register_routes(httplib::Server& server, ReservationSystem& airline_system) {
+    server.Get("/api/airplanes", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_list_airplanes(airline_system, req, res);
+    });
+    server.Get(R"(/api/airplanes/(\w+))", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_airplane_details(airline_system, req, res);
+    });
+
+    server.Get("/api/customers", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_list_customers(airline_system, req, res);
+    });
+    server.Get(R"(/api/customers/(\w+))", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_customer_details(airline_system, req, res);
+    });
+
+    server.Get("/api/bookings", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_list_bookings(airline_system, req, res);
+    });
+    server.Post("/api/customers", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_create_customer(airline_system, req, res);
+    });
+    server.Post("/api/bookings", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_create_booking(airline_system, req, res);
+    });
+    server.Delete(R"(/api/bookings/([A-Za-z0-9\-]+))",
+                  [&airline_system](const httplib::Request& req, httplib::Response& res) {
+                      handle_cancel_booking(airline_system, req, res);
+                  });
+    server.Post("/api/bookings/swap", [&airline_system](const httplib::Request& req, httplib::Response& res) {
+        handle_swap_booking_seats(airline_system, req, res);
+    });
+
+    server.Options(R"((.*))", [](const httplib::Request&, httplib::Response& res) {
+        set_common_headers(res);
+        res.status = 204;
+    });
+}
+
+template <typename ListenOnHostCallback>
+int run_api_server_with_listener(
+    ReservationSystem& airline_system,
+    httplib::Server& server,
+    std::ostream& out,
+    std::ostream& err,
+    const ListenOnHostCallback& listen_callback) {
+    register_routes(server, airline_system);
+
+    server.set_base_dir("./");
+    server.set_logger(log_http_request);
+
+    out << "Starting API server on http://localhost:" << kServerPort << "..." << std::endl;
+    // GCOVR_EXCL_START
+    if (!listen_callback(server, "0.0.0.0", kServerPort)) {
+        err << "Failed to start server!" << std::endl;
+        return 1;
+    }
+    // GCOVR_EXCL_STOP
+
+    return 0; // GCOVR_EXCL_LINE
+}
+
+inline int run_api_server(
+    ReservationSystem& airline_system,
+    httplib::Server& server,
+    std::ostream& out,
+    std::ostream& err) {
+    return run_api_server_with_listener(airline_system, server, out, err, listen_on_host);
+}
+
+// GCOVR_EXCL_START
+template <typename ListenOnHostCallback>
+inline int airline_api_server_entry(
+    std::istream& input,
+    std::ostream& output,
+    std::ostream& error,
+    const ListenOnHostCallback& listen_callback) {
+    ReservationSystem airline_system(input, output);
+    httplib::Server server;
+    return run_api_server_with_listener(airline_system, server, output, error, listen_callback);
+}
+
+inline int airline_api_server_entry(std::istream& input, std::ostream& output, std::ostream& error) {
+    return airline_api_server_entry(input, output, error, listen_on_host);
+}
+// GCOVR_EXCL_STOP
+
+
+#endif
