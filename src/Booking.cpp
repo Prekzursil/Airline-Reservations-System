@@ -79,19 +79,6 @@ std::string formatBookingDate(std::chrono::system_clock::time_point timePoint) {
     );
 }
 
-void initializeBookingState(
-    std::string_view flightNum,
-    std::string_view seatNum,
-    std::string& flightNumberOut,
-    std::string& seatIdOut,
-    std::chrono::system_clock::time_point& bookingDateOut,
-    BookingStatus& statusOut
-) {
-    flightNumberOut = flightNum;
-    seatIdOut = seatNum;
-    bookingDateOut = std::chrono::system_clock::now();
-    statusOut = BookingStatus::PENDING;
-}
 
 std::uint64_t bookingSuffixToken(
     const std::chrono::system_clock::time_point timePoint,
@@ -135,8 +122,11 @@ std::string Booking::generateBookingId() const {
 }
 
 Booking::Booking(const std::string& custId, const std::string& flightNum, const std::string& seatNum)
-    : customerId(custId) {
-    initializeBookingState(flightNum, seatNum, flightNumber, seatId, bookingDate, status);
+    : customerId(custId),
+      flightNumber(flightNum),
+      seatId(seatNum),
+      bookingDate(std::chrono::system_clock::now()),
+      status(BookingStatus::PENDING) {
     bookingId = generateBookingId();
 }
 
