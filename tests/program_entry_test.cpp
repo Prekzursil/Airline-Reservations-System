@@ -3,9 +3,7 @@
 
 #include <sstream>
 
-#define main airline_cli_entry_main
-#include "../src/main.cpp"
-#undef main
+#include "../src/main_body.h"
 
 namespace {
 std::pair<int, std::string> run_cli_main(const std::string& input_text) {
@@ -15,7 +13,7 @@ std::pair<int, std::string> run_cli_main(const std::string& input_text) {
     std::streambuf* original_in = std::cin.rdbuf(input.rdbuf());
     std::streambuf* original_out = std::cout.rdbuf(output.rdbuf());
 
-    const int exit_code = airline_cli_entry_main();
+    const int exit_code = run_airline_main();
 
     std::cin.rdbuf(original_in);
     std::cout.rdbuf(original_out);
