@@ -414,29 +414,31 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                 side_effect=[RuntimeError("boom")] * 4,
             ),
             mock.patch.object(required_checks.time, "sleep") as sleep_mock,
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                required_checks._api_get(
-                    helpers.HTTPSRequestTarget(
-                        host="api.github.com",
-                        path="/repos/owner/repo",
-                    ),
-                    "token",
-                )
+            required_checks._api_get(
+                helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
+                ),
+                "token",
+            )
         self.assertEqual(sleep_mock.call_count, 3)
-        with mock.patch.object(
-            required_checks,
-            "request_json_https_target",
-            side_effect=helpers.HTTPSRequestError(404, "missing", "nope"),
+        with (
+            mock.patch.object(
+                required_checks,
+                "request_json_https_target",
+                side_effect=helpers.HTTPSRequestError(404, "missing", "nope"),
+            ),
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                required_checks._api_get(
-                    helpers.HTTPSRequestTarget(
-                        host="api.github.com",
-                        path="/repos/owner/repo",
-                    ),
-                    "token",
-                )
+            required_checks._api_get(
+                helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
+                ),
+                "token",
+            )
 
     def test_required_checks_render_and_fetch_payload_helpers(self) -> None:
         """Cover markdown rendering and fetch payload helpers."""
@@ -495,13 +497,13 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         with (
             mock.patch.object(required_checks.time, "time", side_effect=[0, 2]),
             mock.patch.object(required_checks, "_fetch_check_payloads"),
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                required_checks._collect_payload(
-                    failing_args,
-                    [REQUIRED_CONTEXT],
-                    "token",
-                )
+            required_checks._collect_payload(
+                failing_args,
+                [REQUIRED_CONTEXT],
+                "token",
+            )
 
     def test_required_checks_main_exits_without_required_inputs(self) -> None:
         """main() exits when --required-context or the GITHUB_TOKEN env is absent."""
