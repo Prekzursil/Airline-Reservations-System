@@ -201,6 +201,28 @@ def _evaluate_findings(
     return findings
 
 
+def _wait_for_pr_sha(
+    args: argparse.Namespace, auth: str, project_key: str
+) -> Optional[List[str]]:
+    """Block until Sonar indexes the expected PR head SHA, or return findings on timeout."""
+    expected_pr_sha = args.expected_pr_sha.strip()
+    if not (args.pull_request and expected_pr_sha):
+        return None
+    deadline = time.time() + max(args.max_wait_seconds, 0)
+    observed_sha = ""
+    while True:
+        observed_sha = _fetch_pr_analysis_sha(auth, project_key, args.pull_request)
+        if observed_sha == expected_pr_sha:
+            return None
+        if time.time() >= deadline:
+            return [
+                "Sonar PR analysis did not reach the expected head SHA before timeout.",
+                f"Expected SHA: {expected_pr_sha}",
+                f"Observed SHA: {observed_sha or 'missing'}",
+            ]
+        time.sleep(max(args.poll_interval_seconds, 1))
+
+
 def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
     """Run the Sonar gate check and return the computed result tuple."""
     if not token:
@@ -208,33 +230,9 @@ def _run_sonar_check(args: argparse.Namespace, token: str) -> SonarResult:
 
     auth = _auth_header(token)
     project_key = require_slug(args.project_key, label="Sonar project key")
-    expected_pr_sha = args.expected_pr_sha.strip()
-    if (
-        args.pull_request and expected_pr_sha
-    ):  # pragma: no branch - external PR analysis gate
-        deadline = time.time() + max(args.max_wait_seconds, 0)
-        observed_sha = ""
-        while True:
-            observed_sha = _fetch_pr_analysis_sha(auth, project_key, args.pull_request)
-            if observed_sha == expected_pr_sha:
-                break
-            if time.time() >= deadline:
-                timeout_message = (
-                    "Sonar PR analysis did not reach the expected head SHA before "
-                    "timeout."
-                )
-                return (
-                    "fail",
-                    None,
-                    None,
-                    None,
-                    [
-                        timeout_message,
-                        f"Expected SHA: {expected_pr_sha}",
-                        f"Observed SHA: {observed_sha or 'missing'}",
-                    ],
-                )
-            time.sleep(max(args.poll_interval_seconds, 1))
+    timeout_findings = _wait_for_pr_sha(args, auth, project_key)
+    if timeout_findings is not None:
+        return "fail", None, None, None, timeout_findings
 
     issues_query, gate_query, hotspots_query = _build_queries(args, project_key)
     open_issues = _fetch_open_issues(auth, issues_query)

@@ -108,7 +108,7 @@ def normalize_source_path(
     if candidate == repo_root:
         return ""
     if candidate.startswith(repo_root + "/"):
-        candidate = candidate[len(repo_root) + 1 :]
+        candidate = candidate[len(repo_root) + 1:]
 
     matched = matching_repo_suffix(candidate, repo_indexes.casefold_paths)
     if matched.casefold() in repo_indexes.casefold_paths:
