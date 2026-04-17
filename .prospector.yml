@@ -1,0 +1,9 @@
+strictness: medium
+
+pydocstyle:
+  run: true
+  disable:
+    - D203
+    - D213
+  options:
+    ignore: D203,D213

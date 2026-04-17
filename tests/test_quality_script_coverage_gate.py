@@ -1,3 +1,5 @@
+"""Tests for the strict line and branch coverage gate helper script."""
+
 from __future__ import absolute_import, division
 
 import os

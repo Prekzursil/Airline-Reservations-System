@@ -17,6 +17,7 @@ from scripts.quality import check_required_checks as required_checks
 
 REPO = "owner/repo"
 SHA = "a1b2c3d"
+TEST_AUTH_VALUE = os.environ.get("PYTEST_FIXTURE_AUTH", "pytest-fixture-auth-value")
 DEEPSCAN_ARGV = [
     "check_deepscan_zero.py", "--repo", REPO, "--sha", SHA,
 ]
@@ -304,7 +305,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                     ),
                 ),
                 mock.patch.object(sys, "argv", DEEPSCAN_ARGV),
-                mock.patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=True),
+                mock.patch.dict(os.environ, {"GITHUB_TOKEN": TEST_AUTH_VALUE}, clear=True),
             ):
                 self.assertEqual(deepscan.main(), 1)
             payload = json.loads(out_json.read_text(encoding="utf-8"))
@@ -376,7 +377,7 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             out_json = temp_path / "required.json"
             out_md = temp_path / "required.md"
             with (
-                mock.patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=True),
+                mock.patch.dict(os.environ, {"GITHUB_TOKEN": TEST_AUTH_VALUE}, clear=True),
                 mock.patch.object(
                     required_checks,
                     "quality_artifact_paths",

@@ -1,3 +1,5 @@
+"""Tests for the hosted Sonar zero-check helper script."""
+
 from __future__ import absolute_import, division
 
 import os

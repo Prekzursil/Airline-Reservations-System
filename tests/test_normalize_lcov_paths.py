@@ -13,6 +13,7 @@ class NormalizeLcovPathTests(unittest.TestCase):
     """Verify LCOV path rewriting with repo file indexes."""
 
     def test_normalize_lcov_lines_rewrites_unique_repo_basenames(self) -> None:
+        """Rewrite LCOV basenames to repo-relative paths when the match is unique."""
         raw = [
             "TN:",
             "SF:ReservationSystem.cpp",
