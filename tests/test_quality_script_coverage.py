@@ -82,7 +82,6 @@ def _https_response_payload(
 
 
 class _FakeHTTPResponse:
-
     """Minimal fake response object for request helper tests."""
 
     def __init__(
@@ -106,7 +105,6 @@ class _FakeHTTPResponse:
 
 
 class _FakeHTTPSConnection:
-
     """Capture request arguments passed to the patched HTTPS client."""
 
     def __init__(self, host: str, timeout: int, *, response: _FakeHTTPResponse):
@@ -133,7 +131,6 @@ class _FakeHTTPSConnection:
 
 
 class SecurityValidationSupportTests(unittest.TestCase):
-
     """Cover validation helper branches used by quality gate scripts."""
 
     def test_normalize_https_url_accepts_allowlisted_suffixes_and_rejects_local_hosts(
@@ -243,7 +240,6 @@ class SecurityValidationSupportTests(unittest.TestCase):
 
 
 class SecurityHTTPAndHelpersTests(unittest.TestCase):
-
     """Cover HTTP wrapper behavior used by the quality scripts."""
 
     def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(

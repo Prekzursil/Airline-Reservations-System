@@ -115,7 +115,6 @@ def _coverage_parser_fixture():
 
 
 class CoverageParsersAndNormalizeLCOVTests(unittest.TestCase):
-
     """Exercise path and coverage helpers that feed the repo quality gates."""
 
     def test_repo_index_builder_skips_ignored_files_and_sanitizes_candidates(

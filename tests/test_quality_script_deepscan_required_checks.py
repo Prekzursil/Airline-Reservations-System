@@ -59,7 +59,6 @@ def _required_checks_args(**overrides):
 
 
 class DeepScanAndRequiredChecksTests(unittest.TestCase):
-
     """Exercise DeepScan and required-checks gate scripts."""
 
     def test_deepscan_pending_and_context_helpers(self) -> None:

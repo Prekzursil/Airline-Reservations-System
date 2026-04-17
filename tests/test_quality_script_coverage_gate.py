@@ -80,7 +80,6 @@ def _patched_gate_paths(
 
 
 class AirlineCoverageGateTests(unittest.TestCase):
-
     """Exercise the repo's strict line and branch coverage gate script."""
 
     def _assert_node_stats_fallbacks(

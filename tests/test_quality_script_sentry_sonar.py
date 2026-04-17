@@ -34,7 +34,6 @@ def _sentry_config():
 
 
 class SentryAndSonarScriptTests(unittest.TestCase):
-
     """Cover Sentry helper logic that feeds the zero-issue gate."""
 
     def test_sentry_target_helpers(self) -> None:

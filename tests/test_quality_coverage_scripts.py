@@ -12,7 +12,6 @@ from scripts.quality import assert_coverage_100, coverage_parsers, normalize_lco
 
 
 class _NormalizeLcovTests(unittest.TestCase):
-
     """Cover LCOV normalization helpers used by the quality gate."""
 
     def test_normalize_lcov_lines_strips_branch_records_only(self) -> None:
@@ -89,7 +88,6 @@ class _NormalizeLcovTests(unittest.TestCase):
 
 
 class _AssertCoverageParsingTests(unittest.TestCase):
-
     """Exercise LCOV parsing and source-lookup behavior."""
 
     def test_include_lcov_line_skips_inline_and_block_exclusions(self) -> None:

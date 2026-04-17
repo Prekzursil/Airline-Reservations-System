@@ -10,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class _StaticRemediationGuardsTest(unittest.TestCase):
-
     """Keep static-analysis-driven fixes from regressing."""
 
     def test_booking_source_avoids_y2038_sensitive_time_apis(self) -> None:

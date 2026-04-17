@@ -10,7 +10,6 @@ from scripts.quality import normalize_lcov
 
 
 class NormalizeLcovPathTests(unittest.TestCase):
-
     """Verify LCOV path rewriting with repo file indexes."""
 
     def test_normalize_lcov_lines_rewrites_unique_repo_basenames(self) -> None:
