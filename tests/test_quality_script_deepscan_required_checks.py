@@ -151,12 +151,14 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             ("pass", [], success_context["DeepScan"]),
         )
 
-    def test_deepscan_parse_api_and_render_helpers(self) -> None:
-        """Cover CLI parsing, API get, and markdown rendering."""
+    def test_deepscan_parse_args_defaults(self) -> None:
+        """CLI parsing maps the required-context argument."""
         with mock.patch.object(sys, "argv", DEEPSCAN_ARGV):
             args = deepscan._parse_args()
         self.assertEqual(args.required_context, "DeepScan")
 
+    def test_deepscan_api_get_delegates_to_request_json(self) -> None:
+        """_api_get returns the upstream payload unchanged."""
         target_payload = {"ok": True}
         with mock.patch.object(
             deepscan,
@@ -174,6 +176,8 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                 target_payload,
             )
 
+    def test_deepscan_poll_and_context_outcome_helpers(self) -> None:
+        """Cover poll-or-timeout and context outcome branches."""
         self.assertTrue(deepscan._poll_or_timeout(0, 1, 1))
         self.assertFalse(deepscan._poll_or_timeout(2, 1, 1))
         self.assertEqual(
@@ -195,6 +199,8 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
             ("pass", None),
         )
 
+    def test_deepscan_render_md_emits_none_findings(self) -> None:
+        """_render_md surfaces the default 'None' bullet when findings are empty."""
         rendered = deepscan._render_md(
             {
                 "status": "pass",
@@ -457,8 +463,8 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                 ({"check_runs": []}, {"statuses": []}),
             )
 
-    def test_required_checks_failure_and_input_paths(self) -> None:
-        """Cover failure outcomes and missing-input guards."""
+    def test_required_checks_collect_payload_reports_failure(self) -> None:
+        """_collect_payload surfaces a failing context without sleeping."""
         failing_args = _required_checks_args()
         with (
             mock.patch.object(required_checks, "_fetch_check_payloads", return_value=({}, {})),
@@ -483,6 +489,9 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
         self.assertEqual(payload["failed"], [f"{REQUIRED_CONTEXT}: state=failure"])
         sleep_mock.assert_not_called()
 
+    def test_required_checks_collect_payload_timeout_raises(self) -> None:
+        """_collect_payload raises once the polling window is exhausted."""
+        failing_args = _required_checks_args()
         with (
             mock.patch.object(required_checks.time, "time", side_effect=[0, 2]),
             mock.patch.object(required_checks, "_fetch_check_payloads"),
@@ -494,6 +503,8 @@ class DeepScanAndRequiredChecksTests(unittest.TestCase):
                     "token",
                 )
 
+    def test_required_checks_main_exits_without_required_inputs(self) -> None:
+        """main() exits when --required-context or the GITHUB_TOKEN env is absent."""
         with (
             self.assertRaises(SystemExit),
             mock.patch.object(
