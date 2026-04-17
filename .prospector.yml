@@ -1,0 +1,6 @@
+strictness: medium
+
+pydocstyle:
+  disable:
+    - D203  # conflicts with D211 ("no blank lines before class docstring") enforced by DeepSource
+    - D213  # conflicts with D212 ("multi-line summary first line") already preferred by the repo
