@@ -11,8 +11,8 @@ from scripts.security_shared import (
     HTTPSRequestOptions,
     HTTPSRequestTarget,
     HTTPSResponsePayload,
-    JSON_CONTENT_TYPE,
-    SAFE_HEADER_NAME_CHARS,
+    _JSON_CONTENT_TYPE,
+    _SAFE_HEADER_NAME_CHARS,
 )
 from scripts.security_validation_support import (
     require_allowed_https_host,
@@ -69,7 +69,7 @@ def _contains_control_characters(value: str) -> bool:
 def _validate_header_name(name: str) -> str:
     """Validate a caller-provided HTTP header name."""
     checked = (name or "").strip()
-    if not checked or any(ch not in SAFE_HEADER_NAME_CHARS for ch in checked):
+    if not checked or any(ch not in _SAFE_HEADER_NAME_CHARS for ch in checked):
         raise ValueError(f"Invalid HTTP header name: {name!r}")
     return checked
 
@@ -91,7 +91,7 @@ def _merge_safe_headers(
     include_json_content_type: bool,
 ) -> Dict[str, str]:
     """Merge validated caller headers into the default JSON header set."""
-    final_headers: Dict[str, str] = {"Accept": JSON_CONTENT_TYPE}
+    final_headers: Dict[str, str] = {"Accept": _JSON_CONTENT_TYPE}
     if headers:
         for name, value in headers.items():
             checked_name = _validate_header_name(name)
@@ -100,7 +100,7 @@ def _merge_safe_headers(
                 name=checked_name,
             )
     if include_json_content_type:
-        final_headers.setdefault("Content-Type", JSON_CONTENT_TYPE)
+        final_headers.setdefault("Content-Type", _JSON_CONTENT_TYPE)
     return final_headers
 
 
