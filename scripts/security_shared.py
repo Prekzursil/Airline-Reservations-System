@@ -9,27 +9,27 @@ from typing import Any, Dict, FrozenSet, Optional, Set, Tuple
 
 Headers = Dict[str, str]
 
-SAFE_REPO_SEGMENT_CHARS: FrozenSet[str] = frozenset(
+_SAFE_REPO_SEGMENT_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "._-"
 )
-SAFE_SLUG_CHARS: FrozenSet[str] = frozenset(
+_SAFE_SLUG_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "._:-"
 )
-SAFE_PATH_SEGMENT_CHARS: FrozenSet[str] = frozenset(
+_SAFE_PATH_SEGMENT_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "._-"
 )
-SAFE_OUTPUT_NAME_CHARS: FrozenSet[str] = frozenset(
+_SAFE_OUTPUT_NAME_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "._-"
 )
-HEX_CHARS: FrozenSet[str] = frozenset(string.hexdigits)
-HOST_CHARS: FrozenSet[str] = frozenset(
+_HEX_CHARS: FrozenSet[str] = frozenset(string.hexdigits)
+_HOST_CHARS: FrozenSet[str] = frozenset(
     string.ascii_lowercase + string.digits + ".-"
 )
-JSON_CONTENT_TYPE = "application/json"
-SAFE_HEADER_NAME_CHARS: FrozenSet[str] = frozenset(
+_JSON_CONTENT_TYPE = "application/json"
+_SAFE_HEADER_NAME_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "-"
 )
-ALLOWED_HTTPS_HOSTS: FrozenSet[str] = frozenset(
+_ALLOWED_HTTPS_HOSTS: FrozenSet[str] = frozenset(
     {
         "api.github.com",
         "api.codacy.com",
@@ -101,7 +101,7 @@ class HTTPSRequestOptions:
     allowed_hosts: Optional[Set[str]] = None
 
 
-QUALITY_ARTIFACT_LAYOUT: Dict[QualityArtifact, Tuple[str, str, str]] = {
+_QUALITY_ARTIFACT_LAYOUT: Dict[QualityArtifact, Tuple[str, str, str]] = {
     QualityArtifact.COVERAGE_100: ("coverage-100", "coverage.json", "coverage.md"),
     QualityArtifact.CODACY_ZERO: ("codacy-zero", "codacy.json", "codacy.md"),
     QualityArtifact.DEEPSCAN_ZERO: ("deepscan-zero", "deepscan.json", "deepscan.md"),

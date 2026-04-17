@@ -12,14 +12,14 @@ from scripts.security_shared import (
     HTTPSRequestTarget,
     IdentifierRules,
     QualityArtifact,
-    ALLOWED_HTTPS_HOSTS,
-    HEX_CHARS,
-    HOST_CHARS,
-    QUALITY_ARTIFACT_LAYOUT,
-    SAFE_OUTPUT_NAME_CHARS,
-    SAFE_PATH_SEGMENT_CHARS,
-    SAFE_REPO_SEGMENT_CHARS,
-    SAFE_SLUG_CHARS,
+    _ALLOWED_HTTPS_HOSTS,
+    _HEX_CHARS,
+    _HOST_CHARS,
+    _QUALITY_ARTIFACT_LAYOUT,
+    _SAFE_OUTPUT_NAME_CHARS,
+    _SAFE_PATH_SEGMENT_CHARS,
+    _SAFE_REPO_SEGMENT_CHARS,
+    _SAFE_SLUG_CHARS,
 )
 
 
@@ -40,7 +40,7 @@ def require_identifier(raw: str, *, rules: IdentifierRules) -> str:
 
 def _has_invalid_host_characters(host: str) -> bool:
     """Return whether a hostname contains disallowed characters."""
-    return any(ch not in HOST_CHARS for ch in host)
+    return any(ch not in _HOST_CHARS for ch in host)
 
 
 def _has_empty_host_label(labels: List[str]) -> bool:
@@ -75,7 +75,7 @@ def _validate_output_filename(name: str, *, label: str) -> str:
         raise ValueError(f"Invalid {label}: {name!r}")
     if "/" in value or "\\" in value:
         raise ValueError(f"{label} must not contain path separators: {name!r}")
-    if any(ch not in SAFE_OUTPUT_NAME_CHARS for ch in value):
+    if any(ch not in _SAFE_OUTPUT_NAME_CHARS for ch in value):
         raise ValueError(f"Invalid {label}: {name!r}")
     return value
 
@@ -214,7 +214,7 @@ def require_allowed_https_host(
     """Validate an HTTPS host against the fixed or caller-supplied allowlist."""
     checked = _normalize_host(host)
     _reject_private_or_local_host(checked)
-    allowed = ALLOWED_HTTPS_HOSTS if allowed_hosts is None else set(allowed_hosts)
+    allowed = _ALLOWED_HTTPS_HOSTS if allowed_hosts is None else set(allowed_hosts)
     if checked not in _normalize_host_set(set(allowed)):
         raise ValueError(f"HTTPS host is not allowlisted: {host!r}")
     return checked
@@ -272,7 +272,7 @@ def require_repo_segment(raw: str, *, label: str) -> str:
         raw,
         rules=IdentifierRules(
             label=label,
-            allowed_chars=SAFE_REPO_SEGMENT_CHARS,
+            allowed_chars=_SAFE_REPO_SEGMENT_CHARS,
             min_len=1,
             max_len=100,
         ),
@@ -285,7 +285,7 @@ def require_slug(raw: str, *, label: str) -> str:
         raw,
         rules=IdentifierRules(
             label=label,
-            allowed_chars=SAFE_SLUG_CHARS,
+            allowed_chars=_SAFE_SLUG_CHARS,
             min_len=1,
             max_len=120,
         ),
@@ -295,7 +295,7 @@ def require_slug(raw: str, *, label: str) -> str:
 def require_sha(raw: str) -> str:
     """Validate a commit SHA using a bounded hexadecimal length."""
     value = (raw or "").strip()
-    if len(value) < 7 or len(value) > 40 or any(ch not in HEX_CHARS for ch in value):
+    if len(value) < 7 or len(value) > 40 or any(ch not in _HEX_CHARS for ch in value):
         raise ValueError(f"Invalid commit SHA: {raw!r}")
     return value
 
@@ -311,7 +311,7 @@ def quote_path_segment(value: str, *, label: str) -> str:
         value,
         rules=IdentifierRules(
             label=label,
-            allowed_chars=SAFE_PATH_SEGMENT_CHARS,
+            allowed_chars=_SAFE_PATH_SEGMENT_CHARS,
             min_len=1,
             max_len=120,
         ),
@@ -332,7 +332,7 @@ def fixed_output_paths(out_dir: str, json_name: str, md_name: str) -> Tuple[Path
 
 def quality_artifact_paths(artifact: QualityArtifact) -> Tuple[Path, Path]:
     """Return the JSON and markdown paths for a known quality artifact bundle."""
-    out_dir, json_name, md_name = QUALITY_ARTIFACT_LAYOUT[artifact]
+    out_dir, json_name, md_name = _QUALITY_ARTIFACT_LAYOUT[artifact]
     return fixed_output_paths(out_dir, json_name, md_name)
 
 
