@@ -4,7 +4,7 @@ from __future__ import absolute_import, annotations, division
 
 import ipaddress
 from pathlib import Path
-from typing import Any, FrozenSet, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 from urllib.parse import quote, urlparse, urlunparse
 
 from scripts.security_shared import (

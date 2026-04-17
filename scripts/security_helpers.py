@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Set, Tuple
 from urllib.parse import urlparse, urlunparse
 
+from scripts import security_http_support, security_validation_support
 from scripts import security_shared as _security_shared
 from scripts.security_shared import (
     HTTPSHost,
@@ -22,16 +23,12 @@ HTTPSResponsePayload = _security_shared.HTTPSResponsePayload
 
 
 def _validation_module():
-    """Import the validation support module lazily to avoid circular imports."""
-    from scripts import security_validation_support
-
+    """Return the validation support module for backward-compatible lookups."""
     return security_validation_support
 
 
 def _http_module():
-    """Import the HTTP support module lazily to avoid circular imports."""
-    from scripts import security_http_support
-
+    """Return the HTTP support module for backward-compatible lookups."""
     return security_http_support
 
 

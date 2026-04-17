@@ -107,6 +107,17 @@ class SonarScriptTests(unittest.TestCase):
         self.assertTrue(sonar._auth_header("token").startswith("Basic "))
         self.assertEqual(sonar._paged_total({"paging": {"total": 5}}), 5)
 
+        non_pr_args = _sonar_args(pull_request="", expected_pr_sha="")
+        self.assertIsNone(sonar._wait_for_pr_sha(non_pr_args, "auth", "project"))
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(sonar, "_fetch_open_issues", return_value=0))
+            stack.enter_context(mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0))
+            stack.enter_context(mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK"))
+            self.assertEqual(
+                sonar._run_sonar_check(non_pr_args, "token")[0],
+                "pass",
+            )
+
         args = _sonar_args(expected_pr_sha="want", max_wait_seconds=0)
         with ExitStack() as stack:
             stack.enter_context(
