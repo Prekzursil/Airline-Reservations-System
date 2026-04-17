@@ -1,0 +1,7 @@
+[tool.pydocstyle]
+# D203 ("blank line before class docstring") conflicts with D211 ("no blank
+# lines before class docstring") which DeepSource's default Python analyzer
+# enforces. Pick the widely-used D211 style so both analyzers can agree.
+# D213 is the analogous multi-line summary conflict with D212 (the repo
+# consistently starts summaries on the first line).
+add_ignore = "D203,D213"
