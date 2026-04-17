@@ -18,9 +18,9 @@ enum class SeatClass {
 class Seat {
 private:
     std::string seatId;     // e.g., "1A", "12F"
-    bool isBooked;
-    double price;
-    SeatClass seatClass;
+    bool isBooked = false;
+    double price = 0.0;
+    SeatClass seatClass = SeatClass::ECONOMY;
 
     void applyIdentityAndPrice(std::string_view id, SeatClass sc, double basePrice); // Populate state after partial init
 
