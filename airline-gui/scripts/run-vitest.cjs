@@ -6,6 +6,14 @@ const vitestEntrypoint = require.resolve("vitest/vitest.mjs", {
   paths: [projectRoot],
 });
 
+/**
+ * Build the args vector to pass to the vitest entrypoint, layering
+ * coverage-include/exclude globs when the caller asked for coverage.
+ *
+ * @param {string} entrypoint - Resolved path to the vitest module to spawn.
+ * @param {string[]} args - User-supplied CLI args (raw process.argv slice).
+ * @returns {string[]} The full argv (entrypoint + flags) to invoke.
+ */
 function buildVitestArgs(entrypoint, args) {
   const coverageEnabled =
     args.includes("--coverage") ||
@@ -23,6 +31,12 @@ function buildVitestArgs(entrypoint, args) {
     : [entrypoint, "run", ...args];
 }
 
+/**
+ * Run vitest (with coverage post-processing when requested) and exit
+ * with vitest's status. Used as the package "test" script entrypoint.
+ *
+ * @param {string[]} [args] - Override CLI args. Defaults to process.argv.
+ */
 function run(args = process.argv.slice(2)) {
   const coverageEnabled =
     args.includes("--coverage") ||

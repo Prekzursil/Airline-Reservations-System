@@ -11,7 +11,7 @@ const coverageJsonPath = path.join(coverageDir, "coverage-final.json");
 const coveragePrefix = "airline-gui/";
 
 if (!fs.existsSync(coverageJsonPath)) {
-  console.error(`Coverage JSON report is missing: ${coverageJsonPath}`);
+  process.stderr.write(`Coverage JSON report is missing: ${coverageJsonPath}\n`);
   process.exit(1);
 }
 
@@ -39,9 +39,9 @@ const expectedFiles = [
 
 for (const filePath of expectedFiles) {
   if (!fs.existsSync(filePath)) {
-    console.error(`Expected coverage artifact was not generated: ${filePath}`);
+    process.stderr.write(`Expected coverage artifact was not generated: ${filePath}\n`);
     process.exit(1);
   }
 }
 
-console.log("Generated coverage-summary.json and lcov.info from coverage-final.json.");
+process.stdout.write("Generated coverage-summary.json and lcov.info from coverage-final.json.\n");

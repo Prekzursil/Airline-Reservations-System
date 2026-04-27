@@ -358,14 +358,13 @@ class SecurityHTTPAndHelpersTests(TestCase):
                 reason="boom",
                 body="fail-body",
             ),
-        ):
-            with self.assertRaises(helpers.HTTPSRequestError) as error:
-                http_support.request_json_https_target(
-                    target=helpers.HTTPSRequestTarget(
-                        host="api.github.com",
-                        path="/repos/owner/repo",
-                    )
+        ), self.assertRaises(helpers.HTTPSRequestError) as error:
+            http_support.request_json_https_target(
+                target=helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
                 )
+            )
         self.assertEqual(error.exception.status, 500)
         self.assertEqual(error.exception.reason, "boom")
         self.assertEqual(error.exception.body_preview, "fail-body")
@@ -497,25 +496,23 @@ class SecurityHTTPAndHelpersTests(TestCase):
                 reason="missing",
                 body="not-found",
             ),
-        ):
-            with self.assertRaises(helpers.HTTPSRequestError) as error:
-                http_support.request_json_list_https_target(
-                    target=helpers.HTTPSRequestTarget(
-                        host="api.github.com",
-                        path="/repos/owner/repo",
-                    )
+        ), self.assertRaises(helpers.HTTPSRequestError) as error:
+            http_support.request_json_list_https_target(
+                target=helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
                 )
+            )
         self.assertEqual(error.exception.status, 404)
 
         with mock.patch.object(
             http_support,
             "_request_https_payload",
             return_value=_https_response_payload(body='[{"name": "value"}]'),
-        ):
-            with self.assertRaises(RuntimeError):
-                http_support.request_json_https_target(
-                    target=helpers.HTTPSRequestTarget(
-                        host="api.github.com",
-                        path="/repos/owner/repo",
-                    )
+        ), self.assertRaises(RuntimeError):
+            http_support.request_json_https_target(
+                target=helpers.HTTPSRequestTarget(
+                    host="api.github.com",
+                    path="/repos/owner/repo",
                 )
+            )
