@@ -60,6 +60,15 @@ function prefixCoveragePath(filePath, prefix) {
   return `${normalizedPrefix}/${normalizedPath}`;
 }
 
+/**
+ * Re-anchor an istanbul file-coverage object's ``path`` under the
+ * supplied prefix so reports emitted to SonarCloud / Codecov / qlty
+ * resolve to the correct repo-relative location.
+ *
+ * @param {{ path: string }} fileCoverage - istanbul fileCoverage object.
+ * @param {string} prefix - Repo-relative prefix to anchor under.
+ * @returns {object} A shallow copy of ``fileCoverage`` with the prefixed path.
+ */
 function prefixCoverageMapPath(fileCoverage, prefix) {
   return {
     ...fileCoverage,

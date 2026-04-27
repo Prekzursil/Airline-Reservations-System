@@ -18,6 +18,7 @@ test_patterns = [
   "airline-gui/src/**/*.test.js",
   "airline-gui/src/**/*.test.jsx",
   "airline-gui/src/setupTests.js",
+  "airline-gui/scripts/**/*.node-test.cjs",
   "tests/**",
 ]
 
@@ -29,8 +30,6 @@ enabled = true
   plugins = ["react"]
   dependency_file_paths = ["airline-gui"]
   environment = ["nodejs", "browser", "vitest"]
-  module_system = "es-modules"
-  dialect = "es2022"
   skip_doc_coverage = [
     "arrow-function-expression",
     "class-declaration",
