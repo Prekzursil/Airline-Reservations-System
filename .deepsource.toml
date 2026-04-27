@@ -64,9 +64,3 @@ enabled = true
 name = "cxx"
 enabled = true
 
-[[analyzers]]
-name = "go"
-enabled = true
-
-  [analyzers.meta]
-  import_root = "github.com/Prekzursil/Airline-Reservations-System"
