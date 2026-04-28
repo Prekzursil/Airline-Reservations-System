@@ -63,12 +63,12 @@ threshold = 100
 # "validate-and-bail" pattern — each early-return is one specific
 # validation failure (booking not found, wrong status, capacity
 # exceeded, etc.) with its own error message. Default qlty threshold
-# of 5 returns flags createBookingInternal (6), cancelBookingInternal
+# of 4 returns flags createBookingInternal (6), cancelBookingInternal
 # (6), swapSeatsInternal (7). Refactoring to single-exit would
 # require building an error variant and routing every check through
 # it, hurting readability on what is already idiomatic input
 # validation. Raise to 8 to allow the existing pattern.
-[smells.function_returns_high]
+[smells.return_statements]
 threshold = 8
 
 [[source]]
