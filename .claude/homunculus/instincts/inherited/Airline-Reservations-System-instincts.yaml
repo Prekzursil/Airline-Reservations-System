@@ -1,0 +1,615 @@
+# Instincts generated from https://github.com/Prekzursil/Airline-Reservations-System
+# Generated: 2026-05-28T11:38:10.908Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: Airline-Reservations-System-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: refactor, fix
+
+## Evidence
+
+- 5 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix(quality): add governed flake8/pylint/bandit configs and clear analyzer findings, refactor(scripts): extract shared gate-report helper to remove whole-tree duplication
+
+---
+id: Airline-Reservations-System-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Commit Length
+
+## Action
+
+Write moderate-length commit messages (~78 characters)
+
+## Evidence
+
+- Average commit message length: 78 chars
+- Based on 5 commits
+
+---
+id: Airline-Reservations-System-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Naming Files
+
+## Action
+
+Use snake_case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: snake_case
+
+---
+id: Airline-Reservations-System-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: Airline-Reservations-System-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: Airline-Reservations-System-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: 
+
+---
+id: Airline-Reservations-System-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: Airline-Reservations-System-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Framework
+
+## Action
+
+Use jest as the test framework
+
+## Evidence
+
+- Test framework detected: jest
+- File pattern: *.test.ts
+
+---
+id: Airline-Reservations-System-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: Airline-Reservations-System-test-mocking
+trigger: "when mocking dependencies in tests"
+confidence: 0.75
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Mocking
+
+## Action
+
+Use vi.mock for mocking
+
+## Evidence
+
+- Mocking pattern detected: vi.mock
+- Consistent across test files
+
+---
+id: Airline-Reservations-System-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Types
+
+## Action
+
+Write unit, integration tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration
+- Coverage config: yes
+
+---
+id: Airline-Reservations-System-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~18x per month
+- Files: src/**/*
+
+---
+id: Airline-Reservations-System-workflow-deduplicate-shared-logic-across-modules
+trigger: "when doing deduplicate shared logic across modules"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Workflow Deduplicate Shared Logic Across Modules
+
+## Action
+
+Follow the deduplicate-shared-logic-across-modules workflow:
+1. Identify duplicated code fragments across multiple files.
+2. Extract shared logic into a new or existing helper/module.
+3. Refactor original files to use the shared helper/module.
+4. Update related tests to use the new shared logic.
+5. Ensure test coverage remains at 100%.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: scripts/quality/gate_report.py, scripts/security_http_support.py, airline-gui/src/components/SeatMap.js
+
+---
+id: Airline-Reservations-System-workflow-quality-tooling-and-config-alignment
+trigger: "when doing quality tooling and config alignment"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Workflow Quality Tooling And Config Alignment
+
+## Action
+
+Follow the quality-tooling-and-config-alignment workflow:
+1. Add or update configuration files for static analysis and security tools (e.g., .flake8, .pylintrc, .bandit).
+2. Update CI workflow files to use the latest templates or SHAs.
+3. Pass through or update required secrets/environment variables for CI gates.
+4. Fix code and tests to comply with updated tool findings.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: .flake8, .pylintrc, .bandit
+
+---
+id: airline-reservations-system-instinct-naming-files
+trigger: "When creating or renaming a file in the codebase."
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Naming Files
+
+## Action
+
+Use snake_case for file names.
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.files
+- Consistent with Python community standards.
+
+---
+id: airline-reservations-system-instinct-naming-functions
+trigger: "When defining a new function."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Naming Functions
+
+## Action
+
+Use camelCase for function names.
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.functions
+
+---
+id: airline-reservations-system-instinct-naming-classes
+trigger: "When defining a new class."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Naming Classes
+
+## Action
+
+Use PascalCase for class names.
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.classes
+
+---
+id: airline-reservations-system-instinct-naming-constants
+trigger: "When defining a constant."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Naming Constants
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names.
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.constants
+
+---
+id: airline-reservations-system-instinct-import-style
+trigger: "When importing modules in Python files."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Import Style
+
+## Action
+
+Use relative imports.
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+
+---
+id: airline-reservations-system-instinct-export-style
+trigger: "When exporting modules or functions."
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Export Style
+
+## Action
+
+Use mixed export style (both named and default as appropriate).
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+
+---
+id: airline-reservations-system-instinct-testing-file-pattern
+trigger: "When adding a new test file for TypeScript code."
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Testing File Pattern
+
+## Action
+
+Name the file with the pattern *.test.ts.
+
+## Evidence
+
+- Pattern in testing.filePattern
+
+---
+id: airline-reservations-system-instinct-testing-framework
+trigger: "When writing tests for JavaScript/TypeScript code."
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Testing Framework
+
+## Action
+
+Use Jest as the testing framework.
+
+## Evidence
+
+- Pattern in testing.framework
+
+---
+id: airline-reservations-system-instinct-testing-mocking
+trigger: "When mocking modules in tests."
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Testing Mocking
+
+## Action
+
+Use vi.mock for mocking.
+
+## Evidence
+
+- Pattern in testing.mockingStyle
+
+---
+id: airline-reservations-system-instinct-testing-coverage
+trigger: "When configuring tests."
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Testing Coverage
+
+## Action
+
+Ensure test coverage is configured and enforced.
+
+## Evidence
+
+- Pattern in testing.coverageConfig
+- Workflow step: Ensure test coverage remains at 100%.
+
+---
+id: airline-reservations-system-instinct-testing-types
+trigger: "When writing tests."
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Testing Types
+
+## Action
+
+Include both unit and integration tests.
+
+## Evidence
+
+- Pattern in testing.testTypes
+
+---
+id: airline-reservations-system-instinct-git-commit-format
+trigger: "When writing a commit message."
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Git Commit Format
+
+## Action
+
+Use conventional commit format with a type prefix (e.g., fix, refactor).
+
+## Evidence
+
+- Pattern in commits.type: conventional
+- Examples: fix(quality): ...
+- refactor(gui): ...
+
+---
+id: airline-reservations-system-instinct-git-commit-length
+trigger: "When writing a commit message."
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Git Commit Length
+
+## Action
+
+Keep commit messages concise, around 78 characters on average.
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: airline-reservations-system-instinct-git-commit-prefixes
+trigger: "When committing code changes."
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Git Commit Prefixes
+
+## Action
+
+Use 'fix' for bug fixes and 'refactor' for code structure improvements.
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Examples in commit history
+
+---
+id: airline-reservations-system-instinct-dedupe-logic
+trigger: "When duplicated logic is identified across multiple scripts, components, or tests."
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Dedupe Logic
+
+## Action
+
+Extract shared logic into a helper/module and refactor original files to use it, updating tests and ensuring 100% coverage.
+
+## Evidence
+
+- Workflow: deduplicate-shared-logic-across-modules
+- Commit: refactor(scripts): extract shared gate-report helper to remove whole-tree duplication
+- Pattern in files: scripts/quality/gate_report.py, airline-gui/src/components/SeatMap.js, tests/airplane_test.cpp
+
+---
+id: airline-reservations-system-instinct-quality-tooling-alignment
+trigger: "When updating or aligning code quality tools and their configurations with organization or template standards."
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Quality Tooling Alignment
+
+## Action
+
+Synchronize and update static analysis, linting, and security tool configs and CI workflows; fix code to comply with updated tool findings.
+
+## Evidence
+
+- Workflow: quality-tooling-and-config-alignment
+- Commit: fix(quality): add governed flake8/pylint/bandit configs and clear analyzer findings
+- Pattern in files: .flake8, .pylintrc, .bandit, .github/workflows/codeql.yml
+
