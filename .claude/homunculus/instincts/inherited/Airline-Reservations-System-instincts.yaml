@@ -1,0 +1,357 @@
+# Instincts generated from https://github.com/Prekzursil/Airline-Reservations-System
+# Generated: 2026-05-28T10:05:41.517Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: Airline-Reservations-System-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: fix
+
+## Evidence
+
+- 2 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix(quality): add governed flake8/pylint/bandit configs and clear analyzer findings, fix(ci): sync QZP wrapper workflows to template SHAs and add Codacy/DeepSource secrets
+
+---
+id: Airline-Reservations-System-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Commit Length
+
+## Action
+
+Write moderate-length commit messages (~85 characters)
+
+## Evidence
+
+- Average commit message length: 85 chars
+- Based on 2 commits
+
+---
+id: Airline-Reservations-System-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Naming Files
+
+## Action
+
+Use kebab-case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: kebab-case
+
+---
+id: Airline-Reservations-System-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: Airline-Reservations-System-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: Airline-Reservations-System-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: Airline-Reservations-System-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: airline-reservations-system-instinct-file-naming
+trigger: "When creating a new source file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct File Naming
+
+## Action
+
+Name the file using kebab-case (e.g., booking-service.py)
+
+## Evidence
+
+- Pattern in namingConventions.files: kebab-case
+
+---
+id: airline-reservations-system-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Function Naming
+
+## Action
+
+Name the function using camelCase (e.g., getReservationDetails)
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: airline-reservations-system-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Class Naming
+
+## Action
+
+Name the class using PascalCase (e.g., ReservationManager)
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: airline-reservations-system-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Constant Naming
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE (e.g., MAX_RESERVATIONS)
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: airline-reservations-system-instinct-import-style
+trigger: "When importing modules within the project"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: airline-reservations-system-instinct-export-style
+trigger: "When exporting functions or classes"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: airline-reservations-system-instinct-test-file-pattern
+trigger: "When creating a new test file"
+confidence: 0.6
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Test File Pattern
+
+## Action
+
+Name the test file with the pattern *.test.ts
+
+## Evidence
+
+- Pattern in testing.filePattern: *.test.ts
+
+---
+id: airline-reservations-system-instinct-test-type
+trigger: "When writing tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Test Type
+
+## Action
+
+Write unit tests
+
+## Evidence
+
+- Pattern in testing.testTypes: unit
+
+---
+id: airline-reservations-system-instinct-commit-format
+trigger: "When making a git commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Commit Format
+
+## Action
+
+Format the commit message using the conventional commit style with a 'fix' prefix (e.g., fix(module): message)
+
+## Evidence
+
+- Seen in commit: fix(quality): add governed flake8/pylint/bandit configs and clear analyzer findings
+- Pattern in commits.prefixes: fix
+
+---
+id: airline-reservations-system-instinct-commit-length
+trigger: "When writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Commit Length
+
+## Action
+
+Keep the commit message around 85 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength: 85
+
+---
+id: airline-reservations-system-instinct-quality-workflows
+trigger: "When updating or adding CI/CD workflows"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: Prekzursil/Airline-Reservations-System
+---
+
+# Airline Reservations System Instinct Quality Workflows
+
+## Action
+
+Include quality-related workflows such as code analysis and remediation (e.g., codeql, codecov-analytics, quality-zero-gate)
+
+## Evidence
+
+- Pattern in architecture.configFiles: .github/workflows/codeql.yml, .github/workflows/codecov-analytics.yml, .github/workflows/quality-zero-gate.yml, etc.
+
