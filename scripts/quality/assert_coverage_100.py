@@ -4,13 +4,13 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from scripts.security_helpers import QualityArtifact, quality_artifact_paths
+from scripts.security_helpers import QualityArtifact
 from scripts.quality import coverage_parsers
+from scripts.quality.gate_report import render_gate_markdown, write_gate_artifacts
 
 CoverageStats = coverage_parsers.CoverageStats
 REPO_SOURCE_LINES = coverage_parsers.REPO_SOURCE_LINES
@@ -92,35 +92,21 @@ def evaluate(stats: List[CoverageStats]) -> Tuple[str, List[str]]:
 
 def _render_md(payload: Dict[str, Any]) -> str:
     """Render the coverage gate result as markdown."""
-    lines = [
-        "# Coverage 100 Gate",
-        "",
-        f"- Status: `{payload['status']}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
-        "",
-        "## Components",
+    component_bullets = [
+        f"`{item['name']}`: "
+        f"`{item['covered']}/{item['total']}` "
+        f"(`{item['percent']:.2f}%`)"
+        for item in payload.get("components") or []
     ]
-
-    components = payload.get("components") or []
-    if components:
-        for item in components:
-            lines.append(
-                "- "
-                f"`{item['name']}`: "
-                f"`{item['covered']}/{item['total']}` "
-                f"(`{item['percent']:.2f}%`)"
-            )
-    else:
-        lines.append("- None")
-
-    lines.extend(["", "## Findings"])
-    findings = payload.get("findings") or []
-    if findings:
-        lines.extend(f"- {item}" for item in findings)
-    else:
-        lines.append("- None")
-
-    return "\n".join(lines) + "\n"
+    return render_gate_markdown(
+        title="Coverage 100 Gate",
+        header_lines=[
+            f"- Status: `{payload['status']}`",
+            f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        ],
+        payload=payload,
+        extra_sections=[("## Components", component_bullets)],
+    )
 
 
 def main() -> int:
@@ -150,13 +136,7 @@ def main() -> int:
         "findings": findings,
     }
 
-    out_json, out_md = quality_artifact_paths(QualityArtifact.COVERAGE_100)
-    out_json.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    out_md.write_text(_render_md(payload), encoding="utf-8")
-    print(out_md.read_text(encoding="utf-8"), end="")
+    write_gate_artifacts(QualityArtifact.COVERAGE_100, payload, _render_md)
     return 0 if status == "pass" else 1
 
 

@@ -4,7 +4,6 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
-import json
 import os
 import time
 import urllib.parse
@@ -17,10 +16,10 @@ from scripts.security_helpers import (
     QualityArtifact,
     basic_auth_header,
     build_https_request_target,
-    quality_artifact_paths,
     request_json_https_target,
     require_slug,
 )
+from scripts.quality.gate_report import render_gate_markdown, write_gate_artifacts
 
 QueryDict = Dict[str, str]
 SonarQueries = Tuple[QueryDict, QueryDict, QueryDict]
@@ -67,25 +66,19 @@ def _auth_header(token: str) -> str:
 
 def _render_md(payload: Dict[str, Any]) -> str:
     """Render the Sonar gate outcome as Markdown."""
-    lines = [
-        "# Sonar Zero Gate",
-        "",
-        f"- Status: `{payload['status']}`",
-        f"- Project: `{payload['project_key']}`",
-        f"- Open issues: `{payload.get('open_issues')}`",
-        "- Unresolved security hotspots: "
-        f"`{payload.get('unresolved_security_hotspots')}`",
-        f"- Quality gate: `{payload.get('quality_gate')}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
-        "",
-        "## Findings",
-    ]
-    findings = payload.get("findings") or []
-    if findings:
-        lines.extend(f"- {item}" for item in findings)
-    else:
-        lines.append("- None")
-    return "\n".join(lines) + "\n"
+    return render_gate_markdown(
+        title="Sonar Zero Gate",
+        header_lines=[
+            f"- Status: `{payload['status']}`",
+            f"- Project: `{payload['project_key']}`",
+            f"- Open issues: `{payload.get('open_issues')}`",
+            "- Unresolved security hotspots: "
+            f"`{payload.get('unresolved_security_hotspots')}`",
+            f"- Quality gate: `{payload.get('quality_gate')}`",
+            f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        ],
+        payload=payload,
+    )
 
 
 def _build_queries(args: argparse.Namespace, project_key: str) -> SonarQueries:
@@ -272,13 +265,7 @@ def main() -> int:
         "findings": findings,
     }
 
-    out_json, out_md = quality_artifact_paths(QualityArtifact.SONAR_ZERO)
-    out_json.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    out_md.write_text(_render_md(payload), encoding="utf-8")
-    print(out_md.read_text(encoding="utf-8"), end="")
+    write_gate_artifacts(QualityArtifact.SONAR_ZERO, payload, _render_md)
     return 0 if status == "pass" else 1
 
 

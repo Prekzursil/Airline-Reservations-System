@@ -186,17 +186,27 @@ def request_json_https(
     return request_json_https_target(target=target, options=options)
 
 
+def _request_parsed_json(
+    *,
+    target: HTTPSRequestTarget,
+    options: Optional[HTTPSRequestOptions],
+) -> tuple[Any, Dict[str, str]]:
+    """Send the request, raise on HTTP errors, and return the parsed body + headers."""
+    response = _request_https_payload(target=target, options=options)
+    if response.status >= 400:
+        raise HTTPSRequestError(response.status, response.reason, response.body)
+
+    parsed = _parse_json_response(response.body, host=response.host, path=response.path)
+    return parsed, response.headers
+
+
 def request_json_https_target(
     *,
     target: HTTPSRequestTarget,
     options: Optional[HTTPSRequestOptions] = None,
 ) -> Dict[str, Any]:
     """Perform a JSON-object HTTPS request using a validated request target."""
-    response = _request_https_payload(target=target, options=options)
-    if response.status >= 400:
-        raise HTTPSRequestError(response.status, response.reason, response.body)
-
-    parsed = _parse_json_response(response.body, host=response.host, path=response.path)
+    parsed, _headers = _request_parsed_json(target=target, options=options)
     if not isinstance(parsed, dict):
         raise RuntimeError("Expected JSON object response")
     return parsed
@@ -225,15 +235,7 @@ def request_json_list_https_target(
     options: Optional[HTTPSRequestOptions] = None,
 ) -> tuple[List[Any], Dict[str, str]]:
     """Perform a JSON-list HTTPS request using a validated request target."""
-    response = _request_https_payload(target=target, options=options)
-    if response.status >= 400:
-        raise HTTPSRequestError(response.status, response.reason, response.body)
-
-    parsed = _parse_json_response(
-        response.body,
-        host=response.host,
-        path=response.path,
-    )
+    parsed, headers = _request_parsed_json(target=target, options=options)
     if not isinstance(parsed, list):
         raise RuntimeError("Expected JSON list response")
-    return parsed, response.headers
+    return parsed, headers

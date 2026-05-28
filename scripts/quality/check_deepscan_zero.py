@@ -4,7 +4,6 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
-import json
 import os
 import time
 from datetime import datetime, timezone
@@ -16,12 +15,12 @@ from scripts.security_helpers import (
     HTTPSRequestTarget,
     QualityArtifact,
     build_https_request_target,
-    quality_artifact_paths,
     quote_segment,
     request_json_https_target,
     require_repo_slug,
     require_sha,
 )
+from scripts.quality.gate_report import render_gate_markdown, write_gate_artifacts
 from scripts.quality.github_contexts import collect_contexts
 
 _PENDING_STATES = {"pending", ""}
@@ -94,22 +93,16 @@ def _api_get(target: HTTPSRequestTarget, token: str) -> Dict[str, Any]:
 
 def _render_md(payload: Dict[str, Any]) -> str:
     """Render the DeepScan gate result as markdown."""
-    lines = [
-        "# DeepScan Zero Gate",
-        "",
-        f"- Status: `{payload['status']}`",
-        f"- Repo/SHA: `{payload['repo']}@{payload['sha']}`",
-        f"- Required context: `{payload['required_context']}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
-        "",
-        "## Findings",
-    ]
-    findings = payload.get("findings") or []
-    if findings:
-        lines.extend(f"- {item}" for item in findings)
-    else:
-        lines.append("- None")
-    return "\n".join(lines) + "\n"
+    return render_gate_markdown(
+        title="DeepScan Zero Gate",
+        header_lines=[
+            f"- Status: `{payload['status']}`",
+            f"- Repo/SHA: `{payload['repo']}@{payload['sha']}`",
+            f"- Required context: `{payload['required_context']}`",
+            f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        ],
+        payload=payload,
+    )
 
 
 def _poll_or_timeout(now: float, deadline: float, poll_seconds: int) -> bool:
@@ -214,13 +207,7 @@ def main() -> int:
         "observed_context": observed,
     }
 
-    out_json, out_md = quality_artifact_paths(QualityArtifact.DEEPSCAN_ZERO)
-    out_json.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    out_md.write_text(_render_md(payload), encoding="utf-8")
-    print(out_md.read_text(encoding="utf-8"), end="")
+    write_gate_artifacts(QualityArtifact.DEEPSCAN_ZERO, payload, _render_md)
     return 0 if status == "pass" else 1
 
 

@@ -4,12 +4,12 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
-import json
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from scripts.security_helpers import QualityArtifact, quality_artifact_paths
+from scripts.security_helpers import QualityArtifact
+from scripts.quality.gate_report import render_gate_markdown, write_gate_artifacts
 from scripts.quality.sentry_support import (
     resolve_project_slug as _resolve_project_slug_impl,
     run_sentry_check,
@@ -65,29 +65,20 @@ def _parse_args() -> argparse.Namespace:
 
 def _render_md(payload: Dict[str, Any]) -> str:
     """Render the gate outcome as a compact Markdown report."""
-    lines = [
-        "# Sentry Zero Gate",
-        "",
-        f"- Status: `{payload['status']}`",
-        f"- Org: `{payload.get('org')}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
-        "",
-        "## Project results",
+    project_bullets = [
+        f"`{item['project']}` unresolved=`{item['unresolved']}`"
+        for item in payload.get("projects", [])
     ]
-
-    for item in payload.get("projects", []):
-        lines.append(f"- `{item['project']}` unresolved=`{item['unresolved']}`")
-    if not payload.get("projects"):
-        lines.append("- None")
-
-    lines.extend(["", "## Findings"])
-    findings = payload.get("findings") or []
-    if findings:
-        lines.extend(f"- {item}" for item in findings)
-    else:
-        lines.append("- None")
-
-    return "\n".join(lines) + "\n"
+    return render_gate_markdown(
+        title="Sentry Zero Gate",
+        header_lines=[
+            f"- Status: `{payload['status']}`",
+            f"- Org: `{payload.get('org')}`",
+            f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        ],
+        payload=payload,
+        extra_sections=[("## Project results", project_bullets)],
+    )
 
 
 def main() -> int:
@@ -110,13 +101,7 @@ def main() -> int:
         "findings": findings,
     }
 
-    out_json, out_md = quality_artifact_paths(QualityArtifact.SENTRY_ZERO)
-    out_json.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    out_md.write_text(_render_md(payload), encoding="utf-8")
-    print(out_md.read_text(encoding="utf-8"), end="")
+    write_gate_artifacts(QualityArtifact.SENTRY_ZERO, payload, _render_md)
     return 0 if status == "pass" else 1
 
 

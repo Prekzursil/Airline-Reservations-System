@@ -4,7 +4,6 @@
 from __future__ import absolute_import, annotations, division
 
 import argparse
-import json
 import os
 import urllib.parse
 from datetime import datetime, timezone
@@ -16,11 +15,11 @@ from scripts.security_helpers import (
     HTTPSRequestTarget,
     QualityArtifact,
     build_https_request_target,
-    quality_artifact_paths,
     quote_path_segment,
     request_json_https_target as _request_json_https_target,
     require_repo_segment,
 )
+from scripts.quality.gate_report import render_gate_markdown, write_gate_artifacts
 
 TOTAL_KEYS = {"total", "totalItems", "total_items", "count", "hits", "open_issues"}
 _ALLOWED_PROVIDERS = {"gh", "github"}
@@ -69,25 +68,17 @@ def extract_total_open(payload: Any) -> Optional[int]:
 
 def _render_md(payload: Dict[str, Any]) -> str:
     """Render the gate result as markdown."""
-    lines = [
-        "# Codacy Zero Gate",
-        "",
-        f"- Status: `{payload['status']}`",
-        f"- Owner/repo: `{payload['owner']}/{payload['repo']}`",
-        f"- Branch: `{payload.get('branch') or 'default'}`",
-        f"- Open issues: `{payload.get('open_issues')}`",
-        f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
-        "",
-        "## Findings",
-    ]
-
-    findings = payload.get("findings") or []
-    if findings:
-        lines.extend(f"- {item}" for item in findings)
-    else:
-        lines.append("- None")
-
-    return "\n".join(lines) + "\n"
+    return render_gate_markdown(
+        title="Codacy Zero Gate",
+        header_lines=[
+            f"- Status: `{payload['status']}`",
+            f"- Owner/repo: `{payload['owner']}/{payload['repo']}`",
+            f"- Branch: `{payload.get('branch') or 'default'}`",
+            f"- Open issues: `{payload.get('open_issues')}`",
+            f"- Timestamp (UTC): `{payload['timestamp_utc']}`",
+        ],
+        payload=payload,
+    )
 
 
 def _build_issue_search_path(provider: str, owner: str, repo: str) -> str:
@@ -217,13 +208,7 @@ def main() -> int:
         "findings": findings,
     }
 
-    out_json, out_md = quality_artifact_paths(QualityArtifact.CODACY_ZERO)
-    out_json.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    out_md.write_text(_render_md(payload), encoding="utf-8")
-    print(out_md.read_text(encoding="utf-8"), end="")
+    write_gate_artifacts(QualityArtifact.CODACY_ZERO, payload, _render_md)
     return 0 if status == "pass" else 1
 
 
