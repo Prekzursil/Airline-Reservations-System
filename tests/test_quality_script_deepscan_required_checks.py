@@ -526,6 +526,3 @@ class DeepScanAndRequiredChecksTests(TestCase):
             mock.patch.dict(os.environ, {}, clear=True),
         ):
             required_checks.main()
-
-
-

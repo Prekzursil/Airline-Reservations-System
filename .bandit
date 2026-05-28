@@ -1,0 +1,8 @@
+[bandit]
+# B101 (assert) is intrinsic to the unittest suite. Scope bandit to the
+# Python source tree (scripts/) and exclude tests/ — the test files use
+# obviously-fake fixture tokens that trip B105 false positives, matching
+# how .codacy.yml and .deepsource.toml exclude tests from analysis.
+skips = B101
+targets = scripts
+exclude_dirs = tests,build,airline-gui,.github

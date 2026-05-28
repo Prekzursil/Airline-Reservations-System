@@ -1,0 +1,16 @@
+[flake8]
+# Align flake8 line length with the repo's prospector/pycodestyle profile
+# (max-line-length: 120 in .prospector.yml). E501 is enforced by
+# pycodestyle through prospector at the same width; keep flake8's own
+# max-line-length consistent so both agree on the same boundary.
+max-line-length = 120
+# E203 conflicts with PEP 8 slice spacing as formatted by black-style
+# tooling; W503 (line break before binary operator) is the
+# now-recommended style. D301 is pydocstyle and handled via prospector
+# / pyproject.toml — don't double-flag it here.
+extend-ignore = E203, W503, D301
+exclude =
+    .git,
+    .venv,
+    build,
+    airline-gui,

@@ -337,6 +337,7 @@ class SentryAndSonarScriptTests(TestCase):
             (resolved, issues, headers, last_error),
             ("proj-b", [{"id": 1}], {"x-hits": "1"}, None),
         )
+
     def test_sentry_selection_returns_last_error_when_all_candidates_fail(self) -> None:
         """Return the last lookup error when every candidate fails."""
         config = _sentry_config()

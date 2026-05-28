@@ -20,22 +20,22 @@ if str(REPO_ROOT) not in sys.path:
 
 def _load_quality_modules():
     """Import the quality helper modules under test."""
-    from scripts import security_helpers as helpers
-    from scripts.quality import check_codacy_zero as codacy
-    from scripts.quality import check_deepscan_zero as deepscan
-    from scripts.quality import check_quality_secrets as quality_secrets
-    from scripts.quality import check_required_checks as required_checks
-    from scripts.quality import check_sonar_zero as sonar
-    from scripts.quality import check_sentry_zero as sentry
+    from scripts import security_helpers
+    from scripts.quality import check_codacy_zero
+    from scripts.quality import check_deepscan_zero
+    from scripts.quality import check_quality_secrets
+    from scripts.quality import check_required_checks
+    from scripts.quality import check_sonar_zero
+    from scripts.quality import check_sentry_zero
 
     return (
-        helpers,
-        codacy,
-        deepscan,
-        quality_secrets,
-        required_checks,
-        sonar,
-        sentry,
+        security_helpers,
+        check_codacy_zero,
+        check_deepscan_zero,
+        check_quality_secrets,
+        check_required_checks,
+        check_sonar_zero,
+        check_sentry_zero,
     )
 
 
@@ -357,7 +357,7 @@ class _ScriptPathBuilderTests(TestCase):
             "request_json_https_target",
             side_effect=_fake_request_json_https_target,
         ):
-            self.assertEqual(codacy._fetch_open_issues(args, "token"), 0)
+            self.assertEqual(codacy.fetch_open_issues(args, "token"), 0)
 
         self.assertEqual(captured["method"], "POST")
         self.assertEqual(captured["body"], {"branchName": "feature/zero"})

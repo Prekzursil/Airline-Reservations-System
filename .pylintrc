@@ -1,0 +1,27 @@
+[MASTER]
+ignore-patterns=^NUL$
+
+[MESSAGES CONTROL]
+# Docstring presence is enforced by prospector/pydocstyle, not pylint.
+# protected-access / import-outside-toplevel / redefined-outer-name are
+# intrinsic to the unittest-based test suite (tests reach into module
+# internals and shadow fixture names by design). duplicate-code fires on
+# the necessarily-parallel HTTPS request helpers and test scaffolding.
+# too-many-arguments / too-few-public-methods reflect the data-carrier
+# dataclasses and request-builder signatures intentionally used here.
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    wrong-import-position,
+    protected-access,
+    import-outside-toplevel,
+    unused-argument,
+    too-many-arguments,
+    too-few-public-methods,
+    duplicate-code,
+    trailing-newlines,
+    mixed-line-endings
+
+[FORMAT]
+max-line-length=120
