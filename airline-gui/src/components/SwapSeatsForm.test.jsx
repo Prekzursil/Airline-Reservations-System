@@ -47,6 +47,18 @@ const bookings = [
   { bookingId: 3, customerId: 'C3', flightNumber: 'FL-2', seatId: '2C', status: 'CANCELLED' }
 ];
 
+/**
+ * Selects both bookings and clicks the swap button once the form is enabled.
+ *
+ * @returns {Promise<void>} Resolves after the swap request is dispatched.
+ */
+const selectBookingsAndSwap = async () => {
+  fireEvent.click(screen.getByTestId('booking1SelectSwap-force-1'));
+  fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
+};
+
 describe('SwapSeatsForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,10 +128,7 @@ describe('SwapSeatsForm', () => {
       expect(fetchBookings).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByTestId('booking1SelectSwap-force-1'));
-    fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
+    await selectBookingsAndSwap();
 
     expect(await screen.findByText('Seat swap processed.')).toBeInTheDocument();
     expect(swapSeats).toHaveBeenCalledWith(1, 2);
@@ -128,10 +137,7 @@ describe('SwapSeatsForm', () => {
     rerender(<SwapSeatsForm onSeatsSwapped={onSeatsSwapped} refreshTrigger={3} />);
     await waitFor(() => expect(fetchBookings).toHaveBeenCalledTimes(2));
 
-    fireEvent.click(screen.getByTestId('booking1SelectSwap-force-1'));
-    fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
+    await selectBookingsAndSwap();
 
     await waitFor(() => {
       expect(screen.getByText('Failed to swap seats: swap blocked')).toBeInTheDocument();

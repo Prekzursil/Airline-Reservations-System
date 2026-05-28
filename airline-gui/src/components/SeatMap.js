@@ -14,6 +14,28 @@ const bookingSelectStyles = {
     }),
 };
 
+// Shared prop-type fragments. The seat shape and the seat-handler prop set are
+// referenced by SeatRow, SeatGrid, and SeatMap; defining them once avoids
+// duplicating the nested PropTypes definitions across those components.
+const seatShape = PropTypes.shape({
+    seatId: PropTypes.string.isRequired,
+    seatClass: PropTypes.string.isRequired,
+    price: PropTypes.number.isRequired,
+    isBooked: PropTypes.bool.isRequired,
+    bookedByCustomerId: PropTypes.string,
+    bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+});
+const seatHandlerPropTypes = {
+    getSeatButtonStyle: PropTypes.func.isRequired,
+    getSeatStyle: PropTypes.func.isRequired,
+    handleSeatClick: PropTypes.func.isRequired,
+    keepSeatBooking: PropTypes.func.isRequired,
+    onConfirmCancellation: PropTypes.func.isRequired,
+    pendingCancellationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    requestSeatCancellation: PropTypes.func.isRequired,
+    selectedSeatId: PropTypes.string,
+};
+
 /**
  * Returns the booking request payload or a user-facing validation status.
  *
@@ -200,22 +222,8 @@ function SeatRow({
 }
 
 SeatRow.propTypes = {
-    getSeatButtonStyle: PropTypes.func.isRequired,
-    getSeatStyle: PropTypes.func.isRequired,
-    handleSeatClick: PropTypes.func.isRequired,
-    keepSeatBooking: PropTypes.func.isRequired,
-    onConfirmCancellation: PropTypes.func.isRequired,
-    pendingCancellationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    requestSeatCancellation: PropTypes.func.isRequired,
-    row: PropTypes.arrayOf(PropTypes.shape({
-        seatId: PropTypes.string.isRequired,
-        seatClass: PropTypes.string.isRequired,
-        price: PropTypes.number.isRequired,
-        isBooked: PropTypes.bool.isRequired,
-        bookedByCustomerId: PropTypes.string,
-        bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    }).isRequired).isRequired,
-    selectedSeatId: PropTypes.string,
+    ...seatHandlerPropTypes,
+    row: PropTypes.arrayOf(seatShape.isRequired).isRequired,
 };
 
 /**
@@ -246,22 +254,8 @@ function SeatGrid({ getSeatButtonStyle, getSeatStyle, handleSeatClick, keepSeatB
 }
 
 SeatGrid.propTypes = {
-    getSeatButtonStyle: PropTypes.func.isRequired,
-    getSeatStyle: PropTypes.func.isRequired,
-    handleSeatClick: PropTypes.func.isRequired,
-    keepSeatBooking: PropTypes.func.isRequired,
-    onConfirmCancellation: PropTypes.func.isRequired,
-    pendingCancellationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    requestSeatCancellation: PropTypes.func.isRequired,
-    rows: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.shape({
-        seatId: PropTypes.string.isRequired,
-        seatClass: PropTypes.string.isRequired,
-        price: PropTypes.number.isRequired,
-        isBooked: PropTypes.bool.isRequired,
-        bookedByCustomerId: PropTypes.string,
-        bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    }).isRequired)).isRequired,
-    selectedSeatId: PropTypes.string,
+    ...seatHandlerPropTypes,
+    rows: PropTypes.arrayOf(PropTypes.arrayOf(seatShape.isRequired)).isRequired,
 };
 
 /**
@@ -540,14 +534,7 @@ const SeatMap = ({ seats, flightNumber, onBookingSuccess = null }) => {
 };
 
 SeatMap.propTypes = {
-    seats: PropTypes.arrayOf(PropTypes.shape({
-        seatId: PropTypes.string.isRequired,
-        seatClass: PropTypes.string.isRequired,
-        price: PropTypes.number.isRequired,
-        isBooked: PropTypes.bool.isRequired,
-        bookedByCustomerId: PropTypes.string,
-        bookingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    })).isRequired,
+    seats: PropTypes.arrayOf(seatShape).isRequired,
     flightNumber: PropTypes.string.isRequired,
     onBookingSuccess: PropTypes.func,
 };

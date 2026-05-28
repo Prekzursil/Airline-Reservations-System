@@ -3,6 +3,26 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { swapSeats, fetchBookings } from '../services/apiService';
 
+// Shared prop-type fragments for the booking selector inputs. Defining the
+// option and selected-value shapes once keeps BookingSelectField and
+// SwapBookingField in sync without duplicating the nested PropTypes.shape calls.
+const bookingOptionShape = PropTypes.shape({
+    value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    label: PropTypes.string.isRequired,
+});
+const bookingValueShape = PropTypes.shape({
+    value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    label: PropTypes.string,
+});
+const sharedSelectorPropTypes = {
+    disabled: PropTypes.bool.isRequired,
+    inputId: PropTypes.string.isRequired,
+    onChange: PropTypes.func.isRequired,
+    options: PropTypes.arrayOf(bookingOptionShape.isRequired).isRequired,
+    placeholder: PropTypes.string.isRequired,
+    value: bookingValueShape,
+};
+
 /**
  * Renders a booking selector field.
  *
@@ -24,20 +44,7 @@ function BookingSelectField({ disabled, inputId, onChange, options, placeholder,
     );
 }
 
-BookingSelectField.propTypes = {
-    disabled: PropTypes.bool.isRequired,
-    inputId: PropTypes.string.isRequired,
-    onChange: PropTypes.func.isRequired,
-    options: PropTypes.arrayOf(PropTypes.shape({
-        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-        label: PropTypes.string.isRequired,
-    }).isRequired).isRequired,
-    placeholder: PropTypes.string.isRequired,
-    value: PropTypes.shape({
-        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-        label: PropTypes.string,
-    }),
-};
+BookingSelectField.propTypes = { ...sharedSelectorPropTypes };
 
 /**
  * Renders one labeled booking selector row in the swap form.
@@ -62,20 +69,69 @@ function SwapBookingField({ disabled, inputId, label, onChange, options, placeho
 }
 
 SwapBookingField.propTypes = {
-    disabled: PropTypes.bool.isRequired,
-    inputId: PropTypes.string.isRequired,
+    ...sharedSelectorPropTypes,
     label: PropTypes.string.isRequired,
-    onChange: PropTypes.func.isRequired,
-    options: PropTypes.arrayOf(PropTypes.shape({
-        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-        label: PropTypes.string.isRequired,
-    }).isRequired).isRequired,
-    placeholder: PropTypes.string.isRequired,
-    value: PropTypes.shape({
-        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-        label: PropTypes.string,
-    }),
 };
+
+/**
+ * Builds the confirmed-booking options shown in the swap selectors.
+ *
+ * @param {Array<object>} bookings All bookings returned by the API.
+ * @returns {Array<{value: (number|string), label: string}>} Selector options.
+ */
+const buildBookingOptions = (bookings) => bookings
+    .filter((booking) => booking.status === 'Confirmed')
+    .map((booking) => ({
+        value: booking.bookingId,
+        label: `ID: ${booking.bookingId} (Cust: ${booking.customerId}, Flight: ${booking.flightNumber}, Seat: ${booking.seatId})`,
+    }));
+
+/**
+ * Validates a pair of selected bookings before requesting a swap.
+ *
+ * @param {?object} booking1 The first selected booking option.
+ * @param {?object} booking2 The second selected booking option.
+ * @returns {string} A validation message, or an empty string when valid.
+ */
+const validateSwapSelection = (booking1, booking2) => {
+    if (!booking1?.value || !booking2?.value) {
+        return 'Please select both bookings.';
+    }
+    if (booking1.value === booking2.value) {
+        return 'Booking IDs must be different.';
+    }
+    return '';
+};
+
+/**
+ * Returns the options for one selector, excluding the other booking's value.
+ *
+ * @param {Array<object>} options All confirmed-booking options.
+ * @param {?object} otherBooking The booking chosen in the sibling selector.
+ * @returns {Array<object>} Options without the sibling selection.
+ */
+const optionsExcluding = (options, otherBooking) =>
+    options.filter((opt) => opt.value !== otherBooking?.value);
+
+/**
+ * Computes the swap form's derived display state from its inputs.
+ *
+ * @param {object} state Current form state flags and selections.
+ * @returns {{formIsDisabled: boolean, showEmptyState: boolean, submitDisabled: boolean}}
+ *   Flags controlling the form's enabled/empty/submit presentation.
+ */
+const deriveFormState = ({
+    loadingBookings,
+    errorLoadingBookings,
+    bookingsCount,
+    optionsCount,
+    booking1,
+    booking2,
+}) => ({
+    formIsDisabled: loadingBookings || optionsCount === 0,
+    showEmptyState: !loadingBookings && !errorLoadingBookings && bookingsCount === 0,
+    submitDisabled: loadingBookings || !booking1 || !booking2,
+});
 
 /**
  * Renders the seat-swap form for two confirmed bookings.
@@ -115,27 +171,7 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
         loadBookings();
     }, [refreshTrigger]);
 
-    const bookingOptions = allBookings
-        .filter((booking) => booking.status === 'Confirmed')
-        .map((booking) => ({
-            value: booking.bookingId,
-            label: `ID: ${booking.bookingId} (Cust: ${booking.customerId}, Flight: ${booking.flightNumber}, Seat: ${booking.seatId})`,
-        }));
-
-    /**
-     * Validates the current booking selections before submitting the swap request.
-     *
-     * @returns {string} A validation message when the form is incomplete, otherwise an empty string.
-     */
-    const validationMessage = () => {
-        if (!selectedBooking1?.value || !selectedBooking2?.value) {
-            return 'Please select both bookings.';
-        }
-        if (selectedBooking1.value === selectedBooking2.value) {
-            return 'Booking IDs must be different.';
-        }
-        return '';
-    };
+    const bookingOptions = buildBookingOptions(allBookings);
 
     /**
      * Submits the seat swap request for the selected bookings.
@@ -145,7 +181,7 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
      */
     const handleSubmit = async (event) => {
         event.preventDefault();
-        const message = validationMessage();
+        const message = validateSwapSelection(selectedBooking1, selectedBooking2);
         if (message) {
             setStatusMessage(message);
             return;
@@ -164,17 +200,21 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
         }
     };
 
-    const formIsDisabled = loadingBookings || bookingOptions.length === 0;
-    const emptyStateMessage = !loadingBookings && !errorLoadingBookings && allBookings.length === 0
-        ? <p>No confirmed bookings available to swap.</p>
-        : null;
+    const { formIsDisabled, showEmptyState, submitDisabled } = deriveFormState({
+        loadingBookings,
+        errorLoadingBookings,
+        bookingsCount: allBookings.length,
+        optionsCount: bookingOptions.length,
+        booking1: selectedBooking1,
+        booking2: selectedBooking2,
+    });
 
     return (
         <div>
             <h3>Swap Seats Between Two Bookings</h3>
             {loadingBookings && <p aria-live="polite">Loading bookings...</p>}
             {errorLoadingBookings && <p aria-live="polite" style={{ color: 'red' }}>{errorLoadingBookings}</p>}
-            {emptyStateMessage}
+            {showEmptyState && <p>No confirmed bookings available to swap.</p>}
 
             <form onSubmit={handleSubmit} style={{ opacity: formIsDisabled ? 0.5 : 1 }}>
                 <SwapBookingField
@@ -182,7 +222,7 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
                     inputId="booking1SelectSwap"
                     label="Select First Booking:"
                     onChange={setSelectedBooking1}
-                    options={bookingOptions.filter((opt) => opt.value !== selectedBooking2?.value)}
+                    options={optionsExcluding(bookingOptions, selectedBooking2)}
                     placeholder="Select Booking 1..."
                     value={selectedBooking1}
                 />
@@ -191,11 +231,11 @@ const SwapSeatsForm = ({ onSeatsSwapped = null, refreshTrigger }) => {
                     inputId="booking2SelectSwap"
                     label="Select Second Booking:"
                     onChange={setSelectedBooking2}
-                    options={bookingOptions.filter((opt) => opt.value !== selectedBooking1?.value)}
+                    options={optionsExcluding(bookingOptions, selectedBooking1)}
                     placeholder="Select Booking 2..."
                     value={selectedBooking2}
                 />
-                <button type="submit" style={{ marginTop: '10px' }} disabled={loadingBookings || !selectedBooking1 || !selectedBooking2}>
+                <button type="submit" style={{ marginTop: '10px' }} disabled={submitDisabled}>
                     Swap Selected Seats
                 </button>
             </form>
