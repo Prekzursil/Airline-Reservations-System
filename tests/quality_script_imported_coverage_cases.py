@@ -16,6 +16,7 @@ from unittest import TestCase, mock
 from scripts import security_helpers as helpers
 from scripts.quality import check_codacy_zero as codacy
 from scripts.quality import check_quality_secrets as quality_secrets
+from scripts.quality import gate_report
 from scripts.quality import github_contexts
 from scripts.quality import required_checks_support
 
@@ -245,7 +246,7 @@ class QualitySecretsAndCodacyTests(TestCase):
                 "token",
             ]
             with mock.patch.object(
-                codacy,
+                gate_report,
                 "quality_artifact_paths",
                 return_value=(out_json, out_md),
             ), mock.patch.object(

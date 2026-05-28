@@ -52,6 +52,41 @@ public:
         return booking;
     }
 
+    // Holds the booking IDs produced by setupTwoConfirmedBookings so swap
+    // tests can reference each leg without repeating the two-customer setup.
+    struct ConfirmedBookingPair {
+        std::string first_booking_id;
+        std::string second_booking_id;
+    };
+
+    // Creates two customers, each with a confirmed booking on the same flight,
+    // and returns their booking IDs. Shared by the swap-flow tests that only
+    // differ by the seat identifiers they reserve.
+    ConfirmedBookingPair setupTwoConfirmedBookings(
+        const std::string& flight_number,
+        const std::string& first_seat_id,
+        const std::string& second_seat_id) {
+        Customer* cust1 = addCustomer("First", 30, 500.0, false);
+        Customer* cust2 = addCustomer("Second", 31, 500.0, false);
+        EXPECT_NE(cust1, nullptr);
+        EXPECT_NE(cust2, nullptr);
+        ConfirmedBookingPair pair;
+        if (cust1 == nullptr || cust2 == nullptr) {
+            return pair;
+        }
+        Booking* booking1 = createConfirmedBooking(cust1->getPersonId(), flight_number, first_seat_id);
+        Booking* booking2 = createConfirmedBooking(cust2->getPersonId(), flight_number, second_seat_id);
+        EXPECT_NE(booking1, nullptr);
+        EXPECT_NE(booking2, nullptr);
+        if (booking1 != nullptr) {
+            pair.first_booking_id = booking1->getBookingId();
+        }
+        if (booking2 != nullptr) {
+            pair.second_booking_id = booking2->getBookingId();
+        }
+        return pair;
+    }
+
     Booking* findBooking(const std::string& booking_id) {
         Booking* booking = rs.findBookingById(booking_id);
         if (booking == nullptr) {

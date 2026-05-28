@@ -13,6 +13,7 @@ from unittest import TestCase, mock
 from scripts import security_helpers as helpers
 from scripts.quality import check_deepscan_zero as deepscan
 from scripts.quality import check_required_checks as required_checks
+from scripts.quality import gate_report
 
 REPO = "owner/repo"
 SHA = "a1b2c3d"
@@ -290,7 +291,7 @@ class DeepScanAndRequiredChecksTests(TestCase):
             out_md = temp_path / "deepscan.md"
             with (
                 mock.patch.object(
-                    deepscan,
+                    gate_report,
                     "quality_artifact_paths",
                     return_value=(out_json, out_md),
                 ),

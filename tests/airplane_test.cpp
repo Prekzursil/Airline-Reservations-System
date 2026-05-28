@@ -5,6 +5,7 @@
 
 #include "../src/Airplane.h"
 #include "../src/Customer.h"
+#include "stdout_capture.h"
 
 using enum SeatClass;
 
@@ -229,27 +230,19 @@ TEST_F(AirplaneTest, DisplayAvailableSeatsWhenFull) {
     planeSmall().bookSpecificSeat("2B");
     ASSERT_TRUE(planeSmall().isFull());
 
-    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
-    std::ostringstream captured;
-    std::cout.rdbuf(captured.rdbuf());
-
-    planeSmall().displayAvailableSeats();
-
-    std::cout.rdbuf(oldCoutStreamBuf);
-    EXPECT_NE(captured.str().find("No seats available."), std::string::npos);
+    const std::string captured = test_support::captureStdout([&]() {
+        planeSmall().displayAvailableSeats();
+    });
+    EXPECT_NE(captured.find("No seats available."), std::string::npos);
 }
 
 TEST_F(AirplaneTest, DisplaySeatingMapShowsBookedSeatsAsX) {
     ASSERT_TRUE(planeSmall().bookSpecificSeat("1A"));
 
-    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
-    std::ostringstream captured;
-    std::cout.rdbuf(captured.rdbuf());
-
-    planeSmall().displaySeatingMap();
-
-    std::cout.rdbuf(oldCoutStreamBuf);
-    EXPECT_NE(captured.str().find("X "), std::string::npos);
+    const std::string captured = test_support::captureStdout([&]() {
+        planeSmall().displaySeatingMap();
+    });
+    EXPECT_NE(captured.find("X "), std::string::npos);
 }
 
 TEST_F(AirplaneTest, SuggestLowerPriceSeatsNullCustomer) {
@@ -268,28 +261,20 @@ TEST_F(AirplaneTest, SuggestLowerPriceSeatsReturnsEmptyWhenNoSeatMatchesBudget) 
 TEST_F(AirplaneTest, DisplaySeatingMapHandlesSparseSeatStorage) {
     AirplaneTestAccess::truncateSeats(planeSmall(), 1);
 
-    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
-    std::ostringstream captured;
-    std::cout.rdbuf(captured.rdbuf());
-
-    planeSmall().displaySeatingMap();
-
-    std::cout.rdbuf(oldCoutStreamBuf);
-    EXPECT_NE(captured.str().find("Legend: X=Booked, B=Available Business, E=Available Economy"), std::string::npos);
-    EXPECT_NE(captured.str().find("\n2  "), std::string::npos);
+    const std::string captured = test_support::captureStdout([&]() {
+        planeSmall().displaySeatingMap();
+    });
+    EXPECT_NE(captured.find("Legend: X=Booked, B=Available Business, E=Available Economy"), std::string::npos);
+    EXPECT_NE(captured.find("\n2  "), std::string::npos);
 }
 
 TEST_F(AirplaneTest, DisplayAllSeatDetailsReportsWhenSeatStorageIsEmpty) {
     AirplaneTestAccess::clearSeats(planeSmall());
 
-    std::streambuf* oldCoutStreamBuf = std::cout.rdbuf();
-    std::ostringstream captured;
-    std::cout.rdbuf(captured.rdbuf());
-
-    planeSmall().displayAllSeatDetails();
-
-    std::cout.rdbuf(oldCoutStreamBuf);
-    EXPECT_NE(captured.str().find("No seats configured for this airplane."), std::string::npos);
+    const std::string captured = test_support::captureStdout([&]() {
+        planeSmall().displayAllSeatDetails();
+    });
+    EXPECT_NE(captured.find("No seats configured for this airplane."), std::string::npos);
 }
 
 TEST_F(AirplaneTest, SuggestLowerPriceSeatsSortsCustomSeatPricesAscending) {

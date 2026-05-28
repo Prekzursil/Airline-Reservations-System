@@ -12,6 +12,7 @@ from unittest import TestCase, main, mock
 
 from scripts import security_helpers as helpers
 from scripts.quality import check_sonar_zero as sonar
+from scripts.quality import gate_report
 
 
 SONAR_PROJECT_KEY = "Prekzursil_Airline-Reservations-System"
@@ -34,21 +35,26 @@ def _sonar_args(**overrides):
 class SonarScriptTests(TestCase):
     """Exercise the hosted Sonar zero-check helper script."""
 
+    @staticmethod
+    def _patch_clean_sonar_fetches(stack: ExitStack) -> None:
+        """Patch the three Sonar fetch helpers to report a clean project."""
+        stack.enter_context(
+            mock.patch.object(sonar, "_fetch_open_issues", return_value=0)
+        )
+        stack.enter_context(
+            mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0)
+        )
+        stack.enter_context(
+            mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK")
+        )
+
     def _assert_pull_request_scoped_run(self, args: Namespace) -> None:
         """Assert the Sonar polling helper passes for a settled PR analysis."""
         with ExitStack() as stack:
             stack.enter_context(
                 mock.patch.object(sonar, "_fetch_pr_analysis_sha", return_value="want")
             )
-            stack.enter_context(
-                mock.patch.object(sonar, "_fetch_open_issues", return_value=0)
-            )
-            stack.enter_context(
-                mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0)
-            )
-            stack.enter_context(
-                mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK")
-            )
+            self._patch_clean_sonar_fetches(stack)
             stack.enter_context(
                 mock.patch.object(sonar.time, "time", side_effect=[0, 0])
             )
@@ -62,6 +68,33 @@ class SonarScriptTests(TestCase):
             ("pass", 0, 0, "OK", []),
         )
 
+    @staticmethod
+    def _run_sonar_main(stack: ExitStack, out_json: Path, out_md: Path, **check) -> int:
+        """Patch the artifact paths, check helper, argv, and env, then run main().
+
+        ``check`` is forwarded to the ``_run_sonar_check`` patch as either
+        ``return_value=`` or ``side_effect=``.
+        """
+        stack.enter_context(
+            mock.patch.object(
+                gate_report,
+                "quality_artifact_paths",
+                return_value=(out_json, out_md),
+            )
+        )
+        stack.enter_context(mock.patch.object(sonar, "_run_sonar_check", **check))
+        stack.enter_context(
+            mock.patch.object(
+                sys,
+                "argv",
+                ["check_sonar_zero.py", "--project-key", SONAR_PROJECT_KEY],
+            )
+        )
+        stack.enter_context(
+            mock.patch.dict(os.environ, {"SONAR_TOKEN": "token"}, clear=True)
+        )
+        return sonar.main()
+
     def _assert_main_writes_passing_artifacts(
         self,
         *,
@@ -70,31 +103,15 @@ class SonarScriptTests(TestCase):
     ) -> None:
         """Assert the CLI entrypoint writes pass artifacts for a clean check."""
         with ExitStack() as stack:
-            stack.enter_context(
-                mock.patch.object(
-                    sonar,
-                    "quality_artifact_paths",
-                    return_value=(out_json, out_md),
-                )
-            )
-            stack.enter_context(
-                mock.patch.object(
-                    sonar,
-                    "_run_sonar_check",
+            self.assertEqual(
+                self._run_sonar_main(
+                    stack,
+                    out_json,
+                    out_md,
                     return_value=("pass", 0, 0, "OK", []),
-                )
+                ),
+                0,
             )
-            stack.enter_context(
-                mock.patch.object(
-                    sys,
-                    "argv",
-                    ["check_sonar_zero.py", "--project-key", SONAR_PROJECT_KEY],
-                )
-            )
-            stack.enter_context(
-                mock.patch.dict(os.environ, {"SONAR_TOKEN": "token"}, clear=True)
-            )
-            self.assertEqual(sonar.main(), 0)
 
         self.assertIn(
             "Unresolved security hotspots: `0`",
@@ -145,15 +162,7 @@ class SonarScriptTests(TestCase):
                     side_effect=["old", "want"],
                 )
             )
-            stack.enter_context(
-                mock.patch.object(sonar, "_fetch_open_issues", return_value=0)
-            )
-            stack.enter_context(
-                mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0)
-            )
-            stack.enter_context(
-                mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK")
-            )
+            self._patch_clean_sonar_fetches(stack)
             stack.enter_context(
                 mock.patch.object(sonar.time, "time", side_effect=[0, 0, 0, 0])
             )
@@ -270,31 +279,15 @@ class SonarScriptTests(TestCase):
             out_json = Path(temp_path / "sonar.json")
             out_md = Path(temp_path / "sonar.md")
             with ExitStack() as stack:
-                stack.enter_context(
-                    mock.patch.object(
-                        sonar,
-                        "quality_artifact_paths",
-                        return_value=(out_json, out_md),
-                    )
-                )
-                stack.enter_context(
-                    mock.patch.object(
-                        sonar,
-                        "_run_sonar_check",
+                self.assertEqual(
+                    self._run_sonar_main(
+                        stack,
+                        out_json,
+                        out_md,
                         side_effect=RuntimeError("boom"),
-                    )
+                    ),
+                    1,
                 )
-                stack.enter_context(
-                    mock.patch.object(
-                        sys,
-                        "argv",
-                        ["check_sonar_zero.py", "--project-key", SONAR_PROJECT_KEY],
-                    )
-                )
-                stack.enter_context(
-                    mock.patch.dict(os.environ, {"SONAR_TOKEN": "token"}, clear=True)
-                )
-                self.assertEqual(sonar.main(), 1)
             self.assertIn(
                 "Sonar API request failed",
                 out_md.read_text(encoding="utf-8"),

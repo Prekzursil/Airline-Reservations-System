@@ -12,6 +12,7 @@ from typing import Iterator, List
 from unittest import TestCase, mock
 
 from scripts.quality import assert_coverage_100 as airline_coverage_gate
+from scripts.quality import gate_report
 
 
 def _write_text_file(path: Path, payload: str) -> None:
@@ -70,7 +71,7 @@ def _patched_gate_paths(
         if out_json is not None and out_md is not None:
             stack.enter_context(
                 mock.patch.object(
-                    airline_coverage_gate,
+                    gate_report,
                     "quality_artifact_paths",
                     return_value=(out_json, out_md),
                 )
@@ -217,6 +218,24 @@ class AirlineCoverageGateTests(TestCase):
                 out_md=out_md,
                 argv=["assert_coverage_100.py", "--require-cpp"],
             )
+        self._assert_main_passes_with_components(
+            node_lcov=node_lcov,
+            cpp_lcov=cpp_lcov,
+            out_json=out_json,
+            out_md=out_md,
+            expected_components=["node"],
+        )
+
+    def _assert_main_passes_with_components(
+        self,
+        *,
+        node_lcov: Path,
+        cpp_lcov: Path,
+        out_json: Path,
+        out_md: Path,
+        expected_components: List[str],
+    ) -> None:
+        """Run the default gate and assert the persisted component names."""
         self.assertEqual(
             self._run_coverage_gate_main(
                 node_lcov=node_lcov,
@@ -230,7 +249,7 @@ class AirlineCoverageGateTests(TestCase):
         payload = json.loads(_read_text_file(out_json))
         self.assertEqual(
             [component["name"] for component in payload["components"]],
-            ["node"],
+            expected_components,
         )
 
     def test_main_writes_artifacts_and_require_cpp_guard(self) -> None:
@@ -292,18 +311,10 @@ class AirlineCoverageGateTests(TestCase):
             out_md = temp_path / "coverage.md"
             _write_text_file(node_lcov, "LF:1\nLH:1\n")
             _write_text_file(cpp_lcov, "LF:2\nLH:2\n")
-            self.assertEqual(
-                self._run_coverage_gate_main(
-                    node_lcov=node_lcov,
-                    cpp_lcov=cpp_lcov,
-                    out_json=out_json,
-                    out_md=out_md,
-                    argv=["assert_coverage_100.py"],
-                ),
-                0,
-            )
-            payload = json.loads(_read_text_file(out_json))
-            self.assertEqual(
-                [component["name"] for component in payload["components"]],
-                ["node", "cpp"],
+            self._assert_main_passes_with_components(
+                node_lcov=node_lcov,
+                cpp_lcov=cpp_lcov,
+                out_json=out_json,
+                out_md=out_md,
+                expected_components=["node", "cpp"],
             )

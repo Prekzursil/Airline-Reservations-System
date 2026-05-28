@@ -251,16 +251,10 @@ TEST_F(ReservationSystemTest, HandleSwapSeatsNotEnoughBookings) {
 }
 
 TEST_F(ReservationSystemTest, HandleSwapSeatsRejectsUnconfirmedFirstBooking) {
-    Customer* cust1 = addCustomer("First", 30, 500.0, false);
-    Customer* cust2 = addCustomer("Second", 31, 500.0, false);
-    ASSERT_NE(cust1, nullptr);
-    ASSERT_NE(cust2, nullptr);
-
-    Booking* booking1 = createConfirmedBooking(cust1->getPersonId(), "FL101", "8A");
-    ASSERT_NE(booking1, nullptr);
-    const std::string first_booking_id = booking1->getBookingId();
-    Booking* booking2 = createConfirmedBooking(cust2->getPersonId(), "FL101", "8B");
-    ASSERT_NE(booking2, nullptr);
+    const ConfirmedBookingPair bookings = setupTwoConfirmedBookings("FL101", "8A", "8B");
+    const std::string first_booking_id = bookings.first_booking_id;
+    ASSERT_FALSE(first_booking_id.empty());
+    ASSERT_FALSE(bookings.second_booking_id.empty());
 
     std::string cancel_error;
     ASSERT_TRUE(rs.cancelBookingInternal(first_booking_id, cancel_error));
@@ -274,17 +268,11 @@ TEST_F(ReservationSystemTest, HandleSwapSeatsRejectsUnconfirmedFirstBooking) {
 }
 
 TEST_F(ReservationSystemTest, HandleSwapSeatsRejectsUnconfirmedSecondBooking) {
-    Customer* cust1 = addCustomer("First", 30, 500.0, false);
-    Customer* cust2 = addCustomer("Second", 31, 500.0, false);
-    ASSERT_NE(cust1, nullptr);
-    ASSERT_NE(cust2, nullptr);
-
-    Booking* booking1 = createConfirmedBooking(cust1->getPersonId(), "FL101", "8C");
-    ASSERT_NE(booking1, nullptr);
-    const std::string first_booking_id = booking1->getBookingId();
-    Booking* booking2 = createConfirmedBooking(cust2->getPersonId(), "FL101", "8D");
-    ASSERT_NE(booking2, nullptr);
-    const std::string second_booking_id = booking2->getBookingId();
+    const ConfirmedBookingPair bookings = setupTwoConfirmedBookings("FL101", "8C", "8D");
+    const std::string first_booking_id = bookings.first_booking_id;
+    const std::string second_booking_id = bookings.second_booking_id;
+    ASSERT_FALSE(first_booking_id.empty());
+    ASSERT_FALSE(second_booking_id.empty());
 
     std::string cancel_error;
     ASSERT_TRUE(rs.cancelBookingInternal(second_booking_id, cancel_error));

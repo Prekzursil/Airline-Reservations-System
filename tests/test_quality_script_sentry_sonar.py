@@ -14,6 +14,7 @@ from unittest import TestCase, main, mock
 
 from scripts import security_helpers as helpers
 from scripts.quality import check_sentry_zero as sentry
+from scripts.quality import gate_report
 from scripts.quality import sentry_support
 from scripts.quality import sentry_targets
 
@@ -207,6 +208,10 @@ class SentryAndSonarScriptTests(TestCase):
         self.assertEqual(results[1]["status"], "not_found")
         self.assertIn("request failed", findings[-1])
 
+        self._assert_unresolved_project_finding(config)
+
+    def _assert_unresolved_project_finding(self, config: object) -> None:
+        """Assert evaluate_projects reports the open-issue count and finding."""
         with mock.patch.object(
             sentry_support,
             "select_project_payload",
@@ -224,19 +229,7 @@ class SentryAndSonarScriptTests(TestCase):
     def test_sentry_run_check_records_unresolved_issue_findings(self) -> None:
         """Fail the run when evaluated projects still report open issues."""
         config = _sentry_config()
-        with mock.patch.object(
-            sentry_support,
-            "select_project_payload",
-            return_value=("proj", [{"id": 1}], {"x-hits": "2"}, None),
-        ):
-            project_results, findings = sentry_support.evaluate_projects(
-                "org",
-                ["proj"],
-                "token",
-                config,
-            )
-        self.assertEqual(project_results[0]["unresolved"], 2)
-        self.assertIn("expected 0", findings[0])
+        self._assert_unresolved_project_finding(config)
 
         sentry_token = _join_parts("tok", "en")
         args = Namespace(org="org", project=["proj"], token=sentry_token)
@@ -375,7 +368,7 @@ class SentryAndSonarScriptTests(TestCase):
             out_md = Path(temp_path / "sentry.md")
             with (
                 mock.patch.object(
-                    sentry,
+                    gate_report,
                     "quality_artifact_paths",
                     return_value=(out_json, out_md),
                 ),

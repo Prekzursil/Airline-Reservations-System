@@ -259,16 +259,18 @@ class SecurityValidationSupportTests(TestCase):
 class SecurityHTTPAndHelpersTests(TestCase):
     """Cover HTTP wrapper behavior used by the quality scripts."""
 
-    def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(
+    def _send_through_fake_connection(
         self,
-    ) -> None:
-        """Build request payloads with normalized headers and JSON bodies."""
-        response = _FakeHTTPResponse(
-            status=200,
-            reason="OK",
-            body='{"ok": true}',
-            headers={"X-Hits": "7"},
-        )
+        *,
+        response: _FakeHTTPResponse,
+        options: "helpers.HTTPSRequestOptions",
+    ) -> tuple:
+        """Send a request through a fake connection and return the captured state.
+
+        Returns ``(payload, connection, request_args)`` where ``request_args`` is
+        the ``(method, path, body, headers)`` tuple recorded by the fake
+        connection (defaulted when no request was captured).
+        """
         connection_box: Dict[str, _FakeHTTPSConnection] = {}
 
         def _connection_factory(host: str, timeout: int) -> _FakeHTTPSConnection:
@@ -287,24 +289,35 @@ class SecurityHTTPAndHelpersTests(TestCase):
                     host="api.github.com",
                     path="/repos/owner/repo",
                 ),
-                options=helpers.HTTPSRequestOptions(
-                    method="post",
-                    headers={"X-Test": "token"},
-                    timeout=15,
-                    body={"ok": True},
-                ),
+                options=options,
             )
 
         connection = connection_box["conn"]
         self.assertIsNotNone(connection.request_args)
         request_args = connection.request_args
         self.assertIsNotNone(request_args)
-        request_method, request_path, request_body, request_headers = request_args or (
-            "",
-            "",
-            b"",
-            {},
+        return payload, connection, request_args or ("", "", b"", {})
+
+    def test_request_https_payload_builds_safe_headers_and_handles_json_payloads(
+        self,
+    ) -> None:
+        """Build request payloads with normalized headers and JSON bodies."""
+        response = _FakeHTTPResponse(
+            status=200,
+            reason="OK",
+            body='{"ok": true}',
+            headers={"X-Hits": "7"},
         )
+        payload, connection, request_args = self._send_through_fake_connection(
+            response=response,
+            options=helpers.HTTPSRequestOptions(
+                method="post",
+                headers={"X-Test": "token"},
+                timeout=15,
+                body={"ok": True},
+            ),
+        )
+        request_method, request_path, request_body, request_headers = request_args
         self.assertEqual(request_method, "POST")
         self.assertEqual(request_path, "/repos/owner/repo")
         self.assertEqual(request_body, b'{"ok": true}')
@@ -423,42 +436,16 @@ class SecurityHTTPAndHelpersTests(TestCase):
             body='{"ok": true}',
             headers={},
         )
-        connection_box: Dict[str, _FakeHTTPSConnection] = {}
-
-        def _connection_factory(host: str, timeout: int) -> _FakeHTTPSConnection:
-            """Capture the test connection used by the patched factory."""
-            connection = _FakeHTTPSConnection(host, timeout, response=response)
-            connection_box["conn"] = connection
-            return connection
-
-        with mock.patch.object(
-            http_support,
-            "_https_connection",
-            return_value=_connection_factory,
-        ):
-            payload = http_support._request_https_payload(
-                target=helpers.HTTPSRequestTarget(
-                    host="api.github.com",
-                    path="/repos/owner/repo",
-                ),
-                options=helpers.HTTPSRequestOptions(
-                    method="GET",
-                    headers=None,
-                    timeout=15,
-                    body=None,
-                ),
-            )
-
-        connection = connection_box["conn"]
-        self.assertIsNotNone(connection.request_args)
-        request_args = connection.request_args
-        self.assertIsNotNone(request_args)
-        request_method, request_path, request_body, request_headers = request_args or (
-            "",
-            "",
-            b"",
-            {},
+        payload, connection, request_args = self._send_through_fake_connection(
+            response=response,
+            options=helpers.HTTPSRequestOptions(
+                method="GET",
+                headers=None,
+                timeout=15,
+                body=None,
+            ),
         )
+        request_method, request_path, request_body, request_headers = request_args
         self.assertEqual(request_method, "GET")
         self.assertEqual(request_path, "/repos/owner/repo")
         self.assertIsNone(request_body)
