@@ -53,3 +53,4 @@ Thumbs.db
 *.mp4
 *.mov
 *.avi
+.venv-pytest/
