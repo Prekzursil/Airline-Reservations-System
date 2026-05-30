@@ -43,3 +43,10 @@ component_management:
 bundle_analysis:
   warning_threshold: "0%"
   status: informational
+
+ignore:
+  - ".guardrails.yml"
+  - ".guardrails.yaml"
+  - ".deepsource.toml"
+  - ".qlty/**"
+  - ".github/dependabot.yml"
