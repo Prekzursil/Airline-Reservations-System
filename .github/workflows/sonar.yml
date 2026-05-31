@@ -27,6 +27,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "22"
+
       - name: Install test deps and run with coverage
         shell: bash
         run: |
@@ -41,6 +46,26 @@ jobs:
           pytest -q tests/ --cov=scripts --cov-branch \
             --cov-report=xml:coverage/python/coverage.xml \
             --cov-fail-under=0 || true
+
+      - name: Install JS deps and run vitest with coverage
+        shell: bash
+        working-directory: airline-gui
+        # The PR changes mostly touch airline-gui/src/components/*.js (React
+        # files). Without this step the SonarCloud Quality Gate fails the
+        # ``new_coverage`` condition (threshold 80%) at 0.0% because
+        # ``sonar-project.properties`` declares ``sonar.javascript.lcov.
+        # reportPaths=airline-gui/coverage/lcov.info`` but no JS coverage
+        # report was being produced — Sonar fell back to "uncovered by
+        # tests" for every new line of JS. The Python pytest step above
+        # only emits Python coverage, which scopes ``new_coverage`` to
+        # exclude every JS line touched by the PR.
+        run: |
+          npm ci --no-audit --no-fund
+          # The package "test" script wraps vitest and injects the right
+          # coverage include/exclude globs when --coverage is passed.
+          npm test -- --coverage --coverage.reporter=lcov \
+            --coverage.reportsDirectory=coverage || true
+          ls -la coverage || true
 
       - name: SonarCloud Scan
         # The 40-hex value after @ is the SonarSource sonarqube-scan-action's
