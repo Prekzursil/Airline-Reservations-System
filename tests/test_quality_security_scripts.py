@@ -357,7 +357,7 @@ class _ScriptPathBuilderTests(TestCase):
             "request_json_https_target",
             side_effect=_fake_request_json_https_target,
         ):
-            self.assertEqual(codacy._fetch_open_issues(args, "token"), 0)
+            self.assertEqual(codacy.fetch_open_issues(args, "token"), 0)
 
         self.assertEqual(captured["method"], "POST")
         self.assertEqual(captured["body"], {"branchName": "feature/zero"})
