@@ -25,8 +25,8 @@ def _load_quality_modules():
     from scripts.quality import check_deepscan_zero as deepscan
     from scripts.quality import check_quality_secrets as quality_secrets
     from scripts.quality import check_required_checks as required_checks
-    from scripts.quality import check_sonar_zero as sonar
     from scripts.quality import check_sentry_zero as sentry
+    from scripts.quality import check_sonar_zero as sonar
 
     return (
         helpers,
@@ -84,7 +84,8 @@ class _SecurityHelpersValidationTests(TestCase):
         with self.assertRaises(ValueError):
             helpers.require_allowed_https_host("127.0.0.1")
 
-    def test_require_https_path_rejects_non_relative_or_unsafe_paths(self) -> None:
+    def test_require_https_path_rejects_non_relative_or_unsafe_paths(
+            self) -> None:
         """Reject unsafe or absolute paths when constructing HTTPS requests."""
         with self.assertRaises(ValueError):
             helpers.require_https_path("https://api.github.com/repos/x/y")
@@ -100,7 +101,8 @@ class _SecurityHelpersValidationTests(TestCase):
         path = "/repos/org/repo/commits/abc1234?per_page=100"
         self.assertEqual(helpers.require_https_path(path), path)
 
-    def test_fixed_output_paths_rejects_filename_or_directory_traversal(self) -> None:
+    def test_fixed_output_paths_rejects_filename_or_directory_traversal(
+            self) -> None:
         """Reject output paths that escape the expected artifact directories."""
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
@@ -128,15 +130,15 @@ class _SecurityHelpersValidationTests(TestCase):
                 os.chdir(previous)
 
     def test_build_https_request_target_uses_allowlisted_host_and_path(
-        self,
-    ) -> None:
+        self, ) -> None:
         """Build safe HTTPS targets only from allowlisted hosts and relative paths."""
         target = helpers.build_https_request_target(
             host=helpers.HTTPSHost.GITHUB_API,
             path="/repos/owner/repo/commits/a1b2c3d/status",
         )
         self.assertEqual(target.host, "api.github.com")
-        self.assertEqual(target.path, "/repos/owner/repo/commits/a1b2c3d/status")
+        self.assertEqual(target.path,
+                         "/repos/owner/repo/commits/a1b2c3d/status")
 
         with self.assertRaises(ValueError):
             helpers.build_https_request_target(
@@ -192,8 +194,7 @@ class _SecurityHelpersValidationTests(TestCase):
             os.chdir(temp_dir)
             try:
                 out_json, out_md = helpers.quality_artifact_paths(
-                    helpers.QualityArtifact.CODACY_ZERO
-                )
+                    helpers.QualityArtifact.CODACY_ZERO)
                 self.assertTrue(out_json.parent.is_dir())
                 self.assertEqual(out_json.name, "codacy.json")
                 self.assertEqual(out_md.name, "codacy.md")
@@ -201,7 +202,8 @@ class _SecurityHelpersValidationTests(TestCase):
             finally:
                 os.chdir(previous)
 
-    def test_security_helper_wrappers_delegate_to_validation_and_http_layers(self) -> None:
+    def test_security_helper_wrappers_delegate_to_validation_and_http_layers(
+        self, ) -> None:
         """Cover the thin helper wrappers that proxy the shared validation modules."""
         self.assertEqual(
             helpers._require_identifier(
@@ -230,9 +232,12 @@ class _SecurityHelpersValidationTests(TestCase):
             ),
             "https://api.github.com/path?x=1",
         )
-        self.assertEqual(helpers.require_repo_slug("Owner/Repo"), ("Owner", "Repo"))
-        self.assertEqual(helpers.require_repo_segment("Owner", label="owner"), "Owner")
-        self.assertEqual(helpers.require_slug("branch-1", label="branch"), "branch-1")
+        self.assertEqual(helpers.require_repo_slug("Owner/Repo"),
+                         ("Owner", "Repo"))
+        self.assertEqual(helpers.require_repo_segment("Owner", label="owner"),
+                         "Owner")
+        self.assertEqual(helpers.require_slug("branch-1", label="branch"),
+                         "branch-1")
         self.assertEqual(helpers.require_sha("a1b2c3d"), "a1b2c3d")
         self.assertEqual(helpers.quote_segment("owner/repo"), "owner%2Frepo")
         self.assertEqual(
@@ -247,7 +252,10 @@ class _SecurityHelpersValidationTests(TestCase):
         self.assertEqual(helpers._safe_timeout_seconds("5"), 5)
         self.assertEqual(
             helpers._merge_safe_headers(None, include_json_content_type=True),
-            {"Accept": "application/json", "Content-Type": "application/json"},
+            {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
         )
         self.assertEqual(
             validation_support.require_identifier(
@@ -265,52 +273,70 @@ class _SecurityHelpersValidationTests(TestCase):
             validation_support._validate_output_directory("nested//path"),
             Path("nested/path"),
         )
-        self.assertIs(http_support.https_connection(), http.client.HTTPSConnection)
+        self.assertIs(http_support.https_connection(),
+                      http.client.HTTPSConnection)
 
-        with mock.patch.object(http_support, "request_json_https", return_value={"ok": True}):
+        with mock.patch.object(http_support,
+                               "request_json_https",
+                               return_value={"ok": True}):
             self.assertEqual(
-                helpers.request_json_https(host="api.github.com", path="/repos/owner/repo"),
+                helpers.request_json_https(host="api.github.com",
+                                           path="/repos/owner/repo"),
                 {"ok": True},
             )
         with mock.patch.object(
-            http_support,
-            "request_json_https_target",
-            return_value={"ok": True},
+                http_support,
+                "request_json_https_target",
+                return_value={"ok": True},
         ):
             self.assertEqual(
                 helpers.request_json_https_target(
                     target=helpers.HTTPSRequestTarget(
                         host="api.github.com",
                         path="/repos/owner/repo",
-                    )
-                ),
+                    )),
                 {"ok": True},
             )
         with mock.patch.object(
-            http_support,
-            "request_json_list_https",
-            return_value=([{"ok": True}], {"x-hits": "1"}),
+                http_support,
+                "request_json_list_https",
+                return_value=([{
+                    "ok": True
+                }], {
+                    "x-hits": "1"
+                }),
         ):
             self.assertEqual(
                 helpers.request_json_list_https(
                     host="api.github.com",
                     path="/repos/owner/repo",
                 ),
-                ([{"ok": True}], {"x-hits": "1"}),
+                ([{
+                    "ok": True
+                }], {
+                    "x-hits": "1"
+                }),
             )
         with mock.patch.object(
-            http_support,
-            "request_json_list_https_target",
-            return_value=([{"ok": True}], {"x-hits": "1"}),
+                http_support,
+                "request_json_list_https_target",
+                return_value=([{
+                    "ok": True
+                }], {
+                    "x-hits": "1"
+                }),
         ):
             self.assertEqual(
                 helpers.request_json_list_https_target(
                     target=helpers.HTTPSRequestTarget(
                         host="api.github.com",
                         path="/repos/owner/repo",
-                    )
-                ),
-                ([{"ok": True}], {"x-hits": "1"}),
+                    )),
+                ([{
+                    "ok": True
+                }], {
+                    "x-hits": "1"
+                }),
             )
         self.assertEqual(helpers.basic_auth_header("token"), "Basic dG9rZW46")
 
@@ -325,7 +351,8 @@ class _ScriptPathBuilderTests(TestCase):
             "/analysis/organizations/github/Owner_1/repositories/Repo-1/issues/search",
             path,
         )
-        target = codacy._build_issue_search_target("github", "Owner_1", "Repo-1")
+        target = codacy._build_issue_search_target("github", "Owner_1",
+                                                   "Repo-1")
         self.assertEqual(target.host, helpers.HTTPSHost.CODACY_API.value)
         self.assertEqual(target.path, path)
 
@@ -353,9 +380,9 @@ class _ScriptPathBuilderTests(TestCase):
             return {"total": 0}
 
         with mock.patch.object(
-            codacy,
-            "request_json_https_target",
-            side_effect=_fake_request_json_https_target,
+                codacy,
+                "request_json_https_target",
+                side_effect=_fake_request_json_https_target,
         ):
             self.assertEqual(codacy.fetch_open_issues(args, "token"), 0)
 
@@ -366,8 +393,7 @@ class _ScriptPathBuilderTests(TestCase):
         """Reject unsafe Sentry project slugs while allowing valid ones."""
         path = sentry._build_project_issues_path("org-name", "project_name")
         self.assertTrue(
-            path.startswith("/api/0/projects/org-name/project_name/issues/?")
-        )
+            path.startswith("/api/0/projects/org-name/project_name/issues/?"))
 
         with self.assertRaises(ValueError):
             sentry._build_project_issues_path("org-name", "../project")
@@ -376,8 +402,10 @@ class _ScriptPathBuilderTests(TestCase):
 
     def test_github_quality_scripts_build_path_not_full_url(self) -> None:
         """Keep GitHub quality helpers on relative API paths instead of full URLs."""
-        deepscan_path = deepscan._build_commit_api_path("owner/repo", "a1b2c3d")
-        checks_path = required_checks._build_commit_api_path("owner/repo", "a1b2c3d")
+        deepscan_path = deepscan._build_commit_api_path(
+            "owner/repo", "a1b2c3d")
+        checks_path = required_checks._build_commit_api_path(
+            "owner/repo", "a1b2c3d")
 
         self.assertEqual(deepscan_path, "/repos/owner/repo/commits/a1b2c3d")
         self.assertEqual(checks_path, "/repos/owner/repo/commits/a1b2c3d")
@@ -392,8 +420,10 @@ class _ScriptPathBuilderTests(TestCase):
             "a1b2c3d",
             "/status",
         )
-        self.assertEqual(deepscan_target.host, helpers.HTTPSHost.GITHUB_API.value)
-        self.assertEqual(required_target.host, helpers.HTTPSHost.GITHUB_API.value)
+        self.assertEqual(deepscan_target.host,
+                         helpers.HTTPSHost.GITHUB_API.value)
+        self.assertEqual(required_target.host,
+                         helpers.HTTPSHost.GITHUB_API.value)
         expected_path = "/repos/owner/repo/commits/a1b2c3d/status"
         self.assertEqual(deepscan_target.path, expected_path)
         self.assertEqual(required_target.path, expected_path)
@@ -401,7 +431,8 @@ class _ScriptPathBuilderTests(TestCase):
         with self.assertRaises(ValueError):
             deepscan._build_commit_api_path("owner/repo", "bad sha")
         with self.assertRaises(ValueError):
-            required_checks._build_commit_api_path("owner/repo/extra", "a1b2c3d")
+            required_checks._build_commit_api_path("owner/repo/extra",
+                                                   "a1b2c3d")
 
 
 class _QualitySecretsScriptTests(TestCase):
@@ -410,13 +441,13 @@ class _QualitySecretsScriptTests(TestCase):
     def test_quality_secrets_summary_uses_counts_only(self) -> None:
         """Expose only missing-count summaries for quality secret checks."""
         with mock.patch.dict(
-            os.environ,
+                os.environ,
             {
                 "SONAR_TOKEN": _configured_value("sonar"),
                 "CODECOV_TOKEN": _configured_value("codecov"),
                 "SENTRY_ORG": "example-org",
             },
-            clear=True,
+                clear=True,
         ):
             summary = quality_secrets.evaluate_env_counts(
                 ["SONAR_TOKEN", "CODECOV_TOKEN", "SNYK_TOKEN"],
@@ -432,7 +463,8 @@ class _QualitySecretsScriptTests(TestCase):
             },
         )
 
-    def test_quality_secrets_artifacts_exclude_present_secret_metadata(self) -> None:
+    def test_quality_secrets_artifacts_exclude_present_secret_metadata(
+            self) -> None:
         """Omit present-secret metadata from written quality-secrets artifacts."""
         with tempfile.TemporaryDirectory() as temp_dir:
             previous = Path.cwd()
@@ -444,26 +476,29 @@ class _QualitySecretsScriptTests(TestCase):
                     "SENTRY_ORG": "example-org",
                     "SENTRY_PROJECT": "example-project",
                 }
-                with mock.patch.dict(
-                    os.environ,
-                    env_updates,
-                    clear=True,
-                ), mock.patch.object(
-                    sys,
-                    "argv",
-                    ["check_quality_secrets.py"],
+                with (
+                        mock.patch.dict(
+                            os.environ,
+                            env_updates,
+                            clear=True,
+                        ),
+                        mock.patch.object(
+                            sys,
+                            "argv",
+                            ["check_quality_secrets.py"],
+                        ),
                 ):
                     exit_code = quality_secrets.main()
 
                 out_json, out_md = helpers.quality_artifact_paths(
-                    helpers.QualityArtifact.QUALITY_SECRETS
-                )
+                    helpers.QualityArtifact.QUALITY_SECRETS)
                 payload_text = out_json.read_text(encoding="utf-8")
                 payload = json.loads(payload_text)
                 markdown = out_md.read_text(encoding="utf-8")
 
                 self.assertEqual(exit_code, 1)
-                self.assertEqual(payload["artifact"], "quality-secrets-preflight")
+                self.assertEqual(payload["artifact"],
+                                 "quality-secrets-preflight")
                 self.assertTrue(payload["details_omitted"])
                 self.assertNotIn("status", payload)
                 self.assertNotIn("missing_secrets", payload)
@@ -481,10 +516,8 @@ class _QualitySecretsScriptTests(TestCase):
                     markdown,
                 )
                 self.assertIn(
-                    (
-                        "Use the process exit code and GitHub check result "
-                        "for pass/fail state."
-                    ),
+                    ("Use the process exit code and GitHub check result "
+                     "for pass/fail state."),
                     markdown,
                 )
                 self.assertNotIn(_configured_value("sonar"), markdown)
@@ -546,29 +579,31 @@ class _SonarZeroScriptTests(TestCase):
                     "--token",
                     "placeholder-token",
                 ]
-                with mock.patch.object(
-                    sys,
-                    "argv",
-                    argv,
-                ), mock.patch.object(
-                    sonar,
-                    "_run_sonar_check",
-                    return_value=(
-                        "fail",
-                        0,
-                        3,
-                        "OK",
-                        [
-                            "Sonar reports 3 unresolved security hotspots "
-                            "(expected 0)."
-                        ],
-                    ),
+                with (
+                        mock.patch.object(
+                            sys,
+                            "argv",
+                            argv,
+                        ),
+                        mock.patch.object(
+                            sonar,
+                            "_run_sonar_check",
+                            return_value=(
+                                "fail",
+                                0,
+                                3,
+                                "OK",
+                                [
+                                    "Sonar reports 3 unresolved security hotspots "
+                                    "(expected 0)."
+                                ],
+                            ),
+                        ),
                 ):
                     exit_code = sonar.main()
 
                 out_json, out_md = helpers.quality_artifact_paths(
-                    helpers.QualityArtifact.SONAR_ZERO
-                )
+                    helpers.QualityArtifact.SONAR_ZERO)
                 payload = json.loads(out_json.read_text(encoding="utf-8"))
                 markdown = out_md.read_text(encoding="utf-8")
 
