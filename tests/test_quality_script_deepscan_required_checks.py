@@ -18,7 +18,11 @@ REPO = "owner/repo"
 SHA = "a1b2c3d"
 TEST_AUTH_VALUE = os.environ.get("PYTEST_FIXTURE_AUTH", "pytest-fixture-auth-value")
 DEEPSCAN_ARGV = [
-    "check_deepscan_zero.py", "--repo", REPO, "--sha", SHA,
+    "check_deepscan_zero.py",
+    "--repo",
+    REPO,
+    "--sha",
+    SHA,
 ]
 REQUIRED_CONTEXT = "Codecov Analytics"
 REQUIRED_CHECKS_ARGV = [
@@ -126,7 +130,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
         }
         with (
             mock.patch.object(deepscan, "_api_get", return_value={}),
-            mock.patch.object(deepscan, "collect_contexts", return_value=pending_context),
+            mock.patch.object(
+                deepscan, "collect_contexts", return_value=pending_context
+            ),
             mock.patch.object(deepscan, "_poll_or_timeout", return_value=False),
         ):
             status, findings, observed = deepscan._run_deepscan_check(args, "token")
@@ -143,7 +149,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
         }
         with (
             mock.patch.object(deepscan, "_api_get", return_value={}),
-            mock.patch.object(deepscan, "collect_contexts", return_value=success_context),
+            mock.patch.object(
+                deepscan, "collect_contexts", return_value=success_context
+            ),
         ):
             status, findings, observed = deepscan._run_deepscan_check(args, "token")
         self.assertEqual(
@@ -269,7 +277,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
         }
         with (
             mock.patch.object(deepscan, "_api_get", return_value={}),
-            mock.patch.object(deepscan, "collect_contexts", return_value=failing_context),
+            mock.patch.object(
+                deepscan, "collect_contexts", return_value=failing_context
+            ),
         ):
             status, findings, observed = deepscan._run_deepscan_check(args, "token")
         self.assertEqual((status, observed), ("fail", failing_context["DeepScan"]))
@@ -304,7 +314,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
                     ),
                 ),
                 mock.patch.object(sys, "argv", DEEPSCAN_ARGV),
-                mock.patch.dict(os.environ, {"GITHUB_TOKEN": TEST_AUTH_VALUE}, clear=True),
+                mock.patch.dict(
+                    os.environ, {"GITHUB_TOKEN": TEST_AUTH_VALUE}, clear=True
+                ),
             ):
                 self.assertEqual(deepscan.main(), 1)
             payload = json.loads(out_json.read_text(encoding="utf-8"))
@@ -338,7 +350,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
         args = _required_checks_args()
         required = [REQUIRED_CONTEXT]
         with (
-            mock.patch.object(required_checks, "_fetch_check_payloads", return_value=({}, {})),
+            mock.patch.object(
+                required_checks, "_fetch_check_payloads", return_value=({}, {})
+            ),
             mock.patch.object(
                 required_checks,
                 "collect_contexts",
@@ -358,9 +372,13 @@ class DeepScanAndRequiredChecksTests(TestCase):
         args = _required_checks_args()
         required = [REQUIRED_CONTEXT]
         with (
-            mock.patch.object(required_checks, "_fetch_check_payloads", return_value=({}, {})),
+            mock.patch.object(
+                required_checks, "_fetch_check_payloads", return_value=({}, {})
+            ),
             mock.patch.object(required_checks, "collect_contexts", return_value={}),
-            mock.patch.object(required_checks, "has_check_runs_in_progress", return_value=False),
+            mock.patch.object(
+                required_checks, "has_check_runs_in_progress", return_value=False
+            ),
             mock.patch.object(required_checks.time, "time", side_effect=[0, 0, 2]),
             mock.patch.object(required_checks.time, "sleep") as sleep_mock,
         ):
@@ -376,7 +394,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
             out_json = temp_path / "required.json"
             out_md = temp_path / "required.md"
             with (
-                mock.patch.dict(os.environ, {"GITHUB_TOKEN": TEST_AUTH_VALUE}, clear=True),
+                mock.patch.dict(
+                    os.environ, {"GITHUB_TOKEN": TEST_AUTH_VALUE}, clear=True
+                ),
                 mock.patch.object(
                     required_checks,
                     "quality_artifact_paths",
@@ -469,7 +489,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
         """_collect_payload surfaces a failing context without sleeping."""
         failing_args = _required_checks_args()
         with (
-            mock.patch.object(required_checks, "_fetch_check_payloads", return_value=({}, {})),
+            mock.patch.object(
+                required_checks, "_fetch_check_payloads", return_value=({}, {})
+            ),
             mock.patch.object(
                 required_checks,
                 "collect_contexts",
@@ -480,7 +502,9 @@ class DeepScanAndRequiredChecksTests(TestCase):
                     }
                 },
             ),
-            mock.patch.object(required_checks, "has_check_runs_in_progress", return_value=False),
+            mock.patch.object(
+                required_checks, "has_check_runs_in_progress", return_value=False
+            ),
             mock.patch.object(required_checks.time, "sleep") as sleep_mock,
         ):
             payload = required_checks._collect_payload(
@@ -514,8 +538,10 @@ class DeepScanAndRequiredChecksTests(TestCase):
                 "argv",
                 [
                     "check_required_checks.py",
-                    "--repo", REPO,
-                    "--sha", SHA,
+                    "--repo",
+                    REPO,
+                    "--sha",
+                    SHA,
                 ],
             ),
         ):
@@ -526,6 +552,3 @@ class DeepScanAndRequiredChecksTests(TestCase):
             mock.patch.dict(os.environ, {}, clear=True),
         ):
             required_checks.main()
-
-
-

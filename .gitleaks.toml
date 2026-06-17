@@ -1,0 +1,39 @@
+# gitleaks configuration for the lean secrets gate (pinned tool: gitleaks 8.30.1).
+# Runs via pre-commit (gate 1+5) over the working tree and must report 0.
+# Extends the upstream default ruleset; only path/match allowlists for vendored
+# deps, build output, and reasoned non-secret fixtures are added here.
+title = "airline-reservations-system lean secrets gate"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored deps, build output, and reasoned non-secret matches."
+
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)airline-gui/node_modules/''',
+  '''(^|/)build/''',
+  '''(^|/)dist/''',
+  '''(^|/)out/''',
+  '''(^|/)\.git/''',
+  '''.*\.egg-info/''',
+  '''(^|/)package-lock\.json$''',
+  '''.*\.pdf$''',
+  '''.*\.png$''',
+  # Vendored third-party C++ libs (not our source). The only historical
+  # gitleaks hit in this repo was a `Sec-WebSocket-Key:` WebSocket protocol
+  # header constant inside a vendored crow/cpp-httplib benchmark header
+  # (third_party/cpp-httplib-temp/..., removed from the current tree) — a
+  # protocol constant, not a credential.
+  '''(^|/)third_party/''',
+]
+
+# Reasoned regex allowlist (NOT real secrets):
+#   - The SonarQube/SonarCloud action is pinned to a 40-hex git commit SHA which
+#     shares the same shape as a SonarQube API key; the workflow already carries
+#     a `# nosemgrep` note for the analogous Semgrep rule. Git commit SHAs are
+#     public refs, not credentials.
+regexes = [
+  '''SonarSource/sonarqube-scan-action@[0-9a-f]{40}''',
+]

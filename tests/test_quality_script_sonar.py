@@ -109,9 +109,15 @@ class SonarScriptTests(TestCase):
         non_pr_args = _sonar_args(pull_request="", expected_pr_sha="")
         self.assertIsNone(sonar._wait_for_pr_sha(non_pr_args, "auth", "project"))
         with ExitStack() as stack:
-            stack.enter_context(mock.patch.object(sonar, "_fetch_open_issues", return_value=0))
-            stack.enter_context(mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0))
-            stack.enter_context(mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK"))
+            stack.enter_context(
+                mock.patch.object(sonar, "_fetch_open_issues", return_value=0)
+            )
+            stack.enter_context(
+                mock.patch.object(sonar, "_fetch_unresolved_hotspots", return_value=0)
+            )
+            stack.enter_context(
+                mock.patch.object(sonar, "_fetch_quality_gate", return_value="OK")
+            )
             self.assertEqual(
                 sonar._run_sonar_check(non_pr_args, "token")[0],
                 "pass",
@@ -216,7 +222,9 @@ class SonarScriptTests(TestCase):
             )
             payload = sonar._request_sonar_payload("auth", "/api/test")
             self.assertEqual(payload["paging"]["total"], 1)
-            self.assertEqual(sonar._fetch_open_issues("auth", {"componentKeys": "proj"}), 1)
+            self.assertEqual(
+                sonar._fetch_open_issues("auth", {"componentKeys": "proj"}), 1
+            )
             self.assertEqual(
                 sonar._fetch_unresolved_hotspots("auth", {"projectKey": "proj"}),
                 1,

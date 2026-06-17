@@ -71,9 +71,7 @@ def _combined_coverage(stats: List[CoverageStats]) -> Tuple[int, int, float]:
     combined_total = sum(item.total for item in stats)
     combined_covered = sum(item.covered for item in stats)
     combined_percent = (
-        100.0
-        if combined_total <= 0
-        else (combined_covered / combined_total) * 100.0
+        100.0 if combined_total <= 0 else (combined_covered / combined_total) * 100.0
     )
     return combined_covered, combined_total, combined_percent
 

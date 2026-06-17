@@ -131,8 +131,10 @@ def _needs_trailing_record_flush(
     synthesize_totals: bool,
 ) -> bool:
     """Return whether the final unterminated record still needs synthesized totals."""
-    return synthesize_totals and record.active and (
-        record.total > 0 or record.saw_lf or record.saw_lh
+    return (
+        synthesize_totals
+        and record.active
+        and (record.total > 0 or record.saw_lf or record.saw_lh)
     )
 
 

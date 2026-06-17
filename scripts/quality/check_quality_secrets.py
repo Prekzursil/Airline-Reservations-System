@@ -98,9 +98,7 @@ def evaluate_env_counts(
     missing_var_count = sum(1 for name in required_vars if not _is_configured(name))
     return {
         "status": (
-            "pass"
-            if missing_secret_count == 0 and missing_var_count == 0
-            else "fail"
+            "pass" if missing_secret_count == 0 and missing_var_count == 0 else "fail"
         ),
         "missing_secret_count": missing_secret_count,
         "missing_var_count": missing_var_count,

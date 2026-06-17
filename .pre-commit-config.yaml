@@ -1,0 +1,66 @@
+# Lean quality gates — local auto-fixers + fast checks (charter 2026-06-16).
+# `pre-commit run --all-files` is the gate-1 (lint+format+imports) and gate-5
+# (secrets) entrypoint invoked by the shared reusable-quality.yml workflow.
+# Every rev is pinned. This is ADDITIVE: it does not replace the repo's existing
+# SaaS quality workflows, which still run until the migration runbook removes
+# them. Scoped to the trees each fixer owns:
+#   - Python (scripts/, tests/*.py) -> ruff   (config in pyproject.toml)
+#   - JS/JSX (airline-gui/src/**)    -> oxlint + biome-format
+#   - secrets (whole tree)           -> gitleaks (allowlist in .gitleaks.toml)
+# NOTE: the C/C++ tree (src/, tests/*.cpp|*.h) is intentionally NOT wired to a
+# clang-format hook in this PR — the existing sources are hand-formatted and a
+# tree-wide reformat would be a large, separate change that also interacts with
+# the content-based C++ coverage-exclusion matching. Deferred to a follow-up.
+minimum_pre_commit_version: "3.5.0"
+
+default_language_version:
+  python: python3
+
+exclude: |-
+  (?x)^(
+    node_modules/|
+    airline-gui/node_modules/|
+    airline-gui/dist/|
+    build/|
+    dist/|
+    out/|
+    \.venv/|
+    .*\.egg-info/|
+    .*\.pdf$|
+    .*\.png$
+  )
+
+repos:
+  # --- Gate 1: Python lint + format (ruff 0.15.17; config in pyproject.toml) ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.17
+    hooks:
+      - id: ruff
+        name: ruff (lint --fix)
+        args: ["--fix"]
+        files: '^(scripts/.*|tests/.*)\.py$'
+      - id: ruff-format
+        name: ruff (format)
+        files: '^(scripts/.*|tests/.*)\.py$'
+
+  # --- Gate 1: JS/TS lint (oxlint 1.69.0 mirror) ---
+  # NOTE: the JS/TS FORMAT autofixer (biome) is intentionally NOT wired in this
+  # PR — the existing GUI sources use single-quote/space style and a biome
+  # reformat would be a large, separate change (19 files). oxlint (correctness)
+  # is enforced now; biome-format is deferred to a follow-up, same as the C/C++
+  # clang-format lane.
+  - repo: https://github.com/oxc-project/mirrors-oxlint
+    rev: v1.69.0
+    hooks:
+      - id: oxlint
+        name: oxlint (airline-gui)
+        args: ["--fix", "--deny-warnings"]
+        files: '^airline-gui/src/.*\.(js|jsx|mjs|cjs)$'
+
+  # --- Gate 5: secrets (gitleaks 8.30.1) ---
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        name: gitleaks (secrets)
+        args: ["--config", ".gitleaks.toml"]

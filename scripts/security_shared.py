@@ -22,9 +22,7 @@ SAFE_OUTPUT_NAME_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "._-"
 )
 HEX_CHARS: FrozenSet[str] = frozenset(string.hexdigits)
-HOST_CHARS: FrozenSet[str] = frozenset(
-    string.ascii_lowercase + string.digits + ".-"
-)
+HOST_CHARS: FrozenSet[str] = frozenset(string.ascii_lowercase + string.digits + ".-")
 JSON_CONTENT_TYPE = "application/json"
 SAFE_HEADER_NAME_CHARS: FrozenSet[str] = frozenset(
     string.ascii_letters + string.digits + "-"

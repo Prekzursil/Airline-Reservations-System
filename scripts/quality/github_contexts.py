@@ -64,9 +64,7 @@ def collect_context_entries(
             continue
         state = item.get(spec.state_field)
         conclusion = (
-            state
-            if spec.conclusion_field is None
-            else item.get(spec.conclusion_field)
+            state if spec.conclusion_field is None else item.get(spec.conclusion_field)
         )
         contexts[name] = _build_context_entry(
             state=state,
@@ -81,15 +79,12 @@ def collect_contexts(
     status_payload: Dict[str, Any],
 ) -> Dict[str, Dict[str, str]]:
     """Merge check-run and status contexts into one map."""
-    check_runs = (
-        check_runs_payload.get("check_runs", []) or []
-    )
+    check_runs = check_runs_payload.get("check_runs", []) or []
     contexts = collect_context_entries(
-        check_runs, CHECK_RUN_SPEC,
+        check_runs,
+        CHECK_RUN_SPEC,
     )
-    statuses = (
-        status_payload.get("statuses", []) or []
-    )
+    statuses = status_payload.get("statuses", []) or []
     contexts.update(
         collect_context_entries(statuses, STATUS_SPEC),
     )

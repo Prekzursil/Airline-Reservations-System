@@ -192,8 +192,7 @@ def main() -> int:
     """Run the required-checks gate and write result artifacts."""
     args = _parse_args()
     token = (
-        os.environ.get("GITHUB_TOKEN", "")
-        or os.environ.get("GH_TOKEN", "")
+        os.environ.get("GITHUB_TOKEN", "") or os.environ.get("GH_TOKEN", "")
     ).strip()
     required = [item.strip() for item in args.required_context if item.strip()]
 

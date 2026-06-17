@@ -1,0 +1,21 @@
+# osv-scanner configuration for the lean dependency gate (pinned tool: osv-scanner 2.3.8).
+# The gate runs `osv-scanner scan source --recursive .` and must report 0
+# actionable CVEs. Lockfile scanned: airline-gui/package-lock.json.
+#
+# POLICY: clean-zero is reached by UPGRADING where a safe fix exists; an
+# IgnoredVulns entry is allowed ONLY for a genuinely-unfixable vuln or one
+# provably unreachable in this product, each with a reason + dated note.
+# We do NOT use a baseline file.
+#
+# ---------------------------------------------------------------------------
+# 2026-06-17 SECURITY UPGRADE — the 8 npm CVEs osv reported at lean-gate
+# adoption (vite, vitest, @babel/core, brace-expansion, esbuild, ws — all dev
+# deps) were RETIRED by performing the upgrades, not by ignoring them:
+#   - vite 7.3.2 -> 7.3.5, vitest 3.2.4 -> 3.2.6, @vitest/coverage-v8 -> 3.2.6
+#     (direct devDependency bumps)
+#   - @babel/core -> ^7.29.6, brace-expansion -> ^5.0.6, esbuild -> ^0.28.1,
+#     ws -> ^8.21.0 (transitive, forced via package.json "overrides")
+# osv-scanner now reports 0 issues with NO ignores, so this file intentionally
+# carries no IgnoredVulns. Add a dated, reasoned entry here only for a future
+# vuln that is genuinely unfixable or provably unreachable.
+# ---------------------------------------------------------------------------

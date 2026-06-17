@@ -3,7 +3,7 @@
 from __future__ import absolute_import, annotations, division
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, Tuple
@@ -38,15 +38,10 @@ class LcovState:
 
     total: int = 0
     covered: int = 0
-    record_lines: Dict[int, int] | None = None
+    record_lines: Dict[int, int] = field(default_factory=dict)
     fallback_total: int = 0
     fallback_covered: int = 0
     source_lines: Tuple[str, ...] | None = None
-
-    def __post_init__(self) -> None:
-        """Ensure the per-record line map is always initialized."""
-        if self.record_lines is None:
-            self.record_lines = {}
 
 
 REPO_SOURCE_LINES = {
@@ -92,9 +87,7 @@ def _process_lcov_line(state: LcovState, line: str) -> None:
 def _flush_lcov_record(state: LcovState) -> None:
     """Flush the current LCOV record into the aggregate running totals."""
     if not (
-        (state.record_lines or {})
-        or state.fallback_total
-        or state.fallback_covered
+        (state.record_lines or {}) or state.fallback_total or state.fallback_covered
     ):
         return
     if state.record_lines:
@@ -158,9 +151,9 @@ def _lookup_repo_source_lines(raw_path_text: str) -> Tuple[str, ...] | None:
     normalized = raw_path_text.replace("\\", "/")
     repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
     if normalized.startswith(repo_prefix):
-        normalized = normalized[len(repo_prefix):]
+        normalized = normalized[len(repo_prefix) :]
     if normalized.startswith("repo/"):
-        normalized = normalized[len("repo/"):]
+        normalized = normalized[len("repo/") :]
     while normalized.startswith("./"):
         normalized = normalized[2:]
     relative_path = PurePosixPath(normalized)
@@ -199,9 +192,7 @@ def parse_istanbul_summary(name: str, path: Path) -> CoverageStats:
     total = _safe_int(lines.get("total"))
     if total <= 0:
         statements = (
-            total_node.get("statements", {})
-            if isinstance(total_node, dict)
-            else {}
+            total_node.get("statements", {}) if isinstance(total_node, dict) else {}
         )
         covered = _safe_int(statements.get("covered"))
         total = _safe_int(statements.get("total"))
@@ -227,9 +218,7 @@ def parse_istanbul_final(name: str, path: Path) -> CoverageStats:
         if not isinstance(statements, dict):
             continue
         total += len(statements)
-        covered += sum(
-            1 for count in statements.values() if _safe_int(count) > 0
-        )
+        covered += sum(1 for count in statements.values() if _safe_int(count) > 0)
     return CoverageStats(
         name=name,
         path=str(path),

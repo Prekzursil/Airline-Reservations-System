@@ -1,0 +1,56 @@
+# Curated C/C++ security rules (subset of p/c + p/r2c-security-audit).
+# opengrep/semgrep compatible. See README.md.
+rules:
+  - id: cpp-system-call
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      system() invokes a shell and is prone to command injection with dynamic
+      input. Use execve/posix_spawn with an explicit argument vector instead.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+    patterns:
+      - pattern: system($CMD)
+      - pattern-not: system("...")
+
+  - id: cpp-gets-use
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      gets() cannot bound its input and always risks a buffer overflow. Use
+      fgets() / std::getline with an explicit size.
+    metadata:
+      category: security
+      cwe: "CWE-242: Use of Inherently Dangerous Function"
+    patterns:
+      - pattern: gets(...)
+
+  - id: cpp-sprintf-unbounded
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      sprintf/strcpy/strcat write without a destination bound and can overflow.
+      Use snprintf / strlcpy / std::string instead.
+    metadata:
+      category: security
+      cwe: "CWE-120: Buffer Copy without Checking Size of Input"
+    patterns:
+      - pattern-either:
+          - pattern: sprintf(...)
+          - pattern: strcpy($DST, $SRC)
+          - pattern: strcat($DST, $SRC)
+
+  - id: cpp-tmpnam-mktemp
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      tmpnam/mktemp create predictable temp names and are racy (TOCTOU). Use
+      mkstemp() instead.
+    metadata:
+      category: security
+      cwe: "CWE-377: Insecure Temporary File"
+    patterns:
+      - pattern-either:
+          - pattern: tmpnam(...)
+          - pattern: mktemp(...)

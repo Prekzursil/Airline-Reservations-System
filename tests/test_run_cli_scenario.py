@@ -78,12 +78,9 @@ def _resolve_binary(binary_dir: Path) -> Path:
     for candidate in _binary_candidates(resolved_binary_dir):
         if candidate.is_file():
             return candidate
-    searched = ", ".join(
-        str(c) for c in _binary_candidates(resolved_binary_dir)
-    )
+    searched = ", ".join(str(c) for c in _binary_candidates(resolved_binary_dir))
     raise ValueError(
-        "unable to locate allowlisted airline CLI "
-        f"binary. Searched: {searched}"
+        f"unable to locate allowlisted airline CLI binary. Searched: {searched}"
     )
 
 

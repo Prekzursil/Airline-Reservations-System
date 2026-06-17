@@ -16,9 +16,7 @@ MODULE_SPEC = importlib.util.spec_from_file_location(
     MODULE_PATH,
 )
 if MODULE_SPEC is None or MODULE_SPEC.loader is None:  # pragma: no cover - import guard
-    raise RuntimeError(
-        f"Unable to load test helper module from {MODULE_PATH}"
-    )
+    raise RuntimeError(f"Unable to load test helper module from {MODULE_PATH}")
 run_cli_scenario = importlib.util.module_from_spec(MODULE_SPEC)
 sys.modules[MODULE_SPEC.name] = run_cli_scenario
 MODULE_SPEC.loader.exec_module(run_cli_scenario)

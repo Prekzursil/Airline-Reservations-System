@@ -50,9 +50,7 @@ def _safe_timeout_seconds(timeout: int) -> int:
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid timeout: {timeout!r}") from exc
     if checked < 1 or checked > 300:
-        raise ValueError(
-            f"Timeout must be between 1 and 300 seconds: {timeout!r}"
-        )
+        raise ValueError(f"Timeout must be between 1 and 300 seconds: {timeout!r}")
     return checked
 
 
@@ -79,8 +77,7 @@ def _validate_header_value(value: Any, *, name: str) -> str:
     checked = str(value)
     if _contains_control_characters(checked):
         raise ValueError(
-            f"Invalid HTTP header value for {name}: control characters are "
-            "not allowed"
+            f"Invalid HTTP header value for {name}: control characters are not allowed"
         )
     return checked
 
@@ -145,9 +142,7 @@ def _request_https_payload(
         conn.request(safe_method, safe_path, body=payload, headers=final_headers)
         response = conn.getresponse()
         raw = response.read().decode("utf-8", errors="replace")
-        response_headers = {
-            str(k).lower(): str(v) for k, v in response.getheaders()
-        }
+        response_headers = {str(k).lower(): str(v) for k, v in response.getheaders()}
     finally:
         conn.close()
 
