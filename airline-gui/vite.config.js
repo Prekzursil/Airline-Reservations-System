@@ -1,35 +1,35 @@
 /** @file Vite configuration for the airline GUI application. */
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 /** @returns {import('vite').UserConfig} The Vite configuration. */
 export default defineConfig({
   plugins: [react()],
   esbuild: {
-    loader: "jsx",
+    loader: 'jsx',
     include: /src\/.*\.[jt]sx?$/,
-    exclude: []
+    exclude: [],
   },
   optimizeDeps: {
     esbuildOptions: {
       loader: {
-        ".js": "jsx"
-      }
-    }
+        '.js': 'jsx',
+      },
+    },
   },
   server: {
-    host: "0.0.0.0",
+    host: '0.0.0.0',
     port: 3000,
-    strictPort: true
+    strictPort: true,
   },
   preview: {
-    host: "0.0.0.0",
+    host: '0.0.0.0',
     port: 3000,
-    strictPort: true
+    strictPort: true,
   },
   test: {
-    environment: "jsdom",
+    environment: 'jsdom',
     globals: true,
-    setupFiles: "./src/setupTests.js"
-  }
+    setupFiles: './src/setupTests.js',
+  },
 });

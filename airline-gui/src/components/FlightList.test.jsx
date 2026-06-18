@@ -4,7 +4,7 @@ import { fetchAirplaneDetails, fetchAirplanes } from '../services/apiService';
 
 vi.mock('../services/apiService', () => ({
   fetchAirplanes: vi.fn(),
-  fetchAirplaneDetails: vi.fn()
+  fetchAirplaneDetails: vi.fn(),
 }));
 
 vi.mock('./SeatMap', () => ({
@@ -13,13 +13,15 @@ vi.mock('./SeatMap', () => ({
       <span>Mock SeatMap for {flightNumber}</span>
       <button onClick={() => onBookingSuccess?.(flightNumber)}>Mock SeatMap Booking Success</button>
     </div>
-  )
+  ),
 }));
 
 describe('FlightList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => { /* intentionally empty */ });
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      /* intentionally empty */
+    });
   });
 
   afterEach(() => {
@@ -29,7 +31,7 @@ describe('FlightList', () => {
   it('loads flights, renders details on select, and toggles details off on repeated click', async () => {
     fetchAirplanes.mockResolvedValue([
       { flightNumber: 'FL-100', capacity: 120, bookedSeatsCount: 10 },
-      { flightNumber: 'FL-200', capacity: 80, bookedSeatsCount: 5 }
+      { flightNumber: 'FL-200', capacity: 80, bookedSeatsCount: 5 },
     ]);
     fetchAirplaneDetails.mockResolvedValue({ seats: [{ seatId: '1A' }] });
 
@@ -42,13 +44,19 @@ describe('FlightList', () => {
     fireEvent.click(flightOneButton);
     expect(await screen.findByText('Details for Flight: FL-100')).toBeInTheDocument();
     expect(screen.getByText('Mock SeatMap for FL-100')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /FL-100/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /FL-100/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /FL-100/i }));
     await waitFor(() => {
       expect(screen.queryByText('Details for Flight: FL-100')).not.toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /FL-100/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /FL-100/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
   it('shows airplane-load error when fetchAirplanes fails', async () => {
@@ -57,18 +65,24 @@ describe('FlightList', () => {
     render(<FlightList />);
 
     expect(
-      await screen.findByText('Error: Failed to load airplanes. Ensure the C++ API server is running.')
+      await screen.findByText(
+        'Error: Failed to load airplanes. Ensure the C++ API server is running.',
+      ),
     ).toBeInTheDocument();
   });
 
   it('shows details-load error when fetching flight details fails', async () => {
-    fetchAirplanes.mockResolvedValue([{ flightNumber: 'FL-300', capacity: 90, bookedSeatsCount: 9 }]);
+    fetchAirplanes.mockResolvedValue([
+      { flightNumber: 'FL-300', capacity: 90, bookedSeatsCount: 9 },
+    ]);
     fetchAirplaneDetails.mockRejectedValue(new Error('details unavailable'));
 
     render(<FlightList />);
 
     fireEvent.click(await screen.findByRole('button', { name: /FL-300/i }));
-    expect(await screen.findByText('Error: Failed to load details for flight FL-300.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Error: Failed to load details for flight FL-300.'),
+    ).toBeInTheDocument();
   });
 
   it('executes booking refresh callbacks on success path', async () => {
@@ -110,6 +124,8 @@ describe('FlightList', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mock SeatMap Booking Success' }));
 
-    expect(await screen.findByText('Error: Failed to refresh airplane list after booking.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Error: Failed to refresh airplane list after booking.'),
+    ).toBeInTheDocument();
   });
 });

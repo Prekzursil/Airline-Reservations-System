@@ -6,7 +6,7 @@
  */
 function trimTrailingSlashes(value) {
   let normalizedValue = value;
-  while (normalizedValue.endsWith("/")) {
+  while (normalizedValue.endsWith('/')) {
     normalizedValue = normalizedValue.slice(0, -1);
   }
   return normalizedValue;
@@ -20,7 +20,7 @@ function trimTrailingSlashes(value) {
  */
 function trimLeadingCurrentDirectory(value) {
   let normalizedValue = value;
-  while (normalizedValue.startsWith("./")) {
+  while (normalizedValue.startsWith('./')) {
     normalizedValue = normalizedValue.slice(2);
   }
   return normalizedValue;
@@ -35,8 +35,8 @@ function trimLeadingCurrentDirectory(value) {
  * @returns {string} Normalized, prefixed path.
  */
 function prefixCoveragePath(filePath, prefix) {
-  const normalizedPrefix = trimTrailingSlashes(prefix.replaceAll("\\", "/"));
-  const normalizedPath = trimLeadingCurrentDirectory(filePath.replaceAll("\\", "/"));
+  const normalizedPrefix = trimTrailingSlashes(prefix.replaceAll('\\', '/'));
+  const normalizedPath = trimLeadingCurrentDirectory(filePath.replaceAll('\\', '/'));
 
   if (!normalizedPrefix) {
     return normalizedPath;
@@ -52,7 +52,7 @@ function prefixCoveragePath(filePath, prefix) {
     return normalizedPath.slice(embeddedPrefixIndex + 1);
   }
 
-  const sourceSegmentIndex = normalizedPath.lastIndexOf("/src/");
+  const sourceSegmentIndex = normalizedPath.lastIndexOf('/src/');
   if (sourceSegmentIndex >= 0) {
     return `${normalizedPrefix}${normalizedPath.slice(sourceSegmentIndex)}`;
   }

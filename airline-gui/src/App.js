@@ -48,7 +48,9 @@ function CustomerListSection({
               type="button"
               onClick={() => onCustomerSelect(cust.personId)}
               aria-pressed={selectedCustomerId === cust.personId}
-              aria-controls={selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined}
+              aria-controls={
+                selectedCustomerId === cust.personId ? 'customer-details-panel' : undefined
+              }
               style={customerButtonStyle}
             >
               {cust.name} (ID: {cust.personId})
@@ -64,7 +66,11 @@ function CustomerListSection({
       <button type="button" onClick={loadCustomers} style={{ marginRight: '10px' }}>
         {showCustomers ? 'Refresh Customer List' : 'Show Customer List'}
       </button>
-      {customerError && <p aria-live="polite" style={{ color: 'red' }}>{customerError}</p>}
+      {customerError && (
+        <p aria-live="polite" style={{ color: 'red' }}>
+          {customerError}
+        </p>
+      )}
       {customerList}
       {shouldShowEmptyState && <p>No customers found.</p>}
     </section>
@@ -73,10 +79,12 @@ function CustomerListSection({
 
 CustomerListSection.propTypes = {
   customerError: PropTypes.string.isRequired,
-  customers: PropTypes.arrayOf(PropTypes.shape({
-    personId: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-  }).isRequired).isRequired,
+  customers: PropTypes.arrayOf(
+    PropTypes.shape({
+      personId: PropTypes.string.isRequired,
+      name: PropTypes.string.isRequired,
+    }).isRequired,
+  ).isRequired,
   loadCustomers: PropTypes.func.isRequired,
   selectedCustomerId: PropTypes.string.isRequired,
   showCustomers: PropTypes.bool.isRequired,
@@ -121,7 +129,9 @@ function CustomerSearchSection({
         placeholder="Enter Customer ID"
         style={{ marginRight: '10px' }}
       />
-      <button type="button" onClick={onSearchCustomer}>Search Customer</button>
+      <button type="button" onClick={onSearchCustomer}>
+        Search Customer
+      </button>
       {customerDetailsPanel}
     </section>
   );
@@ -142,10 +152,13 @@ CustomerSearchSection.propTypes = {
  * @param {object} props Component props.
  * @returns {JSX.Element} The rendered booking section.
  */
-function BookingManagementSection({ bookingsRefreshKey, onSeatsSwapped, swapStatusMessage, triggerBookingsRefresh }) {
-  const swapStatus = swapStatusMessage
-    ? <p aria-live="polite">{swapStatusMessage}</p>
-    : null;
+function BookingManagementSection({
+  bookingsRefreshKey,
+  onSeatsSwapped,
+  swapStatusMessage,
+  triggerBookingsRefresh,
+}) {
+  const swapStatus = swapStatusMessage ? <p aria-live="polite">{swapStatusMessage}</p> : null;
 
   return (
     <div style={bookingPanelStyle}>
@@ -266,7 +279,7 @@ function App() {
       incrementBookingsRefreshKey();
     }
     setSwapStatusMessage(
-      'Seats swapped. Customer details and booking lists were refreshed. Re-select the flight if you need a fresh seat map.'
+      'Seats swapped. Customer details and booking lists were refreshed. Re-select the flight if you need a fresh seat map.',
     );
   };
 

@@ -4,7 +4,7 @@ import { fetchBookings, swapSeats } from '../services/apiService';
 
 vi.mock('../services/apiService', () => ({
   fetchBookings: vi.fn(),
-  swapSeats: vi.fn()
+  swapSeats: vi.fn(),
 }));
 
 vi.mock('react-select', () => ({
@@ -38,20 +38,24 @@ vi.mock('react-select', () => ({
         </button>
       </div>
     );
-  }
+  },
 }));
 
 const bookings = [
   { bookingId: 1, customerId: 'C1', flightNumber: 'FL-1', seatId: '1A', status: 'Confirmed' },
   { bookingId: 2, customerId: 'C2', flightNumber: 'FL-1', seatId: '1B', status: 'Confirmed' },
-  { bookingId: 3, customerId: 'C3', flightNumber: 'FL-2', seatId: '2C', status: 'CANCELLED' }
+  { bookingId: 3, customerId: 'C3', flightNumber: 'FL-2', seatId: '2C', status: 'CANCELLED' },
 ];
 
 describe('SwapSeatsForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation(() => { /* intentionally empty */ });
-    vi.spyOn(console, 'log').mockImplementation(() => { /* intentionally empty */ });
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      /* intentionally empty */
+    });
+    vi.spyOn(console, 'log').mockImplementation(() => {
+      /* intentionally empty */
+    });
   });
 
   afterEach(() => {
@@ -93,7 +97,9 @@ describe('SwapSeatsForm', () => {
     expect(screen.getByText('Please select both bookings.')).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('booking1SelectSwap'), { target: { value: '1' } });
-    expect(screen.queryByRole('option', { name: /ID: 1 \\(Cust: C1, Flight: FL-1, Seat: 1A\\)/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: /ID: 1 \\(Cust: C1, Flight: FL-1, Seat: 1A\\)/i }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('booking2SelectSwap-force-1'));
     fireEvent.submit(form);
@@ -103,14 +109,12 @@ describe('SwapSeatsForm', () => {
   it('submits successful swap and then handles swap failure', async () => {
     const onSeatsSwapped = vi.fn();
 
-    fetchBookings
-      .mockResolvedValueOnce(bookings)
-      .mockResolvedValueOnce(bookings);
-    swapSeats
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(new Error('swap blocked'));
+    fetchBookings.mockResolvedValueOnce(bookings).mockResolvedValueOnce(bookings);
+    swapSeats.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('swap blocked'));
 
-    const { rerender } = render(<SwapSeatsForm onSeatsSwapped={onSeatsSwapped} refreshTrigger={2} />);
+    const { rerender } = render(
+      <SwapSeatsForm onSeatsSwapped={onSeatsSwapped} refreshTrigger={2} />,
+    );
 
     await waitFor(() => {
       expect(fetchBookings).toHaveBeenCalledTimes(1);
@@ -118,7 +122,9 @@ describe('SwapSeatsForm', () => {
 
     fireEvent.click(screen.getByTestId('booking1SelectSwap-force-1'));
     fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
 
     expect(await screen.findByText('Seat swap processed.')).toBeInTheDocument();
@@ -130,7 +136,9 @@ describe('SwapSeatsForm', () => {
 
     fireEvent.click(screen.getByTestId('booking1SelectSwap-force-1'));
     fireEvent.change(screen.getByTestId('booking2SelectSwap'), { target: { value: '2' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Swap Selected Seats' })).toBeEnabled(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Swap Selected Seats' }));
 
     await waitFor(() => {

@@ -1,16 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SeatMap, { bookingRequestForSelection, seatBackgroundColor, selectionStatusForSeat } from './SeatMap';
-import {
-  cancelBooking,
-  createBooking,
-  fetchCustomers
-} from '../services/apiService';
+import SeatMap, {
+  bookingRequestForSelection,
+  seatBackgroundColor,
+  selectionStatusForSeat,
+} from './SeatMap';
+import { cancelBooking, createBooking, fetchCustomers } from '../services/apiService';
 
 vi.mock('../services/apiService', () => ({
   createBooking: vi.fn(),
   fetchCustomers: vi.fn(),
-  cancelBooking: vi.fn()
+  cancelBooking: vi.fn(),
 }));
 
 vi.mock('react-select', () => ({
@@ -37,7 +37,7 @@ vi.mock('react-select', () => ({
         ))}
       </select>
     );
-  }
+  },
 }));
 
 const baseSeats = [
@@ -47,14 +47,14 @@ const baseSeats = [
     price: 300,
     isBooked: true,
     bookedByCustomerId: 'C-BOOKED',
-    bookingId: 501
+    bookingId: 501,
   },
   {
     seatId: '1B',
     seatClass: 'Economy',
     price: 120,
-    isBooked: false
-  }
+    isBooked: false,
+  },
 ];
 
 const seatsWithBookedSeatMissingBookingId = [
@@ -63,9 +63,9 @@ const seatsWithBookedSeatMissingBookingId = [
     seatClass: 'Business',
     price: 280,
     isBooked: true,
-    bookedByCustomerId: 'C-MISSING'
+    bookedByCustomerId: 'C-MISSING',
   },
-  ...baseSeats
+  ...baseSeats,
 ];
 
 describe('SeatMap', () => {
@@ -145,15 +145,15 @@ describe('SeatMap', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 501' }));
 
-    expect(
-      await screen.findByText('Booking 501 cancellation processed.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Booking 501 cancellation processed.')).toBeInTheDocument();
 
     cancelBooking.mockRejectedValueOnce(new Error('cancel failed'));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 501' }));
 
-    expect(await screen.findByText('Failed to cancel booking 501: cancel failed')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Failed to cancel booking 501: cancel failed'),
+    ).toBeInTheDocument();
   });
 
   it('handles available-seat booking validation, success, and failure branches', async () => {
@@ -170,15 +170,13 @@ describe('SeatMap', () => {
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking for 1B' }));
-    expect(
-      await screen.findByText('Please select a Customer for booking.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Please select a Customer for booking.')).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('customerSelectBooking'), { target: { value: 'C1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking for 1B' }));
 
     expect(
-      await screen.findByText('Booking successful! ID: 700. Seat: 1B for Customer: C1')
+      await screen.findByText('Booking successful! ID: 700. Seat: 1B for Customer: C1'),
     ).toBeInTheDocument();
     expect(onBookingSuccess).toHaveBeenCalledWith('FL-300');
 
@@ -215,39 +213,36 @@ describe('SeatMap', () => {
   });
 
   it('exposes defensive booking validation for missing customer selection', () => {
-    expect(
-      bookingRequestForSelection(null, null, 'FL-320')
-    ).toEqual({ status: 'Please select a seat first.' });
+    expect(bookingRequestForSelection(null, null, 'FL-320')).toEqual({
+      status: 'Please select a seat first.',
+    });
 
-    expect(
-      bookingRequestForSelection('1B', null, 'FL-320')
-    ).toEqual({ status: 'Please select a Customer for booking.' });
+    expect(bookingRequestForSelection('1B', null, 'FL-320')).toEqual({
+      status: 'Please select a Customer for booking.',
+    });
 
-    expect(
-      bookingRequestForSelection('1B', { value: 'C1' }, 'FL-320')
-    ).toEqual({
+    expect(bookingRequestForSelection('1B', { value: 'C1' }, 'FL-320')).toEqual({
       bookingData: {
         customerId: 'C1',
         flightNumber: 'FL-320',
-        seatId: '1B'
-      }
+        seatId: '1B',
+      },
     });
   });
 
   it('exposes seat presentation helpers for the remaining booking states', () => {
     expect(
-      seatBackgroundColor({ seatId: '1A', seatClass: 'Business', isBooked: false }, null)
+      seatBackgroundColor({ seatId: '1A', seatClass: 'Business', isBooked: false }, null),
     ).toBe('lightblue');
-    expect(
-      seatBackgroundColor({ seatId: '1B', seatClass: 'Economy', isBooked: false }, null)
-    ).toBe('lightgreen');
+    expect(seatBackgroundColor({ seatId: '1B', seatClass: 'Economy', isBooked: false }, null)).toBe(
+      'lightgreen',
+    );
 
     expect(
-      selectionStatusForSeat({ seatId: '2C', seatClass: 'Economy', price: 95, isBooked: true })
+      selectionStatusForSeat({ seatId: '2C', seatClass: 'Economy', price: 95, isBooked: true }),
     ).toEqual({
       selectedSeatId: null,
-      status: 'Seat 2C: This seat is already booked.'
+      status: 'Seat 2C: This seat is already booked.',
     });
   });
-
 });
