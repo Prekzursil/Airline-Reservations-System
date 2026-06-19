@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: Prekzursil/quality-zero-platform/.github/workflows/reusable-backlog-sweep.yml@4a909ca4491e34245bf40606e691c8979cb219d3
+    uses: Prekzursil/quality-zero-platform/.github/workflows/reusable-backlog-sweep.yml@b95033002271d49cf6526e19baba506fd2419c07
     with:
       repo_slug: ${{ github.repository }}
       lane: quality
