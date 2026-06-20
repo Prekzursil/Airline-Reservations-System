@@ -126,18 +126,22 @@ class QualitySecretsAndCodacyTests(TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            with _temporary_cwd(temp_path), mock.patch.dict(
-                os.environ,
-                {
-                    "SONAR_TOKEN": "x",
-                    "CODACY_API_TOKEN": "x",
-                    "CODECOV_TOKEN": "x",
-                    "SENTRY_AUTH_TOKEN": "x",
-                    "SENTRY_ORG": "org",
-                    "SENTRY_PROJECT": "proj",
-                },
-                clear=True,
-            ), mock.patch.object(sys, "argv", ["check_quality_secrets.py"]):
+            with (
+                _temporary_cwd(temp_path),
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "SONAR_TOKEN": "x",
+                        "CODACY_API_TOKEN": "x",
+                        "CODECOV_TOKEN": "x",
+                        "SENTRY_AUTH_TOKEN": "x",
+                        "SENTRY_ORG": "org",
+                        "SENTRY_PROJECT": "proj",
+                    },
+                    clear=True,
+                ),
+                mock.patch.object(sys, "argv", ["check_quality_secrets.py"]),
+            ):
                 self.assertEqual(quality_secrets.main(), 0)
                 out_json, _ = helpers.quality_artifact_paths(
                     helpers.QualityArtifact.QUALITY_SECRETS
@@ -244,15 +248,19 @@ class QualitySecretsAndCodacyTests(TestCase):
                 "--token",
                 "token",
             ]
-            with mock.patch.object(
-                codacy,
-                "quality_artifact_paths",
-                return_value=(out_json, out_md),
-            ), mock.patch.object(
-                codacy,
-                "_run_codacy_check",
-                return_value=(0, [], "pass"),
-            ), mock.patch.object(sys, "argv", cli_args):
+            with (
+                mock.patch.object(
+                    codacy,
+                    "quality_artifact_paths",
+                    return_value=(out_json, out_md),
+                ),
+                mock.patch.object(
+                    codacy,
+                    "_run_codacy_check",
+                    return_value=(0, [], "pass"),
+                ),
+                mock.patch.object(sys, "argv", cli_args),
+            ):
                 self.assertEqual(codacy.main(), 0)
 
             with io.open(os.fspath(out_json), encoding="utf-8") as payload_file:

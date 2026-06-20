@@ -4,7 +4,7 @@ import { cancelBooking, fetchCustomerDetails } from '../services/apiService';
 
 vi.mock('../services/apiService', () => ({
   fetchCustomerDetails: vi.fn(),
-  cancelBooking: vi.fn()
+  cancelBooking: vi.fn(),
 }));
 
 describe('CustomerDetails', () => {
@@ -38,7 +38,7 @@ describe('CustomerDetails', () => {
       name: 'Alice',
       age: 28,
       money: 350,
-      bookings: []
+      bookings: [],
     });
 
     expect(await screen.findByText('Customer Details: Alice (ID: C1)')).toBeInTheDocument();
@@ -52,14 +52,14 @@ describe('CustomerDetails', () => {
         name: 'Alice',
         age: 28,
         money: 350,
-        bookings: []
+        bookings: [],
       })
       .mockResolvedValueOnce({
         personId: 'C1',
         name: 'Alice Updated',
         age: 28,
         money: 325,
-        bookings: []
+        bookings: [],
       });
 
     const { rerender } = render(<CustomerDetails customerId="C1" refreshTrigger={0} />);
@@ -81,15 +81,19 @@ describe('CustomerDetails', () => {
       money: 120,
       bookings: [
         { bookingId: 10, flightNumber: 'FL-100', seatId: '1A', status: 'Confirmed' },
-        { bookingId: 11, flightNumber: 'FL-200', seatId: '2B', status: 'CANCELLED' }
-      ]
+        { bookingId: 11, flightNumber: 'FL-200', seatId: '2B', status: 'CANCELLED' },
+      ],
     });
 
     render(<CustomerDetails customerId="C2" />);
 
     expect(await screen.findByText('Customer Details: Bob (ID: C2)')).toBeInTheDocument();
-    expect(screen.getByText('ID: 10, Flight: FL-100, Seat: 1A, Status: Confirmed')).toBeInTheDocument();
-    expect(screen.getByText('ID: 11, Flight: FL-200, Seat: 2B, Status: CANCELLED')).toBeInTheDocument();
+    expect(
+      screen.getByText('ID: 10, Flight: FL-100, Seat: 1A, Status: Confirmed'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('ID: 11, Flight: FL-200, Seat: 2B, Status: CANCELLED'),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Cancel booking/i })).toHaveLength(1);
   });
 
@@ -99,7 +103,7 @@ describe('CustomerDetails', () => {
     render(<CustomerDetails customerId="C404" />);
 
     expect(
-      await screen.findByText('Failed to load details for customer C404: Not Found')
+      await screen.findByText('Failed to load details for customer C404: Not Found'),
     ).toBeInTheDocument();
   });
 
@@ -109,7 +113,7 @@ describe('CustomerDetails', () => {
       name: 'Chris',
       age: 33,
       money: 220,
-      bookings: [{ bookingId: 21, flightNumber: 'FL-300', seatId: '3A', status: 'Confirmed' }]
+      bookings: [{ bookingId: 21, flightNumber: 'FL-300', seatId: '3A', status: 'Confirmed' }],
     });
 
     render(<CustomerDetails customerId="C3" />);
@@ -129,7 +133,7 @@ describe('CustomerDetails', () => {
       name: 'Dana',
       age: 37,
       money: 500,
-      bookings: [{ bookingId: 31, flightNumber: 'FL-400', seatId: '4C', status: 'Confirmed' }]
+      bookings: [{ bookingId: 31, flightNumber: 'FL-400', seatId: '4C', status: 'Confirmed' }],
     });
     cancelBooking.mockResolvedValue({ message: 'Booking 31 cancelled' });
 
@@ -149,7 +153,7 @@ describe('CustomerDetails', () => {
       name: 'Dana B',
       age: 37,
       money: 500,
-      bookings: [{ bookingId: 32, flightNumber: 'FL-401', seatId: '4D', status: 'Confirmed' }]
+      bookings: [{ bookingId: 32, flightNumber: 'FL-401', seatId: '4D', status: 'Confirmed' }],
     });
     cancelBooking.mockResolvedValue({});
 
@@ -167,7 +171,7 @@ describe('CustomerDetails', () => {
       name: 'Eve',
       age: 30,
       money: 400,
-      bookings: [{ bookingId: 41, flightNumber: 'FL-500', seatId: '5D', status: 'Confirmed' }]
+      bookings: [{ bookingId: 41, flightNumber: 'FL-500', seatId: '5D', status: 'Confirmed' }],
     });
     cancelBooking.mockRejectedValue(new Error('Cancellation blocked'));
 
@@ -177,7 +181,9 @@ describe('CustomerDetails', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 41' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to cancel booking 41: Cancellation blocked')).toBeInTheDocument();
+      expect(
+        screen.getByText('Failed to cancel booking 41: Cancellation blocked'),
+      ).toBeInTheDocument();
     });
   });
 });

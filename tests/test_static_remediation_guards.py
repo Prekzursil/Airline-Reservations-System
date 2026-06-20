@@ -14,9 +14,7 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
 
     def test_booking_source_avoids_y2038_sensitive_time_apis(self) -> None:
         """Guard against Y2038-sensitive time APIs in Booking.cpp."""
-        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(
-            encoding="utf-8"
-        )
+        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
 
         forbidden_tokens = (
             "std::time_t",
@@ -37,9 +35,7 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
         self,
     ) -> None:
         """Guard against namespace-scope mutable booking sequence globals."""
-        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(
-            encoding="utf-8"
-        )
+        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
         forbidden_globals = (
             "std::atomic_uint64_t g_bookingSequence",
             "std::atomic_uint64_t g_booking_id_sequence",
@@ -57,12 +53,8 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
 
     def test_booking_source_avoids_mutable_sequence_storage_helpers(self) -> None:
         """Guard against old mutable booking-sequence storage helpers."""
-        booking_header = (REPO_ROOT / "src" / "Booking.h").read_text(
-            encoding="utf-8"
-        )
-        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(
-            encoding="utf-8"
-        )
+        booking_header = (REPO_ROOT / "src" / "Booking.h").read_text(encoding="utf-8")
+        booking_source = (REPO_ROOT / "src" / "Booking.cpp").read_text(encoding="utf-8")
 
         self.assertNotIn("#include <atomic>", booking_header)
         self.assertNotIn("bookingSequenceStorage", booking_header)
@@ -75,14 +67,10 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
         """Keep the shared quality workflow contract pins in place."""
         platform_text = (
             REPO_ROOT / ".github" / "workflows" / "quality-zero-platform.yml"
-        ).read_text(
-            encoding="utf-8"
-        )
+        ).read_text(encoding="utf-8")
         codecov_text = (
             REPO_ROOT / ".github" / "workflows" / "codecov-analytics.yml"
-        ).read_text(
-            encoding="utf-8"
-        )
+        ).read_text(encoding="utf-8")
 
         self.assertIn("reusable-scanner-matrix.yml@", platform_text)
         self.assertIn("Prekzursil/quality-zero-platform", platform_text)

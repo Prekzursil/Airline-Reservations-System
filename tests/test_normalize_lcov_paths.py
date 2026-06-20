@@ -28,7 +28,9 @@ class NormalizeLcovPathTests(unittest.TestCase):
             source_path = Path(source_dir / "ReservationSystem.cpp")
             source_path.write_text("int main() { return 0; }\n", encoding="utf-8")
 
-            normalized, stripped = normalize_lcov.normalize_lcov_lines(raw, repo_root=repo_root)
+            normalized, stripped = normalize_lcov.normalize_lcov_lines(
+                raw, repo_root=repo_root
+            )
 
         self.assertEqual(stripped, 0)
         self.assertEqual(

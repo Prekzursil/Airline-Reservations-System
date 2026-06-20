@@ -195,7 +195,8 @@ def select_project_payload(
             )
             return candidate, issues, headers, None
         except (  # pragma: no cover - network/runtime surface
-            RuntimeError, ValueError,
+            RuntimeError,
+            ValueError,
         ) as exc:
             last_error = exc
             if is_not_found_error(exc):
@@ -238,10 +239,7 @@ def append_project_fetch_failure(
     if is_not_found_error(last_error):
         findings.append(f"Sentry project {project} not found in org {org}.")
         return
-    findings.append(
-        f"Sentry project {project} "
-        f"request failed: {last_error}"
-    )
+    findings.append(f"Sentry project {project} request failed: {last_error}")
 
 
 def evaluate_projects(
@@ -300,10 +298,7 @@ def run_sentry_check(
     config: SentryConfig,
 ) -> Tuple[str, str, List[Dict[str, Any]], List[str]]:
     """Run the full Sentry zero-issue check."""
-    token = (
-        args.token
-        or os.environ.get("SENTRY_AUTH_TOKEN", "")
-    ).strip()
+    token = (args.token or os.environ.get("SENTRY_AUTH_TOKEN", "")).strip()
     org = (args.org or os.environ.get("SENTRY_ORG", "")).strip()
     projects = projects_from_args_or_env(args)
 

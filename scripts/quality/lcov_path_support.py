@@ -86,9 +86,8 @@ def matching_repo_suffix(raw_path: str, casefold_paths: Dict[str, str]) -> str:
 
     best_match = ""
     for casefold_path, canonical in casefold_paths.items():
-        if (
-            candidate_casefold.endswith(casefold_path)
-            and len(canonical) > len(best_match)
+        if candidate_casefold.endswith(casefold_path) and len(canonical) > len(
+            best_match
         ):
             best_match = canonical
     return best_match or candidate
@@ -108,7 +107,7 @@ def normalize_source_path(
     if candidate == repo_root:
         return ""
     if candidate.startswith(repo_root + "/"):
-        candidate = candidate[len(repo_root) + 1:]
+        candidate = candidate[len(repo_root) + 1 :]
 
     matched = matching_repo_suffix(candidate, repo_indexes.casefold_paths)
     if matched.casefold() in repo_indexes.casefold_paths:

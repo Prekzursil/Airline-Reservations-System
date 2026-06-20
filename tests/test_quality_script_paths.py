@@ -222,7 +222,9 @@ class CoverageParsersAndNormalizeLCOVTests(TestCase):
         kept_lines: List[str] = []
         record = normalize_lcov._RecordState(active=True)
 
-        normalize_lcov._handle_da_line("DA:bad,line", kept_lines=kept_lines, record=record)
+        normalize_lcov._handle_da_line(
+            "DA:bad,line", kept_lines=kept_lines, record=record
+        )
         self.assertEqual(kept_lines, ["DA:bad,line"])
         self.assertEqual((record.total, record.covered), (0, 0))
 

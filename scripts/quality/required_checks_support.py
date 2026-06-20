@@ -52,9 +52,7 @@ def evaluate_required_contexts(
         if failure:
             failed.append(failure)
 
-    status = (
-        "pass" if not missing and not failed else "fail"
-    )
+    status = "pass" if not missing and not failed else "fail"
     return status, missing, failed
 
 
@@ -63,7 +61,6 @@ def has_check_runs_in_progress(
 ) -> bool:
     """Return whether any check run is still in progress."""
     return any(
-        observed.get("source") == "check_run"
-        and observed.get("state") != "completed"
+        observed.get("source") == "check_run" and observed.get("state") != "completed"
         for observed in contexts.values()
     )

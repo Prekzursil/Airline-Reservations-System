@@ -1,14 +1,14 @@
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require('node:fs');
+const path = require('node:path');
 
-const libCoverage = require("istanbul-lib-coverage");
-const libReport = require("istanbul-lib-report");
-const reports = require("istanbul-reports");
-const { prefixCoverageMapPath } = require("./coverage-path-prefix.cjs");
+const libCoverage = require('istanbul-lib-coverage');
+const libReport = require('istanbul-lib-report');
+const reports = require('istanbul-reports');
+const { prefixCoverageMapPath } = require('./coverage-path-prefix.cjs');
 
-const coverageDir = path.resolve(__dirname, "..", "coverage");
-const coverageJsonPath = path.join(coverageDir, "coverage-final.json");
-const coveragePrefix = "airline-gui/";
+const coverageDir = path.resolve(__dirname, '..', 'coverage');
+const coverageJsonPath = path.join(coverageDir, 'coverage-final.json');
+const coveragePrefix = 'airline-gui/';
 
 if (!fs.existsSync(coverageJsonPath)) {
   process.stderr.write(`Coverage JSON report is missing: ${coverageJsonPath}\n`);
@@ -29,12 +29,12 @@ const context = libReport.createContext({
   coverageMap: prefixedCoverageMap,
 });
 
-reports.create("json-summary").execute(context);
-reports.create("lcovonly").execute(context);
+reports.create('json-summary').execute(context);
+reports.create('lcovonly').execute(context);
 
 const expectedFiles = [
-  path.join(coverageDir, "coverage-summary.json"),
-  path.join(coverageDir, "lcov.info"),
+  path.join(coverageDir, 'coverage-summary.json'),
+  path.join(coverageDir, 'lcov.info'),
 ];
 
 for (const filePath of expectedFiles) {
@@ -44,4 +44,4 @@ for (const filePath of expectedFiles) {
   }
 }
 
-process.stdout.write("Generated coverage-summary.json and lcov.info from coverage-final.json.\n");
+process.stdout.write('Generated coverage-summary.json and lcov.info from coverage-final.json.\n');

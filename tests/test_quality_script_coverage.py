@@ -350,15 +350,18 @@ class SecurityHTTPAndHelpersTests(TestCase):
 
     def test_json_request_helpers_raise_for_errors(self) -> None:
         """Raise the expected exceptions for invalid JSON helper inputs."""
-        with mock.patch.object(
-            http_support,
-            "_request_https_payload",
-            return_value=_https_response_payload(
-                status=500,
-                reason="boom",
-                body="fail-body",
+        with (
+            mock.patch.object(
+                http_support,
+                "_request_https_payload",
+                return_value=_https_response_payload(
+                    status=500,
+                    reason="boom",
+                    body="fail-body",
+                ),
             ),
-        ), self.assertRaises(helpers.HTTPSRequestError) as error:
+            self.assertRaises(helpers.HTTPSRequestError) as error,
+        ):
             http_support.request_json_https_target(
                 target=helpers.HTTPSRequestTarget(
                     host="api.github.com",
@@ -488,15 +491,18 @@ class SecurityHTTPAndHelpersTests(TestCase):
 
     def test_json_target_helpers_surface_collection_and_http_errors(self) -> None:
         """Surface HTTP and payload-shape errors through target helpers."""
-        with mock.patch.object(
-            http_support,
-            "_request_https_payload",
-            return_value=_https_response_payload(
-                status=404,
-                reason="missing",
-                body="not-found",
+        with (
+            mock.patch.object(
+                http_support,
+                "_request_https_payload",
+                return_value=_https_response_payload(
+                    status=404,
+                    reason="missing",
+                    body="not-found",
+                ),
             ),
-        ), self.assertRaises(helpers.HTTPSRequestError) as error:
+            self.assertRaises(helpers.HTTPSRequestError) as error,
+        ):
             http_support.request_json_list_https_target(
                 target=helpers.HTTPSRequestTarget(
                     host="api.github.com",
@@ -505,11 +511,14 @@ class SecurityHTTPAndHelpersTests(TestCase):
             )
         self.assertEqual(error.exception.status, 404)
 
-        with mock.patch.object(
-            http_support,
-            "_request_https_payload",
-            return_value=_https_response_payload(body='[{"name": "value"}]'),
-        ), self.assertRaises(RuntimeError):
+        with (
+            mock.patch.object(
+                http_support,
+                "_request_https_payload",
+                return_value=_https_response_payload(body='[{"name": "value"}]'),
+            ),
+            self.assertRaises(RuntimeError),
+        ):
             http_support.request_json_https_target(
                 target=helpers.HTTPSRequestTarget(
                     host="api.github.com",

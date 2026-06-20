@@ -1,0 +1,56 @@
+# Lean 6-gate quality charter (decided 2026-06-16).
+# Declares the CLOSED set of gates this repo enforces. `.quality/charter_check.sh`
+# verifies the on-disk configuration still matches this charter (no gate silently
+# added or dropped). The shared reusable-quality.yml runs that check.
+version: 1
+charter: lean-6-gate-2026-06-16
+
+gates:
+  - id: 1
+    name: lint-format-imports-seclint
+    autofix: true
+    tools:
+      python: ruff            # config: pyproject.toml [tool.ruff] (lint + format, active)
+      jsts: [oxlint]           # config: .pre-commit-config.yaml (lint active)
+    # DEFERRED to a follow-up (hand-formatted sources; tree-wide reformat is a
+    # separate, large, reviewable change — tracked, NOT silently dropped):
+    #   - JS/TS format autofixer (biome) over airline-gui/src
+    #   - C/C++ format autofixer (clang-format) over src/ + tests/*.cpp|*.h
+    config: .pre-commit-config.yaml
+  - id: 2
+    name: types
+    tools:
+      python: basedpyright    # config: pyproject.toml [tool.basedpyright]
+    config: pyproject.toml
+  - id: 3
+    name: tests-coverage
+    policy: strict-100-line-and-branch
+    tools:
+      python: pytest          # config: pyproject.toml [tool.pytest.ini_options] + [tool.coverage.*]
+    config: pyproject.toml
+  - id: 4
+    name: sast
+    tools: [opengrep]         # config: .quality/opengrep/
+    config: .quality/opengrep
+  - id: 5
+    name: secrets
+    tools: [gitleaks]         # config: .gitleaks.toml (+ push-protection)
+    config: .gitleaks.toml
+  - id: 6
+    name: deps
+    tools: [osv-scanner, dependabot]  # config: osv-scanner.toml + .github/dependabot.yml
+    config: osv-scanner.toml
+
+deleted_as_gates:
+  - sonar
+  - codacy
+  - deepsource
+  - deepscan
+  - qlty
+  - codecov-as-gate
+  - sentry-as-gate
+  - pylint
+  - standalone-bandit
+  - eslint-classic
+  - biome-lint
+  - trivy-for-app-deps

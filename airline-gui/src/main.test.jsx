@@ -5,13 +5,13 @@ const createRootMock = vi.fn(() => ({ render: renderMock }));
 
 vi.mock('react-dom/client', () => ({
   default: {
-    createRoot: createRootMock
+    createRoot: createRootMock,
   },
-  createRoot: createRootMock
+  createRoot: createRootMock,
 }));
 
 vi.mock('./App', () => ({
-  default: () => <div>Mock App</div>
+  default: () => <div>Mock App</div>,
 }));
 
 describe('main.jsx bootstrap', () => {

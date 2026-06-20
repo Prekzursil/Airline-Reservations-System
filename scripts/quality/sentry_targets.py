@@ -66,10 +66,7 @@ def build_project_issues_path(
     query = urllib.parse.urlencode(
         {"query": "is:unresolved", "limit": "1"},
     )
-    return (
-        f"/api/0/projects/{org_slug}/"
-        f"{project_slug}/issues/?{query}"
-    )
+    return f"/api/0/projects/{org_slug}/{project_slug}/issues/?{query}"
 
 
 def build_project_issues_target(

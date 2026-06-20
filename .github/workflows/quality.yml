@@ -1,0 +1,23 @@
+# Lean 6-gate quality (charter 2026-06-16). Thin caller of the shared reusable
+# workflow; all gate logic lives in quality-zero-platform. ADDITIVE — the repo's
+# existing SaaS quality workflows still run until the migration runbook removes
+# them. Pinned to the template branch so this PR's CI is real now; the runbook
+# re-pins to a tag after the template merges.
+name: quality
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    uses: Prekzursil/quality-zero-platform/.github/workflows/reusable-quality.yml@v1

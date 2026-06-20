@@ -138,7 +138,7 @@ const encodePathSegment = (value, label) => {
 export const __internal = {
   normalizeRelativeBasePath,
   normalizeApiPath,
-  encodePathSegment
+  encodePathSegment,
 };
 
 /**
@@ -213,9 +213,9 @@ export const addCustomer = async (customerData) =>
     await fetch(buildRequestTarget('/customers'), {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify(customerData)
+      body: JSON.stringify(customerData),
     }),
-    true
+    true,
   );
 
 /**
@@ -229,9 +229,9 @@ export const createBooking = async (bookingData) =>
     await fetch(buildRequestTarget('/bookings'), {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify(bookingData)
+      body: JSON.stringify(bookingData),
     }),
-    true
+    true,
   );
 
 /**
@@ -255,9 +255,9 @@ export const fetchCustomerDetails = async (customerId) => {
 export const cancelBooking = async (bookingId) =>
   parseResponseJson(
     await fetch(buildRequestTarget(`/bookings/${encodePathSegment(bookingId, 'booking id')}`), {
-      method: 'DELETE'
+      method: 'DELETE',
     }),
-    true
+    true,
   );
 
 /** Fetches all bookings. */
@@ -280,8 +280,8 @@ export const swapSeats = async (bookingId1, bookingId2) =>
       headers: jsonHeaders,
       body: JSON.stringify({
         bookingId1: encodePathSegment(bookingId1, 'booking id 1'),
-        bookingId2: encodePathSegment(bookingId2, 'booking id 2')
-      })
+        bookingId2: encodePathSegment(bookingId2, 'booking id 2'),
+      }),
     }),
-    true
+    true,
   );

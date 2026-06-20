@@ -129,8 +129,7 @@ def _normalize_suffix_allowlist(allowed_host_suffixes: Optional[Set[str]]) -> Se
 def _is_hostname_allowed_by_suffix(hostname: str, suffixes: Set[str]) -> bool:
     """Return whether a hostname exactly matches or falls under an allowed suffix."""
     return any(
-        hostname == suffix or hostname.endswith(f".{suffix}")
-        for suffix in suffixes
+        hostname == suffix or hostname.endswith(f".{suffix}") for suffix in suffixes
     )
 
 
@@ -174,9 +173,7 @@ def _reject_private_or_local_host(hostname: str) -> None:
     """Reject hostnames that resolve to obvious local-only or private targets."""
     ip_value = _parse_ip_or_none(hostname)
     if ip_value is not None and _is_private_or_local_address(ip_value):
-        raise ValueError(
-            f"URL host must not be a private or local address: {hostname}"
-        )
+        raise ValueError(f"URL host must not be a private or local address: {hostname}")
     if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith(
         ".localhost"
     ):

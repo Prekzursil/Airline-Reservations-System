@@ -5,3 +5,87 @@
 # D213 is the analogous multi-line summary conflict with D212 (the repo
 # consistently starts summaries on the first line).
 add_ignore = "D203,D213"
+
+# ---------------------------------------------------------------------------
+# Lean 6-gate quality template configuration (additive; charter 2026-06-16).
+# These tables make the shared reusable-quality.yml Python lanes (gate 2 types
+# via basedpyright, gate 3 tests+coverage via pytest) run the same way locally
+# and in CI. They do NOT replace the existing SaaS machinery (sonar/codacy/etc.)
+# which still runs from the legacy workflows until the migration runbook.
+# ---------------------------------------------------------------------------
+
+# Gate 3 — tests + coverage (STRICT 100% line+branch, standing user policy).
+# The reusable workflow runs `python -m pytest --cov --cov-branch
+# --cov-fail-under=100` because pyproject mentions pytest below. testpaths
+# scopes collection to the Python tests dir (the C++ tests in tests/ are
+# ignored by pytest); coverage source scopes measurement to scripts/.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+
+[tool.coverage.run]
+branch = true
+source = ["scripts"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_also = [
+  "if __name__ == .__main__.:",
+]
+
+# Gate 2 — types (pinned: basedpyright 1.39.8).
+# typeCheckingMode = "standard" keeps a literal-zero gate achievable on the
+# partly-untyped quality/security helper scripts (the default "all"/"recommended"
+# mode emits reportAny/reportDeprecated noise that is not part of the lean gate).
+[tool.basedpyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+include = ["scripts"]
+exclude = [
+  "**/node_modules",
+  "**/__pycache__",
+  ".venv",
+  "build",
+  "**/tests",
+]
+reportMissingImports = "warning"
+reportMissingModuleSource = "none"
+
+# Gate 1 — Python lint + format (pinned: ruff 0.15.17).
+# Deterministic, widely-used rule set; ruff-format owns layout. Scoped to the
+# Python sources/tests (the C/C++ + JS trees are handled by their own fixers).
+[tool.ruff]
+# The repo runs on Python 3.12 (CI + scripts/verify). The QZT codacy-py2-compat
+# commit contract is about typing-IMPORT style (typing.Dict, no `dict[`), which
+# the EXCLUDED UP/I rules below would otherwise rewrite — it is NOT a 3.8 runtime
+# target, so parse at the real runtime version.
+target-version = "py312"
+line-length = 88
+extend-exclude = [
+  ".venv",
+  "node_modules",
+  "build",
+  "dist",
+  "out",
+  "airline-gui",
+]
+
+[tool.ruff.lint]
+# pyflakes (F), pycodestyle (E/W), flake8-bugbear (B), comprehensions (C4).
+# The pyupgrade (UP) and isort (I) categories are deliberately EXCLUDED: they
+# would rewrite `typing.Dict`->`dict` / `Optional`->`| None` and re-order the
+# `from __future__ import absolute_import` line, all of which the QZT
+# codacy-py2-compat commit contract explicitly REQUIRES to stay as-is. ruff
+# here enforces only the contract-compatible correctness + style subset.
+select = ["F", "E", "W", "B", "C4"]
+# E501 (line too long) is delegated to ruff-format, which is the layout
+# authority; a handful of unsplittable long lines (test fixtures / identifiers)
+# would otherwise fail the lint lane even though the formatter leaves them as-is.
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

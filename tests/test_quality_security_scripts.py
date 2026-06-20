@@ -201,7 +201,9 @@ class _SecurityHelpersValidationTests(TestCase):
             finally:
                 os.chdir(previous)
 
-    def test_security_helper_wrappers_delegate_to_validation_and_http_layers(self) -> None:
+    def test_security_helper_wrappers_delegate_to_validation_and_http_layers(
+        self,
+    ) -> None:
         """Cover the thin helper wrappers that proxy the shared validation modules."""
         self.assertEqual(
             helpers._require_identifier(
@@ -267,9 +269,13 @@ class _SecurityHelpersValidationTests(TestCase):
         )
         self.assertIs(http_support.https_connection(), http.client.HTTPSConnection)
 
-        with mock.patch.object(http_support, "request_json_https", return_value={"ok": True}):
+        with mock.patch.object(
+            http_support, "request_json_https", return_value={"ok": True}
+        ):
             self.assertEqual(
-                helpers.request_json_https(host="api.github.com", path="/repos/owner/repo"),
+                helpers.request_json_https(
+                    host="api.github.com", path="/repos/owner/repo"
+                ),
                 {"ok": True},
             )
         with mock.patch.object(
@@ -357,7 +363,7 @@ class _ScriptPathBuilderTests(TestCase):
             "request_json_https_target",
             side_effect=_fake_request_json_https_target,
         ):
-            self.assertEqual(codacy._fetch_open_issues(args, "token"), 0)
+            self.assertEqual(codacy.fetch_open_issues(args, "token"), 0)
 
         self.assertEqual(captured["method"], "POST")
         self.assertEqual(captured["body"], {"branchName": "feature/zero"})
@@ -444,14 +450,17 @@ class _QualitySecretsScriptTests(TestCase):
                     "SENTRY_ORG": "example-org",
                     "SENTRY_PROJECT": "example-project",
                 }
-                with mock.patch.dict(
-                    os.environ,
-                    env_updates,
-                    clear=True,
-                ), mock.patch.object(
-                    sys,
-                    "argv",
-                    ["check_quality_secrets.py"],
+                with (
+                    mock.patch.dict(
+                        os.environ,
+                        env_updates,
+                        clear=True,
+                    ),
+                    mock.patch.object(
+                        sys,
+                        "argv",
+                        ["check_quality_secrets.py"],
+                    ),
                 ):
                     exit_code = quality_secrets.main()
 
@@ -546,22 +555,25 @@ class _SonarZeroScriptTests(TestCase):
                     "--token",
                     "placeholder-token",
                 ]
-                with mock.patch.object(
-                    sys,
-                    "argv",
-                    argv,
-                ), mock.patch.object(
-                    sonar,
-                    "_run_sonar_check",
-                    return_value=(
-                        "fail",
-                        0,
-                        3,
-                        "OK",
-                        [
-                            "Sonar reports 3 unresolved security hotspots "
-                            "(expected 0)."
-                        ],
+                with (
+                    mock.patch.object(
+                        sys,
+                        "argv",
+                        argv,
+                    ),
+                    mock.patch.object(
+                        sonar,
+                        "_run_sonar_check",
+                        return_value=(
+                            "fail",
+                            0,
+                            3,
+                            "OK",
+                            [
+                                "Sonar reports 3 unresolved security hotspots "
+                                "(expected 0)."
+                            ],
+                        ),
                     ),
                 ):
                     exit_code = sonar.main()

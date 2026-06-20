@@ -102,18 +102,10 @@ class _AssertCoverageParsingTests(unittest.TestCase):
             "int covered() { return 2; }",
         )
 
-        self.assertFalse(
-            assert_coverage_100.include_lcov_line(source_lines, 2)
-        )
-        self.assertFalse(
-            assert_coverage_100.include_lcov_line(source_lines, 3)
-        )
-        self.assertFalse(
-            assert_coverage_100.include_lcov_line(source_lines, 6)
-        )
-        self.assertTrue(
-            assert_coverage_100.include_lcov_line(source_lines, 7)
-        )
+        self.assertFalse(assert_coverage_100.include_lcov_line(source_lines, 2))
+        self.assertFalse(assert_coverage_100.include_lcov_line(source_lines, 3))
+        self.assertFalse(assert_coverage_100.include_lcov_line(source_lines, 6))
+        self.assertTrue(assert_coverage_100.include_lcov_line(source_lines, 7))
 
     def test_parse_lcov_ignores_explicitly_excluded_lines(self) -> None:
         """Count only non-excluded LCOV lines when building parsed coverage stats."""
@@ -141,11 +133,14 @@ class _AssertCoverageParsingTests(unittest.TestCase):
             "int covered() { return 2; }",
         )
 
-        with patch.dict(
-            assert_coverage_100.REPO_SOURCE_LINES,
-            {"src/example.cpp": source_lines},
-            clear=True,
-        ), TemporaryDirectory() as temp_dir:
+        with (
+            patch.dict(
+                assert_coverage_100.REPO_SOURCE_LINES,
+                {"src/example.cpp": source_lines},
+                clear=True,
+            ),
+            TemporaryDirectory() as temp_dir,
+        ):
             lcov_path = Path(temp_dir) / "sample.lcov"
             with open(lcov_path, "w", encoding="utf-8") as handle:
                 handle.write(sample_lcov)
@@ -170,10 +165,18 @@ class _AssertCoverageParsingTests(unittest.TestCase):
 
         self.assertEqual(resolved, source_lines)
 
+    def test_lcov_state_defaults_record_lines_to_empty_map(self) -> None:
+        """Default the LCOV record map to a fresh empty dict per instance."""
+        first = coverage_parsers.LcovState()
+        second = coverage_parsers.LcovState()
+        first.record_lines[1] = 1
+
+        self.assertEqual(first.record_lines, {1: 1})
+        self.assertEqual(second.record_lines, {})
+
     def test_lcov_state_preserves_preseeded_record_lines(self) -> None:
-        """Leave already-initialized LCOV record maps untouched."""
+        """Leave an explicitly supplied LCOV record map untouched."""
         state = coverage_parsers.LcovState(record_lines={1: 1})
-        state.__post_init__()
 
         self.assertEqual(state.record_lines, {1: 1})
 

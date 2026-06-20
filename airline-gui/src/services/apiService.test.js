@@ -9,7 +9,7 @@ import {
   fetchBookings,
   fetchCustomerDetails,
   fetchCustomers,
-  swapSeats
+  swapSeats,
 } from './apiService';
 
 /**
@@ -23,7 +23,7 @@ const makeResponse = ({ ok = true, status = 200, body = {}, jsonReject = false }
   status,
   json: jsonReject
     ? vi.fn().mockRejectedValue(new Error('json parse failed'))
-    : vi.fn().mockResolvedValue(body)
+    : vi.fn().mockResolvedValue(body),
 });
 
 /** @param {object} body The response body to enqueue. */
@@ -44,7 +44,12 @@ const expectSimpleSuccessAndHttpError = async ({ action, successBody, failStatus
   await expect(action()).rejects.toThrow(`HTTP error! status: ${failStatus}`);
 };
 
-const expectDetailedSuccessAndErrorPaths = async ({ action, successBody, failStatus, failMessage }) => {
+const expectDetailedSuccessAndErrorPaths = async ({
+  action,
+  successBody,
+  failStatus,
+  failMessage,
+}) => {
   queueSuccess(successBody);
   await expect(action()).resolves.toEqual(successBody);
 
@@ -93,25 +98,25 @@ describe('apiService', () => {
       label: 'fetchAirplanes',
       action: () => fetchAirplanes(),
       successBody: [{ flightNumber: 'FL-1' }],
-      failStatus: 503
+      failStatus: 503,
     },
     {
       label: 'fetchAirplaneDetails',
       action: () => fetchAirplaneDetails('FL-2'),
       successBody: { flightNumber: 'FL-2' },
-      failStatus: 404
+      failStatus: 404,
     },
     {
       label: 'fetchCustomers',
       action: () => fetchCustomers(),
       successBody: [{ personId: 'C1' }],
-      failStatus: 502
-    }
+      failStatus: 502,
+    },
   ])('$label handles success + status errors', async ({ action, successBody, failStatus }) => {
     await expectSimpleSuccessAndHttpError({
       action,
       successBody,
-      failStatus
+      failStatus,
     });
   });
 
@@ -126,49 +131,54 @@ describe('apiService', () => {
       action: () => addCustomer({ name: 'Alice' }),
       successBody: { personId: 'C2', name: 'Alice' },
       failStatus: 400,
-      failMessage: 'Invalid payload'
+      failMessage: 'Invalid payload',
     },
     {
       label: 'createBooking',
       action: () => createBooking({ customerId: 'C1' }),
       successBody: { bookingId: 10 },
       failStatus: 409,
-      failMessage: 'Seat taken'
+      failMessage: 'Seat taken',
     },
     {
       label: 'fetchCustomerDetails',
       action: () => fetchCustomerDetails('C9'),
       successBody: { personId: 'C9' },
       failStatus: 404,
-      failMessage: 'Not found'
+      failMessage: 'Not found',
     },
     {
       label: 'cancelBooking',
       action: () => cancelBooking(77),
       successBody: { message: 'Cancelled' },
       failStatus: 400,
-      failMessage: 'Bad request'
+      failMessage: 'Bad request',
     },
     {
       label: 'fetchBookings',
       action: () => fetchBookings(),
       successBody: [{ bookingId: 1 }],
       failStatus: 401,
-      failMessage: 'Unauthorized'
+      failMessage: 'Unauthorized',
     },
     {
       label: 'swapSeats',
       action: () => swapSeats(1, 2),
       successBody: { message: 'Swapped' },
       failStatus: 422,
-      failMessage: 'Invalid swap'
-    }
-  ])('$label handles success + detailed API errors', async ({ action, successBody, failStatus, failMessage }) => {
+      failMessage: 'Invalid swap',
+    },
+  ])('$label handles success + detailed API errors', async ({
+    action,
+    successBody,
+    failStatus,
+    failMessage,
+  }) => {
     await expectDetailedSuccessAndErrorPaths({
       action,
       successBody,
       failStatus,
-      failMessage
+      failMessage,
     });
   });
 
@@ -176,30 +186,30 @@ describe('apiService', () => {
     {
       label: 'uses configured relative path',
       baseUrl: '/internal-api/',
-      expectedTarget: '/internal-api/airplanes'
+      expectedTarget: '/internal-api/airplanes',
     },
     {
       label: 'falls back for external absolute URL',
       baseUrl: 'https://api.example.test/api/',
-      expectedTarget: '/api/airplanes'
+      expectedTarget: '/api/airplanes',
     },
     {
       label: 'falls back for invalid absolute URL',
       baseUrl: 'https://[invalid-url',
-      expectedTarget: '/api/airplanes'
+      expectedTarget: '/api/airplanes',
     },
     {
       label: 'falls back for disallowed // pathname on same origin',
       baseUrl: 'https://app.local//',
       locationOrigin: 'https://app.local',
-      expectedTarget: '/api/airplanes'
+      expectedTarget: '/api/airplanes',
     },
     {
       label: 'accepts same-origin absolute URL when origin is null-like',
       baseUrl: 'https://app.local/internal-api',
       locationOrigin: 'null',
-      expectedTarget: '/internal-api/airplanes'
-    }
+      expectedTarget: '/internal-api/airplanes',
+    },
   ])('$label', async ({ baseUrl, locationOrigin, expectedTarget }) => {
     const fetchMock = await loadModuleWithBaseUrl({ baseUrl, locationOrigin });
     expect(fetchMock).toHaveBeenCalled();
@@ -218,12 +228,14 @@ describe('apiService', () => {
   });
 
   it('rejects unsafe path segment inputs', () => {
-    expect(() => __internal.encodePathSegment('', 'booking id')).toThrow('Invalid booking id: value is required');
+    expect(() => __internal.encodePathSegment('', 'booking id')).toThrow(
+      'Invalid booking id: value is required',
+    );
     expect(() => __internal.encodePathSegment('a/b', 'booking id')).toThrow(
-      'Invalid booking id: path separators are not allowed'
+      'Invalid booking id: path separators are not allowed',
     );
     expect(() => __internal.encodePathSegment(String.raw`a\b`, 'booking id')).toThrow(
-      'Invalid booking id: path separators are not allowed'
+      'Invalid booking id: path separators are not allowed',
     );
   });
 });
