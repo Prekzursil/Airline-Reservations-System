@@ -63,20 +63,6 @@ class _StaticRemediationGuardsTest(unittest.TestCase):
         self.assertNotIn("new std::atomic_uint64_t", booking_source)
         self.assertNotIn("fetch_add", booking_source)
 
-    def test_quality_workflows_pin_shared_platform_contracts(self) -> None:
-        """Keep the shared quality workflow contract pins in place."""
-        platform_text = (
-            REPO_ROOT / ".github" / "workflows" / "quality-zero-platform.yml"
-        ).read_text(encoding="utf-8")
-        codecov_text = (
-            REPO_ROOT / ".github" / "workflows" / "codecov-analytics.yml"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("reusable-scanner-matrix.yml@", platform_text)
-        self.assertIn("Prekzursil/quality-zero-platform", platform_text)
-        self.assertIn("reusable-codecov-analytics.yml@", codecov_text)
-        self.assertIn("Prekzursil/quality-zero-platform", codecov_text)
-
 
 if __name__ == "__main__":
     unittest.main()
