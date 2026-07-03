@@ -22,7 +22,6 @@ def _load_quality_modules():
     """Import the quality helper modules under test."""
     from scripts import security_helpers as helpers
     from scripts.quality import check_codacy_zero as codacy
-    from scripts.quality import check_deepscan_zero as deepscan
     from scripts.quality import check_quality_secrets as quality_secrets
     from scripts.quality import check_required_checks as required_checks
     from scripts.quality import check_sonar_zero as sonar
@@ -31,7 +30,6 @@ def _load_quality_modules():
     return (
         helpers,
         codacy,
-        deepscan,
         quality_secrets,
         required_checks,
         sonar,
@@ -42,7 +40,6 @@ def _load_quality_modules():
 (
     helpers,
     codacy,
-    deepscan,
     quality_secrets,
     required_checks,
     sonar,
@@ -382,30 +379,21 @@ class _ScriptPathBuilderTests(TestCase):
 
     def test_github_quality_scripts_build_path_not_full_url(self) -> None:
         """Keep GitHub quality helpers on relative API paths instead of full URLs."""
-        deepscan_path = deepscan._build_commit_api_path("owner/repo", "a1b2c3d")
         checks_path = required_checks._build_commit_api_path("owner/repo", "a1b2c3d")
 
-        self.assertEqual(deepscan_path, "/repos/owner/repo/commits/a1b2c3d")
         self.assertEqual(checks_path, "/repos/owner/repo/commits/a1b2c3d")
 
-        deepscan_target = deepscan._build_commit_api_target(
-            "owner/repo",
-            "a1b2c3d",
-            "/status",
-        )
         required_target = required_checks._build_commit_api_target(
             "owner/repo",
             "a1b2c3d",
             "/status",
         )
-        self.assertEqual(deepscan_target.host, helpers.HTTPSHost.GITHUB_API.value)
         self.assertEqual(required_target.host, helpers.HTTPSHost.GITHUB_API.value)
         expected_path = "/repos/owner/repo/commits/a1b2c3d/status"
-        self.assertEqual(deepscan_target.path, expected_path)
         self.assertEqual(required_target.path, expected_path)
 
         with self.assertRaises(ValueError):
-            deepscan._build_commit_api_path("owner/repo", "bad sha")
+            required_checks._build_commit_api_path("owner/repo", "bad sha")
         with self.assertRaises(ValueError):
             required_checks._build_commit_api_path("owner/repo/extra", "a1b2c3d")
 

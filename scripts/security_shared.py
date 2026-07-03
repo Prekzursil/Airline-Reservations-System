@@ -51,7 +51,6 @@ class QualityArtifact(str, Enum):
 
     COVERAGE_100 = "coverage-100"
     CODACY_ZERO = "codacy-zero"
-    DEEPSCAN_ZERO = "deepscan-zero"
     QUALITY_SECRETS = "quality-secrets"
     REQUIRED_CHECKS = "quality-zero-gate"
     SENTRY_ZERO = "sentry-zero"
@@ -102,7 +101,6 @@ class HTTPSRequestOptions:
 QUALITY_ARTIFACT_LAYOUT: Dict[QualityArtifact, Tuple[str, str, str]] = {
     QualityArtifact.COVERAGE_100: ("coverage-100", "coverage.json", "coverage.md"),
     QualityArtifact.CODACY_ZERO: ("codacy-zero", "codacy.json", "codacy.md"),
-    QualityArtifact.DEEPSCAN_ZERO: ("deepscan-zero", "deepscan.json", "deepscan.md"),
     QualityArtifact.QUALITY_SECRETS: ("quality-secrets", "secrets.json", "secrets.md"),
     QualityArtifact.REQUIRED_CHECKS: (
         "quality-zero-gate",
