@@ -59,18 +59,18 @@ class GitHubContextSupportTests(TestCase):
         }
         status_payload = {
             "statuses": [
-                {"context": "DeepScan", "state": "success"},
+                {"context": "Trivy Zero", "state": "success"},
                 {"context": "Semgrep Zero", "state": "failure"},
             ]
         }
 
         contexts = github_contexts.collect_contexts(check_runs_payload, status_payload)
         self.assertEqual(contexts[CODECOV_ANALYTICS]["source"], "check_run")
-        self.assertEqual(contexts["DeepScan"]["conclusion"], "success")
+        self.assertEqual(contexts["Trivy Zero"]["conclusion"], "success")
         self.assertTrue(required_checks_support.has_check_runs_in_progress(contexts))
 
         status, missing, failed = required_checks_support.evaluate_required_contexts(
-            [CODECOV_ANALYTICS, "DeepScan", "Semgrep Zero", "Missing"],
+            [CODECOV_ANALYTICS, "Trivy Zero", "Semgrep Zero", "Missing"],
             contexts,
         )
         self.assertEqual(status, "fail")

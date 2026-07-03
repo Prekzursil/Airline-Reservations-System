@@ -21,7 +21,7 @@ from tests.quality_script_imported_coverage_cases import (
 )
 from tests.test_quality_script_coverage_gate import AirlineCoverageGateTests
 from tests.test_quality_script_deepscan_required_checks import (
-    DeepScanAndRequiredChecksTests,
+    RequiredChecksTests,
 )
 from tests.test_quality_script_paths import CoverageParsersAndNormalizeLCOVTests
 from tests.test_quality_script_sonar import SonarScriptTests
@@ -33,7 +33,7 @@ from tests.test_quality_script_sentry_sonar import SentryAndSonarScriptTests
 # underscored imports are not flagged as dead by CodeQL's py/unused-global-variable.
 PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
     CoverageParsersAndNormalizeLCOVTests,
-    DeepScanAndRequiredChecksTests,
+    RequiredChecksTests,
     GitHubContextSupportTests,
     QualitySecretsAndCodacyTests,
     SonarScriptTests,
@@ -43,7 +43,7 @@ PROFILE_COVERAGE_IMPORTED_TEST_CASES = (
 __all__ = [
     "PROFILE_COVERAGE_IMPORTED_TEST_CASES",
     "CoverageParsersAndNormalizeLCOVTests",
-    "DeepScanAndRequiredChecksTests",
+    "RequiredChecksTests",
     "GitHubContextSupportTests",
     "QualitySecretsAndCodacyTests",
     "SonarScriptTests",
