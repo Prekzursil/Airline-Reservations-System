@@ -2,9 +2,16 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
-const vitestEntrypoint = require.resolve('vitest/vitest.mjs', {
+// vitest 4+ exports only named subpaths (no "./*"), so `vitest/vitest.mjs`
+// cannot be resolved directly; locate the package through its exported
+// package.json and spawn the CLI file its "bin" field declares.
+const vitestPackageJson = require.resolve('vitest/package.json', {
   paths: [projectRoot],
 });
+const vitestEntrypoint = path.join(
+  path.dirname(vitestPackageJson),
+  require(vitestPackageJson).bin.vitest,
+);
 
 /**
  * Build the args vector to pass to the vitest entrypoint, layering

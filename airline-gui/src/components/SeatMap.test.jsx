@@ -189,6 +189,35 @@ describe('SeatMap', () => {
     });
   });
 
+  it('books and cancels without an onBookingSuccess callback', async () => {
+    fetchCustomers.mockResolvedValue([{ personId: 'C1', name: 'Alice' }]);
+    createBooking.mockResolvedValueOnce({ bookingId: 701, seatId: '1B', customerId: 'C1' });
+    cancelBooking.mockResolvedValueOnce({ message: 'Booking 501 cancelled' });
+
+    render(<SeatMap seats={baseSeats} flightNumber="FL-305" />);
+
+    fireEvent.click(await screen.findByText('1B'));
+    fireEvent.change(await screen.findByTestId('customerSelectBooking'), {
+      target: { value: 'C1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking for 1B' }));
+
+    expect(
+      await screen.findByText('Booking successful! ID: 701. Seat: 1B for Customer: C1'),
+    ).toBeInTheDocument();
+    expect(createBooking).toHaveBeenCalledWith({
+      customerId: 'C1',
+      flightNumber: 'FL-305',
+      seatId: '1B',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking 501' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation for booking 501' }));
+
+    expect(await screen.findByText('Booking 501 cancelled')).toBeInTheDocument();
+    expect(cancelBooking).toHaveBeenCalledWith(501);
+  });
+
   it('supports keyboard seat selection for accessibility', async () => {
     fetchCustomers.mockResolvedValue([{ personId: 'C1', name: 'Alice' }]);
 
