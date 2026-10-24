@@ -168,19 +168,17 @@ describe('apiService', () => {
       failStatus: 422,
       failMessage: 'Invalid swap',
     },
-  ])('$label handles success + detailed API errors', async ({
-    action,
-    successBody,
-    failStatus,
-    failMessage,
-  }) => {
-    await expectDetailedSuccessAndErrorPaths({
-      action,
-      successBody,
-      failStatus,
-      failMessage,
-    });
-  });
+  ])(
+    '$label handles success + detailed API errors',
+    async ({ action, successBody, failStatus, failMessage }) => {
+      await expectDetailedSuccessAndErrorPaths({
+        action,
+        successBody,
+        failStatus,
+        failMessage,
+      });
+    },
+  );
 
   it.each([
     {
