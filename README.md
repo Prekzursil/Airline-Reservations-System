@@ -30,7 +30,7 @@ This project implements an Airline Reservation System using C++ for the backend 
 
 ### 2.3. React GUI Frontend
 
-- **Node.js and npm:** Required to install dependencies and run the React development server. (Node.js version 14.x or higher recommended).
+- **Node.js and npm:** Required to install dependencies and run the React development server. Node.js 22.12 or newer is required (Vite 7 and Vitest 5 both need it; Node.js 20 reached end of life on 2026-04-30). The supported range is declared in `airline-gui/package.json` under `engines`.
 
 ## 3. Setup and Installation
 

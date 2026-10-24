@@ -12,6 +12,9 @@ vi.mock('./SeatMap', () => ({
     <div data-testid="mock-seat-map">
       <span>Mock SeatMap for {flightNumber}</span>
       <button onClick={() => onBookingSuccess?.(flightNumber)}>Mock SeatMap Booking Success</button>
+      <button onClick={() => onBookingSuccess?.('FL-OTHER')}>
+        Mock Booking Success For Another Flight
+      </button>
     </div>
   ),
 }));
@@ -127,5 +130,50 @@ describe('FlightList', () => {
     expect(
       await screen.findByText('Error: Failed to refresh airplane list after booking.'),
     ).toBeInTheDocument();
+  });
+
+  it('reports a failed detail refresh for the selected flight after a booking', async () => {
+    fetchAirplanes.mockResolvedValue([
+      { flightNumber: 'FL-500', capacity: 60, bookedSeatsCount: 1 },
+    ]);
+    fetchAirplaneDetails
+      .mockResolvedValueOnce({ seats: [{ seatId: '5A' }] })
+      .mockRejectedValueOnce(new Error('details refresh failed'));
+
+    render(<FlightList />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /FL-500/i }));
+    expect(await screen.findByText('Details for Flight: FL-500')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mock SeatMap Booking Success' }));
+
+    expect(
+      await screen.findByText('Error: Failed to load details for flight FL-500.'),
+    ).toBeInTheDocument();
+    expect(fetchAirplaneDetails).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips the detail reload when a booking completes for another flight', async () => {
+    const onBookingListChanged = vi.fn();
+    fetchAirplanes.mockResolvedValue([
+      { flightNumber: 'FL-600', capacity: 70, bookedSeatsCount: 2 },
+    ]);
+    fetchAirplaneDetails.mockResolvedValue({ seats: [{ seatId: '6A' }] });
+
+    render(<FlightList onBookingListChanged={onBookingListChanged} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /FL-600/i }));
+    expect(await screen.findByText('Details for Flight: FL-600')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Mock Booking Success For Another Flight' }),
+    );
+
+    await waitFor(() => {
+      expect(onBookingListChanged).toHaveBeenCalledTimes(1);
+      expect(fetchAirplanes).toHaveBeenCalledTimes(2);
+    });
+    expect(fetchAirplaneDetails).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Details for Flight: FL-600')).toBeInTheDocument();
   });
 });
