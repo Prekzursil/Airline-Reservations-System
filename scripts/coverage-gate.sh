@@ -14,6 +14,9 @@
 #      --exclude-throw-branches and --exclude-unreachable-branches drop the
 #      exception-unwind and no-code branches gcc emits for C++; every
 #      source-level decision is still counted.
+#      --exclude-lines-by-pattern drops destructor boilerplate lines only
+#      (declarations and '= default;' bodies): gcc 15.2.0 on ubuntu-latest
+#      began emitting line records for them with no testable logic inside.
 #      The two executables' object directories are skipped: their translation
 #      units are the two-line main() wrappers in src/main.cpp and
 #      src/api_server_main.cpp. The bodies they call (main_body.h,
@@ -56,6 +59,7 @@ tracefile="coverage/cpp/coverage.json"
   --gcov-exclude-directory '.*/CMakeFiles/airline_reservation_system.dir/.*' \
   --exclude-throw-branches \
   --exclude-unreachable-branches \
+  --exclude-lines-by-pattern '^\s*~\w+\(\)(\s*=\s*default;)?;\s*$'
   --json "$tracefile"
 
 echo "::group::C++ line coverage by file (Missing = uncovered lines)"
