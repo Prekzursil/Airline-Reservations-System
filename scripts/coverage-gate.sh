@@ -17,6 +17,11 @@
 #      --exclude-lines-by-pattern drops destructor boilerplate lines only
 #      (declarations and '= default;' bodies): gcc 15.2.0 on ubuntu-latest
 #      began emitting line records for them with no testable logic inside.
+#      The second pattern drops single-line 'explicit' constructor
+#      DECLARATIONS (definitions carry '{' and never match): gcc 15.2.0
+#      emits a line record for the defaulted arguments at the declaration
+#      site in Seat.h:29 while the executable definition in Seat.cpp is
+#      measured and covered.
 #      The two executables' object directories are skipped: their translation
 #      units are the two-line main() wrappers in src/main.cpp and
 #      src/api_server_main.cpp. The bodies they call (main_body.h,
@@ -60,6 +65,7 @@ tracefile="coverage/cpp/coverage.json"
   --exclude-throw-branches \
   --exclude-unreachable-branches \
   --exclude-lines-by-pattern '^\s*(\w+::)*~\w+\(\)(\s*=\s*default)?;\s*$' \
+  --exclude-lines-by-pattern '^\s*explicit\s+\w+\s*\([^;{}]*\)\s*;\s*$' \
   --json "$tracefile"
 
 echo "::group::C++ line coverage by file (Missing = uncovered lines)"
