@@ -45,8 +45,16 @@ jobs:
           - language: python
             build-mode: none
     steps:
+      # Checkout the PR head commit (what the platform reusable does): with the
+      # worktree on the head sha, analyze@v4.39.1 attributes the SARIF upload
+      # to refs/pull/N/head at that commit, which the code-scanning red-blocker
+      # ruleset accepts. The default merge-commit checkout attributes uploads
+      # to the transient refs/pull/N/merge, which is rebuilt (new timestamp,
+      # new sha) on every merge attempt, so the ruleset never sees them.
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
