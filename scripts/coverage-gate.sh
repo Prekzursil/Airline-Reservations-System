@@ -59,7 +59,7 @@ tracefile="coverage/cpp/coverage.json"
   --gcov-exclude-directory '.*/CMakeFiles/airline_reservation_system.dir/.*' \
   --exclude-throw-branches \
   --exclude-unreachable-branches \
-  --exclude-lines-by-pattern '^\s*(\w+::)*~\w+\(\)(\s*=\s*default;)?;\s*$' \
+  --exclude-lines-by-pattern '^\s*(\w+::)*~\w+\(\)(\s*=\s*default)?;\s*$' \
   --json "$tracefile"
 
 echo "::group::C++ line coverage by file (Missing = uncovered lines)"
