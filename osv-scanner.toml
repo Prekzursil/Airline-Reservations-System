@@ -19,3 +19,27 @@
 # carries no IgnoredVulns. Add a dated, reasoned entry here only for a future
 # vuln that is genuinely unfixable or provably unreachable.
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# 2026-11-18 RESIDUAL RISK (reasoned ignore) — GHSA-fc5q-39xc-vjpf, picomatch
+# ReDoS (CVSS v3 7.5 / v4 8.7, availability-only; analyzeRepeatedExtglob
+# exponential backtracking). Vulnerable range <= 4.0.7 and 4.0.7 IS the newest
+# published release (measured 2026-11-18 via `npm view picomatch versions`),
+# so no fixed release exists to upgrade to — the gate's own output says
+# "0 vulnerabilities can be fixed". Measured scope in THIS tree: the single
+# resolution is airline-gui/package-lock.json picomatch 4.0.7 (dev=true) via
+# tinyglobby ^4.0.4 / vite ^4.0.2 / vitest ^4.0.3 (build+test toolchain only);
+# picomatch never ships in the GUI bundle. Impact ceiling is event-loop
+# blockage in a developer's own test run from a crafted glob pattern.
+# RE-CHECK: retire the day a patched picomatch (> 4.0.7) publishes and bump
+# the floor instead. Re-review at ignoreUntil regardless.
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-02-18
+reason = """
+picomatch ReDoS; every published release is vulnerable (<= 4.0.7 = latest
+published, measured 2026-11-18), so no upgrade exists. Dev-scope only: the
+sole resolution is airline-gui dev=true via tinyglobby/vite/vitest and it
+never ships in the GUI bundle. Availability-only impact. Retire as soon as
+a patched picomatch publishes.
+"""
