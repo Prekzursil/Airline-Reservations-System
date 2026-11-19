@@ -228,15 +228,14 @@ describe('SeatMap', () => {
     seatButton.focus();
     expect(seatButton).toHaveFocus();
 
-    // ``@testing-library/user-event`` v13's ``keyboard()`` is synchronous and
-    // returns ``undefined``; the v14+ API is what would return a Promise.
-    // Keep these as plain calls so SonarCloud's javascript:S4123 ("await of
-    // a non-Promise") rule doesn't flag the await of an undefined value.
-    userEvent.keyboard('{Enter}');
+    // ``@testing-library/user-event`` v14 requires ``setup()`` and returns
+    // Promises from ``keyboard()``, so every key dispatch is awaited.
+    const user = userEvent.setup();
+    await user.keyboard('{Enter}');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
 
-    userEvent.keyboard(' ');
+    await user.keyboard(' ');
     expect(screen.getByText('Selected seat: 1B (Economy, Price: $120)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seat 1B' })).toHaveAttribute('aria-pressed', 'true');
   });
