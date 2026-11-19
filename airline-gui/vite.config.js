@@ -5,18 +5,6 @@ import react from '@vitejs/plugin-react';
 /** @returns {import('vite').UserConfig} The Vite configuration. */
 export default defineConfig({
   plugins: [react()],
-  esbuild: {
-    loader: 'jsx',
-    include: /src\/.*\.[jt]sx?$/,
-    exclude: [],
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      loader: {
-        '.js': 'jsx',
-      },
-    },
-  },
   server: {
     host: '0.0.0.0',
     port: 3000,
